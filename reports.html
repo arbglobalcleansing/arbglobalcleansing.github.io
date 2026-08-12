@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>Reports</h1>
+    <nav class="nav">
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html" class="active">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+
+    <div class="section">
+        <h3>Generate Summary Reports</h3>
+        <div class="report-filters">
+            <select id="reportType">
+                <option value="validation">Validation Status</option>
+                <option value="life">Life Status</option>
+            </select>
+            <select id="groupBy">
+                <option value="town">Town</option>
+                <option value="barangay">Barangay</option>
+                <option value="province">Entire Province</option>
+            </select>
+            <button class="btn btn-primary" onclick="generateReport()">Run Report</button>
+        </div>
+        <div id="reportResult"><p style="color:#64748b;">Select filters and click "Run Report".</p></div>
+    </div>
+</div>
+
+<script>
+    (async function() {
+        const ok = await checkAuth(['admin', 'staff']);
+        if (!ok) return;
+        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + window.currentProfile.role + ')';
+    })();
+
+    async function generateReport() {
+        const reportType = document.getElementById('reportType').value;
+        const groupBy = document.getElementById('groupBy').value;
+        const resultDiv = document.getElementById('reportResult');
+        resultDiv.innerHTML = 'Loading...';
+
+        const { data: arbs, error } = await supabase
+            .from('arb')
+            .select(`*, arbo:arbo_id ( municipality, barangay )`);
+        if (error) { resultDiv.innerHTML = 'Error loading data.'; return; }
+        if (!arbs || arbs.length === 0) {
+            resultDiv.innerHTML = 'No ARB records found.';
+            return;
+        }
+
+        const groups = {};
+        arbs.forEach(a => {
+            let key = '';
+            if (groupBy === 'town') {
+                key = a.arbo ? a.arbo.municipality || 'Unknown' : 'No ARBO';
+            } else if (groupBy === 'barangay') {
+                key = a.arbo ? a.arbo.barangay || 'Unknown' : 'No ARBO';
+            } else {
+                key = 'Entire Province';
+            }
+            if (!groups[key]) groups[key] = [];
+            groups[key].push(a);
+        });
+
+        let html = `<h4>Report: ${reportType === 'validation' ? 'Validation Status' : 'Life Status'} (grouped by ${groupBy})</h4>
+                    <div class="table-wrap"><table><thead><tr>
+                        <th>Group</th><th>Total</th>
+                        <th>${reportType === 'validation' ? 'Validated' : 'Alive'}</th>
+                        <th>${reportType === 'validation' ? 'Pending' : 'Dead'}</th>
+                        ${reportType === 'validation' ? '<th>Rejected</th>' : ''}
+                    </tr></thead><tbody>`;
+
+        let grandTotal = 0, grandCat1 = 0, grandCat2 = 0, grandCat3 = 0;
+        for (const [group, list] of Object.entries(groups)) {
+            const total = list.length;
+            let cat1 = 0, cat2 = 0, cat3 = 0;
+            list.forEach(a => {
+                if (reportType === 'validation') {
+                    if (a.validation_status === 'Validated') cat1++;
+                    else if (a.validation_status === 'Pending') cat2++;
+                    else if (a.validation_status === 'Rejected') cat3++;
+                } else {
+                    if (a.life_status === 'Alive') cat1++;
+                    else if (a.life_status === 'Dead') cat2++;
+                }
+            });
+            grandTotal += total; grandCat1 += cat1; grandCat2 += cat2; grandCat3 += cat3;
+            html += `<tr>
+                <td><strong>${escapeHtml(group)}</strong></td>
+                <td>${total}</td><td>${cat1}</td><td>${cat2}</td>
+                ${reportType === 'validation' ? `<td>${cat3}</td>` : ''}
+            </tr>`;
+        }
+
+        html += `<tr style="font-weight:bold; background:#f1f5f9;">
+            <td>TOTAL</td>
+            <td>${grandTotal}</td><td>${grandCat1}</td><td>${grandCat2}</td>
+            ${reportType === 'validation' ? `<td>${grandCat3}</td>` : ''}
+        </tr></tbody></table></div>`;
+
+        resultDiv.innerHTML = html;
+    }
+</script>
+</body>
+</html>
