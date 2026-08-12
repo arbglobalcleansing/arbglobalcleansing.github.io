@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARBO Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>ARBO Management</h1>
+    <nav class="nav">
+        <a href="arbo.html" class="active">ARBO</a>
+        <a href="arb.html">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+
+    <div class="section">
+        <div class="toolbar">
+            <input type="text" id="searchArbo" placeholder="🔍 Search ARBO..." oninput="loadArbos()" />
+            <button class="btn btn-primary" id="addArboBtn" onclick="openArboModal()">➕ Add ARBO</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>ARBO Name</th><th>Barangay</th><th>Municipality</th><th>Contact</th><th>Actions</th></tr></thead>
+                <tbody id="arboTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="arboModal" class="modal">
+    <div class="modal-content">
+        <h2 id="arboModalTitle">Add ARBO</h2>
+        <form id="arboForm" onsubmit="saveArbo(event)">
+            <input type="hidden" id="arboId" />
+            <div class="form-grid">
+                <div><label>ARBO Name *</label><input id="arboName" required /></div>
+                <div><label>Barangay</label><input id="arboBarangay" /></div>
+                <div><label>Municipality</label><input id="arboMunicipality" /></div>
+                <div><label>Contact Number</label><input id="arboContact" /></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger" onclick="closeModal('arboModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">💾 Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (async function() {
+        const ok = await checkAuth(['admin', 'staff']);
+        if (!ok) return;
+        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + window.currentProfile.role + ')';
+        loadArbos();
+    })();
+
+    async function loadArbos() {
+        const search = document.getElementById('searchArbo').value.trim();
+        let query = supabase.from('arbo').select('*');
+        if (search) query = query.ilike('name', `%${search}%`);
+        const { data, error } = await query.order('id', { ascending: false });
+        if (error) { console.error(error); return; }
+        const tbody = document.getElementById('arboTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6">No ARBO records.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.map(a => `
+            <tr>
+                <td>${a.id}</td>
+                <td>${escapeHtml(a.name)}</td>
+                <td>${escapeHtml(a.barangay)}</td>
+                <td>${escapeHtml(a.municipality)}</td>
+                <td>${escapeHtml(a.contact_number)}</td>
+                <td class="actions">
+                    <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function openArboModal() {
+        document.getElementById('arboId').value = '';
+        document.getElementById('arboForm').reset();
+        document.getElementById('arboModalTitle').textContent = 'Add ARBO';
+        showModal('arboModal');
+    }
+
+    async function editArbo(id) {
+        const { data, error } = await supabase.from('arbo').select('*').eq('id', id).single();
+        if (error) { alert('Error loading ARBO'); return; }
+        document.getElementById('arboId').value = data.id;
+        document.getElementById('arboName').value = data.name || '';
+        document.getElementById('arboBarangay').value = data.barangay || '';
+        document.getElementById('arboMunicipality').value = data.municipality || '';
+        document.getElementById('arboContact').value = data.contact_number || '';
+        document.getElementById('arboModalTitle').textContent = 'Edit ARBO';
+        showModal('arboModal');
+    }
+
+    async function saveArbo(e) {
+        e.preventDefault();
+        const id = document.getElementById('arboId').value;
+        const payload = {
+            name: document.getElementById('arboName').value.trim(),
+            barangay: document.getElementById('arboBarangay').value.trim(),
+            municipality: document.getElementById('arboMunicipality').value.trim(),
+            contact_number: document.getElementById('arboContact').value.trim(),
+        };
+        let result;
+        if (id) {
+            result = await supabase.from('arbo').update(payload).eq('id', id);
+        } else {
+            result = await supabase.from('arbo').insert([payload]);
+        }
+        if (result.error) {
+            alert('Error: ' + result.error.message);
+            return;
+        }
+        closeModal('arboModal');
+        loadArbos();
+    }
+
+    async function deleteArbo(id) {
+        if (!confirm('Delete this ARBO? ARBs linked will have ARBO set to NULL.')) return;
+        const { error } = await supabase.from('arbo').delete().eq('id', id);
+        if (error) { alert('Error deleting: ' + error.message); return; }
+        loadArbos();
+    }
+</script>
+</body>
+</html>
