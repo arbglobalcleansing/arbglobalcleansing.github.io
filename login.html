@@ -50,11 +50,15 @@
 </div>
 
 <script>
+    // Check if supabase is loaded
+    console.log('Supabase client:', supabase);
+
     const errorDiv = document.getElementById('errorMsg');
 
     function showError(msg) {
         errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
+        console.error('Error shown:', msg);
     }
 
     function hideError() {
@@ -84,20 +88,18 @@
             return;
         }
 
-        console.log('Attempting login for:', email);
+        console.log('🔐 Login attempt:', email);
 
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
-            console.error('Login error:', error);
+            console.error('❌ Login error:', error);
             showError('❌ ' + error.message);
             return;
         }
 
-        if (data.user) {
-            console.log('Login successful:', data.user.email);
-            window.location.href = 'arb.html';
-        }
+        console.log('✅ Login success:', data);
+        window.location.href = 'arb.html';
     };
 
     // ---------- REGISTRATION ----------
@@ -114,7 +116,7 @@
             return;
         }
 
-        console.log('Registering:', { email, name });
+        console.log('📝 Register attempt:', { email, name });
 
         try {
             const { data, error } = await supabase.auth.signUp({
@@ -125,66 +127,47 @@
                 }
             });
 
-            console.log('SignUp response:', { data, error });
+            console.log('📦 Registration response:', { data, error });
 
             if (error) {
-                console.error('Registration error:', error);
-                // Show user‑friendly message
+                console.error('❌ Registration error:', error);
                 if (error.message.includes('already registered')) {
                     showError('❌ This email is already registered. Please log in.');
-                } else if (error.message.includes('Password should be at least 6 characters')) {
-                    showError('❌ Password must be at least 6 characters.');
                 } else {
                     showError('❌ ' + error.message);
                 }
                 return;
             }
 
-            // Success: user object may exist, or confirmation may be required
             if (data.user) {
-                // Check if email confirmation is required
+                console.log('✅ User created:', data.user);
                 if (data.user.confirmed_at) {
-                    // Already confirmed – go straight to login
                     alert('✅ Registration successful! You can now log in.');
-                    hideRegister();
-                    document.getElementById('loginEmail').value = email;
-                    document.getElementById('loginPassword').value = '';
-                    // Optionally auto‑fill and focus
-                    document.getElementById('loginEmail').focus();
                 } else {
-                    // Email confirmation required
                     alert('✅ Registration successful! Please check your email to confirm your account, then log in.');
-                    hideRegister();
-                    document.getElementById('loginEmail').value = email;
-                    document.getElementById('loginPassword').value = '';
                 }
+                hideRegister();
+                document.getElementById('loginEmail').value = email;
+                document.getElementById('loginPassword').value = '';
+                document.getElementById('loginEmail').focus();
             } else {
-                // Sometimes data.user is null (e.g., if email is taken, but error would have been caught)
-                showError('❌ Registration failed. Please try again.');
+                showError('❌ Registration failed. No user returned.');
             }
         } catch (err) {
-            console.error('Unexpected error:', err);
-            showError('❌ An unexpected error occurred. Please try again.');
+            console.error('💥 Unexpected error:', err);
+            showError('❌ An unexpected error occurred. See console for details.');
         }
     };
 
     // ---------- AUTO-REDIRECT IF ALREADY LOGGED IN ----------
-    supabase.auth.getUser()
-        .then(({ data, error }) => {
-            if (data.user) {
-                window.location.href = 'arb.html';
-            }
-        })
-        .catch(err => console.warn('Auto-login check failed:', err));
-
-    // Also check session (for more reliable detection)
-    supabase.auth.getSession()
-        .then(({ data, error }) => {
-            if (data.session) {
-                window.location.href = 'arb.html';
-            }
-        })
-        .catch(err => console.warn('Session check failed:', err));
+    supabase.auth.getSession().then(({ data, error }) => {
+        if (data.session) {
+            console.log('👤 Session found, redirecting...');
+            window.location.href = 'arb.html';
+        } else {
+            console.log('👤 No session, staying on login.');
+        }
+    }).catch(err => console.warn('Session check failed:', err));
 </script>
 
 </body>
