@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARB Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>ARB Management</h1>
+    <nav class="nav">
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html" class="active">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+
+    <div class="section">
+        <div class="toolbar">
+            <input type="text" id="searchArb" placeholder="🔍 Search ARB..." oninput="loadArbs()" />
+            <button class="btn btn-primary" id="addArbBtn" onclick="openArbModal()">➕ Add ARB</button>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>ID</th><th>ARBO</th><th>Name</th><th>Status</th><th>Life</th><th>Transfer</th><th>Actions</th></tr></thead>
+                <tbody id="arbTableBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="arbModal" class="modal">
+    <div class="modal-content">
+        <h2 id="arbModalTitle">Add ARB</h2>
+        <form id="arbForm" onsubmit="saveArb(event)">
+            <input type="hidden" id="arbId" />
+            <div class="form-grid">
+                <div><label>First Name *</label><input id="arbFirstName" required /></div>
+                <div><label>Last Name *</label><input id="arbLastName" required /></div>
+                <div><label>Middle Name</label><input id="arbMiddleName" /></div>
+                <div><label>ARBO</label>
+                    <select id="arbArboId"><option value="">None</option></select>
+                </div>
+                <div><label>Validation Status</label>
+                    <select id="arbStatus">
+                        <option value="Pending">Pending</option>
+                        <option value="Validated">Validated</option>
+                        <option value="Rejected">Rejected</option>
+                    </select>
+                </div>
+                <div><label>Life Status</label>
+                    <select id="arbLife">
+                        <option value="Alive">Alive</option>
+                        <option value="Dead">Dead</option>
+                    </select>
+                </div>
+                <div><label>Subject for Transfer?</label>
+                    <select id="arbTransfer">
+                        <option value="false">No</option>
+                        <option value="true">Yes</option>
+                    </select>
+                </div>
+                <div class="full"><hr /><strong>Legal Heir (if transfer is Yes)</strong></div>
+                <div><label>Heir Name</label><input id="arbHeirName" /></div>
+                <div><label>Heir Address</label><input id="arbHeirAddress" /></div>
+                <div><label>Heir Relation</label><input id="arbHeirRelation" /></div>
+                <div><label>Heir Contact</label><input id="arbHeirContact" /></div>
+                <div class="full"><label>Heir Email</label><input id="arbHeirEmail" type="email" /></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger" onclick="closeModal('arbModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">💾 Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (async function() {
+        const ok = await checkAuth(['admin', 'staff', 'viewer']);
+        if (!ok) return;
+        const role = window.currentProfile.role;
+        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + role + ')';
+        if (role === 'viewer') {
+            document.getElementById('addArbBtn').style.display = 'none';
+            // hide nav items that are admin/staff only
+            document.querySelector('a[href="arbo.html"]').style.display = 'none';
+            document.querySelector('a[href="validators.html"]').style.display = 'none';
+            document.querySelector('a[href="reports.html"]').style.display = 'none';
+        }
+        loadArbs();
+    })();
+
+    async function loadArbs() {
+        const search = document.getElementById('searchArb').value.trim();
+        let query = supabase.from('arb').select(`*, arbo:arbo_id ( id, name )`);
+        if (search) {
+            query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,middle_name.ilike.%${search}%`);
+        }
+        const { data, error } = await query.order('id', { ascending: false });
+        if (error) { console.error(error); return; }
+        const tbody = document.getElementById('arbTableBody');
+        if (!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7">No ARB records.</td></tr>`;
+            return;
+        }
+        const role = window.currentProfile.role;
+        const canEdit = (role === 'admin' || role === 'staff');
+        tbody.innerHTML = data.map(a => {
+            let actionsHtml = `<a href="arb_profile.html?id=${a.id}" class="btn btn-primary btn-sm">👁️ View</a>`;
+            if (canEdit) {
+                actionsHtml += `
+                    <button class="btn btn-warning btn-sm" onclick="editArb(${a.id})">✏️</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteArb(${a.id})">🗑️</button>
+                `;
+            }
+            return `
+                <tr>
+                    <td>${a.id}</td>
+                    <td>${a.arbo ? escapeHtml(a.arbo.name) : '—'}</td>
+                    <td>${escapeHtml(a.last_name + ', ' + a.first_name + (a.middle_name ? ' ' + a.middle_name : ''))}</td>
+                    <td><span class="badge ${a.validation_status === 'Validated' ? 'badge-success' : a.validation_status === 'Rejected' ? 'badge-danger' : 'badge-warning'}">${a.validation_status}</span></td>
+                    <td>${a.life_status}</td>
+                    <td>${a.subject_for_transfer ? 'Yes' : 'No'}</td>
+                    <td class="actions">${actionsHtml}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    async function populateArboDropdown() {
+        const { data, error } = await supabase.from('arbo').select('id, name').order('name');
+        if (error) return;
+        const select = document.getElementById('arbArboId');
+        select.innerHTML = '<option value="">None</option>';
+        data.forEach(a => {
+            select.innerHTML += `<option value="${a.id}">${escapeHtml(a.name)}</option>`;
+        });
+    }
+
+    function openArbModal() {
+        document.getElementById('arbId').value = '';
+        document.getElementById('arbForm').reset();
+        document.getElementById('arbModalTitle').textContent = 'Add ARB';
+        populateArboDropdown();
+        document.getElementById('arbStatus').value = 'Pending';
+        document.getElementById('arbLife').value = 'Alive';
+        document.getElementById('arbTransfer').value = 'false';
+        showModal('arbModal');
+    }
+
+    async function editArb(id) {
+        const { data, error } = await supabase.from('arb').select('*').eq('id', id).single();
+        if (error) { alert('Error loading ARB'); return; }
+        populateArboDropdown();
+        document.getElementById('arbId').value = data.id;
+        document.getElementById('arbFirstName').value = data.first_name || '';
+        document.getElementById('arbLastName').value = data.last_name || '';
+        document.getElementById('arbMiddleName').value = data.middle_name || '';
+        document.getElementById('arbArboId').value = data.arbo_id || '';
+        document.getElementById('arbStatus').value = data.validation_status || 'Pending';
+        document.getElementById('arbLife').value = data.life_status || 'Alive';
+        document.getElementById('arbTransfer').value = data.subject_for_transfer ? 'true' : 'false';
+        document.getElementById('arbHeirName').value = data.heir_name || '';
+        document.getElementById('arbHeirAddress').value = data.heir_address || '';
+        document.getElementById('arbHeirRelation').value = data.heir_relation || '';
+        document.getElementById('arbHeirContact').value = data.heir_contact || '';
+        document.getElementById('arbHeirEmail').value = data.heir_email || '';
+        document.getElementById('arbModalTitle').textContent = 'Edit ARB';
+        showModal('arbModal');
+    }
+
+    async function saveArb(e) {
+        e.preventDefault();
+        const id = document.getElementById('arbId').value;
+        const payload = {
+            first_name: document.getElementById('arbFirstName').value.trim(),
+            last_name: document.getElementById('arbLastName').value.trim(),
+            middle_name: document.getElementById('arbMiddleName').value.trim(),
+            arbo_id: document.getElementById('arbArboId').value || null,
+            validation_status: document.getElementById('arbStatus').value,
+            life_status: document.getElementById('arbLife').value,
+            subject_for_transfer: document.getElementById('arbTransfer').value === 'true',
+            heir_name: document.getElementById('arbHeirName').value.trim(),
+            heir_address: document.getElementById('arbHeirAddress').value.trim(),
+            heir_relation: document.getElementById('arbHeirRelation').value.trim(),
+            heir_contact: document.getElementById('arbHeirContact').value.trim(),
+            heir_email: document.getElementById('arbHeirEmail').value.trim(),
+        };
+        let result;
+        if (id) {
+            result = await supabase.from('arb').update(payload).eq('id', id);
+        } else {
+            result = await supabase.from('arb').insert([payload]);
+        }
+        if (result.error) {
+            alert('Error: ' + result.error.message);
+            return;
+        }
+        closeModal('arbModal');
+        loadArbs();
+    }
+
+    async function deleteArb(id) {
+        if (!confirm('Delete this ARB? All validations will be removed.')) return;
+        const { error } = await supabase.from('arb').delete().eq('id', id);
+        if (error) { alert('Error deleting: ' + error.message); return; }
+        loadArbs();
+    }
+</script>
+</body>
+</html>
