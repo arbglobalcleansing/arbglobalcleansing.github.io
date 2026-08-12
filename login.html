@@ -1,175 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login – ARB Monitoring</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
-        body { background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .login-container { max-width: 420px; width: 100%; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-top: 5px solid #e8a317; }
-        h1 { color: #0a3d62; text-align: center; margin-bottom: 5px; }
-        .subtitle { text-align: center; color: #64748b; margin-bottom: 25px; }
-        .form-group { margin-bottom: 18px; }
-        label { display: block; font-weight: 600; margin-bottom: 5px; }
-        input { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; }
-        input:focus { outline: none; border-color: #0a3d62; }
-        .btn-login { width: 100%; padding: 12px; background: #0a3d62; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; }
-        .btn-login:hover { background: #062b47; }
-        .btn-success { background: #2e7d32; }
-        .btn-success:hover { background: #1b5e20; }
-        .btn-secondary { background: #64748b; }
-        .btn-secondary:hover { background: #475569; }
-        .register-link { text-align: center; margin-top: 15px; font-size: 0.9rem; }
-        .register-link a { color: #0a3d62; font-weight: 600; text-decoration: none; }
-        .error-msg { color: #b91c1c; background: #fee2e2; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
-        .success-msg { color: #155724; background: #d4edda; padding: 10px; border-radius: 6px; margin-bottom: 15px; display: none; }
-        #registerForm { display: none; margin-top: 25px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
-        .mt-8 { margin-top: 8px; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background:#f0f4f8; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
+        .login-container { max-width:400px; width:100%; background:white; padding:40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); border-top:5px solid #e8a317; }
+        h1 { color:#0a3d62; text-align:center; margin-bottom:5px; }
+        .subtitle { text-align:center; color:#64748b; margin-bottom:25px; }
+        .form-group { margin-bottom:18px; }
+        label { display:block; font-weight:600; margin-bottom:5px; }
+        input { width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:6px; font-size:1rem; }
+        input:focus { outline:none; border-color:#0a3d62; box-shadow:0 0 0 3px rgba(10,61,98,0.15); }
+        .btn { width:100%; padding:12px; border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer; background:#0a3d62; color:white; }
+        .btn:hover { background:#062b47; }
+        .msg { padding:10px; border-radius:6px; margin-bottom:15px; display:none; font-weight:500; }
+        .msg-error { color:#b91c1c; background:#fee2e2; }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="login-container">
-        <h1>🏛️ ARB Monitoring</h1>
-        <p class="subtitle">Department of Agrarian Reform</p>
-
-        <div id="errorMsg" class="error-msg"></div>
-        <div id="successMsg" class="success-msg"></div>
-
-        <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label for="loginEmail">Email Address</label>
-                <input type="email" id="loginEmail" required placeholder="user@example.com">
-            </div>
-            <div class="form-group">
-                <label for="loginPassword">Password</label>
-                <input type="password" id="loginPassword" required placeholder="••••••••">
-            </div>
-            <button type="submit" class="btn-login">🔐 Sign In</button>
-        </form>
-
-        <div class="register-link">
-            Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+<div class="login-container">
+    <h1>🏛️ ARB Monitoring</h1>
+    <p class="subtitle">Department of Agrarian Reform</p>
+    <div id="errorMsg" class="msg msg-error"></div>
+    <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+            <label for="loginEmail">Email Address</label>
+            <input type="email" id="loginEmail" required placeholder="arbglobalcleansing@gmail.com">
         </div>
-
-        <div id="registerForm">
-            <form onsubmit="handleRegister(event)">
-                <div class="form-group">
-                    <label for="regName">Full Name</label>
-                    <input type="text" id="regName" required placeholder="Juan Dela Cruz">
-                </div>
-                <div class="form-group">
-                    <label for="regEmail">Email Address</label>
-                    <input type="email" id="regEmail" required placeholder="user@example.com">
-                </div>
-                <div class="form-group">
-                    <label for="regPassword">Password (min 6 characters)</label>
-                    <input type="password" id="regPassword" required minlength="6" placeholder="••••••••">
-                </div>
-                <button type="submit" class="btn-login btn-success">📝 Register</button>
-                <button type="button" class="btn-login btn-secondary mt-8" onclick="hideRegister()">Cancel</button>
-            </form>
+        <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" required placeholder="••••••••">
         </div>
-    </div>
+        <button type="submit" class="btn">🔐 Sign In</button>
+    </form>
 </div>
 
 <script>
-    // ----- CONFIG -----
     const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // ----- DOM refs -----
     const errorDiv = document.getElementById('errorMsg');
-    const successDiv = document.getElementById('successMsg');
 
     function showError(msg) {
         errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
-        successDiv.style.display = 'none';
-    }
-    function showSuccess(msg) {
-        successDiv.textContent = msg;
-        successDiv.style.display = 'block';
-        errorDiv.style.display = 'none';
-    }
-    function hideAll() {
-        errorDiv.style.display = 'none';
-        successDiv.style.display = 'none';
     }
 
-    window.showRegister = function() {
-        document.getElementById('registerForm').style.display = 'block';
-        hideAll();
-    };
-    window.hideRegister = function() {
-        document.getElementById('registerForm').style.display = 'none';
-        hideAll();
-    };
-
-    // ----- LOGIN -----
     window.handleLogin = async function(e) {
         e.preventDefault();
-        hideAll();
+        errorDiv.style.display = 'none';
         const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
         if (!email || !password) { showError('❌ Please enter both email and password.'); return; }
 
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-            showError('❌ ' + error.message);
-            return;
-        }
+        if (error) { showError('❌ ' + error.message); return; }
         if (data.user) window.location.href = 'arb.html';
-        else showError('❌ Login failed – no user returned.');
+        else showError('❌ Login failed.');
     };
 
-    // ----- REGISTER -----
-    window.handleRegister = async function(e) {
-        e.preventDefault();
-        hideAll();
-        const name = document.getElementById('regName').value.trim();
-        const email = document.getElementById('regEmail').value.trim();
-        const password = document.getElementById('regPassword').value;
-        if (!name || !email || !password) { showError('❌ Please fill in all fields.'); return; }
-
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { full_name: name } }
-        });
-
-        if (error) {
-            if (error.message.includes('already registered')) {
-                showError('❌ This email is already registered. Please log in.');
-            } else if (error.message.includes('valid email')) {
-                showError('❌ Please enter a valid email address.');
-            } else {
-                showError('❌ ' + error.message);
-            }
-            return;
-        }
-
-        if (data.user) {
-            if (data.user.confirmed_at) {
-                showSuccess('✅ Registration successful! You can now log in.');
-                document.getElementById('loginEmail').value = email;
-                document.getElementById('loginPassword').value = '';
-                hideRegister();
-            } else {
-                showSuccess('✅ Registration successful! Please check your email to confirm your account (check Spam too), then log in.');
-                hideRegister();
-                document.getElementById('loginEmail').value = email;
-                document.getElementById('loginPassword').value = '';
-            }
-        } else {
-            showError('❌ Registration failed. Please try again.');
-        }
-    };
-
-    // ----- Auto-redirect if already logged in -----
+    // Auto‑redirect if already logged in
     supabase.auth.getSession().then(({ data }) => {
         if (data.session) window.location.href = 'arb.html';
     });
