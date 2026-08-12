@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARB Profile</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+    <style>
+        .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+        .profile-header h2 { margin: 0; }
+        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+        .validator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
+        .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #0a3d62; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .validator-item .type-badge { display: inline-block; background: #dbeafe; color: #0a3d62; padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
+        .validator-item .name { font-weight: 700; font-size: 1.05rem; }
+        .validator-item .detail { font-size: 0.9rem; color: #334155; }
+        @media (max-width: 700px) { .profile-grid { grid-template-columns: 1fr; } .profile-header { flex-direction: column; align-items: stretch; gap: 12px; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>ARB Profile</h1>
+    <nav class="nav">
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html" class="active">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+    <div id="profileContent"><p style="text-align:center; padding:40px;">Loading profile...</p></div>
+</div>
+
+<script>
+    (async function() {
+        const ok = await checkAuth(['admin', 'staff', 'viewer']);
+        if (!ok) return;
+        const role = window.currentProfile.role;
+        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + role + ')';
+        // hide admin/staff nav items for viewer
+        if (role === 'viewer') {
+            document.querySelector('a[href="arbo.html"]').style.display = 'none';
+            document.querySelector('a[href="validators.html"]').style.display = 'none';
+            document.querySelector('a[href="reports.html"]').style.display = 'none';
+        }
+        const arbId = getParam('id');
+        if (!arbId) {
+            document.getElementById('profileContent').innerHTML = `
+                <div style="text-align:center; padding:40px;"><p>❌ No ARB ID provided.</p><a href="arb.html" class="back-link">← Back to ARB List</a></div>
+            `;
+            return;
+        }
+        await loadProfile(arbId);
+    })();
+
+    async function loadProfile(id) {
+        const container = document.getElementById('profileContent');
+        try {
+            const { data: arb, error: arbErr } = await supabase
+                .from('arb')
+                .select(`*, arbo:arbo_id ( id, name, barangay, municipality )`)
+                .eq('id', id)
+                .single();
+            if (arbErr) throw new Error('ARB not found');
+            const { data: validations, error: valErr } = await supabase
+                .from('arb_validations')
+                .select('*')
+                .eq('arb_id', id);
+            if (valErr) console.warn('Validations error:', valErr);
+
+            const arboName = arb.arbo ? arb.arbo.name : '—';
+            const arboBarangay = arb.arbo ? arb.arbo.barangay : '—';
+            const arboMunicipality = arb.arbo ? arb.arbo.municipality : '—';
+            const statusBadge = `<span class="badge ${arb.validation_status === 'Validated' ? 'badge-success' : arb.validation_status === 'Rejected' ? 'badge-danger' : 'badge-warning'}">${arb.validation_status}</span>`;
+            const lifeBadge = `<span class="badge ${arb.life_status === 'Alive' ? 'badge-success' : 'badge-danger'}">${arb.life_status}</span>`;
+            const transferBadge = arb.subject_for_transfer ? '<span class="badge badge-warning">Yes</span>' : '<span class="badge badge-success">No</span>';
+            const canEdit = (window.currentProfile && (window.currentProfile.role === 'admin' || window.currentProfile.role === 'staff'));
+
+            let html = `
+                <div class="profile-header">
+                    <h2>${escapeHtml(arb.last_name + ', ' + arb.first_name + (arb.middle_name ? ' ' + arb.middle_name : ''))}</h2>
+                    <div>
+                        <a href="arb.html" class="btn btn-primary" style="text-decoration:none; margin-right:8px;">← Back</a>
+                        ${canEdit ? `<a href="arb.html" class="btn-edit">✏️ Edit ARB</a>` : ''}
+                    </div>
+                </div>
+                <div class="profile-grid">
+                    <div class="profile-card">
+                        <h3>👤 Personal Information</h3>
+                        <div class="field"><span class="label">ARB ID</span><span class="value">${arb.id}</span></div>
+                        <div class="field"><span class="label">Full Name</span><span class="value">${escapeHtml(arb.last_name + ', ' + arb.first_name + (arb.middle_name ? ' ' + arb.middle_name : ''))}</span></div>
+                        <div class="field"><span class="label">ARBO</span><span class="value">${escapeHtml(arboName)}</span></div>
+                        <div class="field"><span class="label">ARBO Barangay</span><span class="value">${escapeHtml(arboBarangay)}</span></div>
+                        <div class="field"><span class="label">ARBO Municipality</span><span class="value">${escapeHtml(arboMunicipality)}</span></div>
+                        <div class="field"><span class="label">Validation Status</span><span class="value">${statusBadge}</span></div>
+                        <div class="field"><span class="label">Life Status</span><span class="value">${lifeBadge}</span></div>
+                        <div class="field"><span class="label">Subject for Transfer</span><span class="value">${transferBadge}</span></div>
+                    </div>
+                    <div class="profile-card">
+                        <h3>👪 Legal Heir</h3>
+                        ${arb.subject_for_transfer ? `
+                            <div class="field"><span class="label">Heir Name</span><span class="value">${escapeHtml(arb.heir_name || '—')}</span></div>
+                            <div class="field"><span class="label">Address</span><span class="value">${escapeHtml(arb.heir_address || '—')}</span></div>
+                            <div class="field"><span class="label">Relation</span><span class="value">${escapeHtml(arb.heir_relation || '—')}</span></div>
+                            <div class="field"><span class="label">Contact</span><span class="value">${escapeHtml(arb.heir_contact || '—')}</span></div>
+                            <div class="field"><span class="label">Email</span><span class="value">${escapeHtml(arb.heir_email || '—')}</span></div>
+                        ` : `<p style="color:#64748b; font-style:italic;">No transfer action required.</p>`}
+                    </div>
+                </div>
+                <div class="profile-card" style="margin-top:10px;">
+                    <h3>✅ Validators</h3>
+                    <div class="validator-grid">
+            `;
+            const types = ['Barangay', 'DARMO', 'PBDD'];
+            types.forEach(type => {
+                const val = validations ? validations.find(v => v.validator_type === type) : null;
+                if (val) {
+                    html += `
+                        <div class="validator-item">
+                            <div class="type-badge">${type}</div>
+                            <div class="name">${escapeHtml(val.validator_name)}</div>
+                            <div class="detail">📌 ${escapeHtml(val.position)}</div>
+                            <div class="detail">📍 ${escapeHtml(val.validator_barangay || '—')}${val.validator_town ? ', ' + escapeHtml(val.validator_town) : ''}</div>
+                            <div class="detail">📅 ${formatDate(val.date_validated)}</div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="validator-item" style="border-left-color:#94a3b8; opacity:0.7;">
+                            <div class="type-badge">${type}</div>
+                            <div style="color:#64748b; font-style:italic;">Not yet validated</div>
+                        </div>
+                    `;
+                }
+            });
+            html += `</div></div><a href="arb.html" class="back-link">← Back to ARB List</a>`;
+            container.innerHTML = html;
+        } catch (err) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;"><p>❌ ${escapeHtml(err.message)}</p><a href="arb.html" class="back-link">← Back to ARB List</a></div>`;
+            console.error(err);
+        }
+    }
+</script>
+</body>
+</html>
