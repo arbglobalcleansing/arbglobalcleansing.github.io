@@ -3,19 +3,29 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dashboard – ARB Monitoring</title>
+    <title>ARB Global Cleansing – Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="nav.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
         body { background:#f0f4f8; padding:20px; }
         .container { max-width:1400px; margin:0 auto; }
-        h1 { color:#0a3d62; border-bottom:4px solid #e8a317; padding-bottom:12px; margin-bottom:25px; }
+        h1 {
+            color:#0a3d62;
+            border-bottom:4px solid #e8a317;
+            padding-bottom:12px;
+            margin-bottom:25px;
+        }
+        h1 small { font-size:0.6rem; color:#64748b; font-weight:normal; }
         .nav {
             display:flex; flex-wrap:wrap; gap:5px; background:white; padding:10px 15px;
             border-radius:8px; box-shadow:0 2px 6px rgba(10,61,98,0.08); margin-bottom:25px;
             border-left:5px solid #e8a317; align-items:center;
         }
-        .nav a { padding:10px 20px; text-decoration:none; font-weight:600; color:#334155; border-radius:6px; transition:0.2s; }
+        .nav a {
+            padding:10px 20px; text-decoration:none; font-weight:600; color:#334155;
+            border-radius:6px; transition:0.2s;
+        }
         .nav a:hover { background:#e2e8f0; }
         .nav a.active { background:#0a3d62; color:white; }
         .nav .user-badge { margin-left:auto; color:#0a3d62; font-weight:600; }
@@ -46,32 +56,27 @@
         }
         .recent-list li:last-child { border-bottom:none; }
         .recent-list .badge {
-            background:#0a3d62; color:white; padding:2px 10px; border-radius:20px; font-size:0.75rem;
+            padding:2px 10px; border-radius:20px; font-size:0.75rem; color:white;
         }
+
         .schedule-item {
             padding:10px; background:#f8fafc; border-radius:6px; margin-bottom:10px;
             display:flex; justify-content:space-between; align-items:center;
         }
         .schedule-item .date { font-weight:600; color:#0a3d62; }
-        .schedule-item .desc { color:#334155; }
 
-        @media (max-width:700px) {
-            .two-col { grid-template-columns:1fr; }
-        }
+        .bar-container { height:20px; background:#e2e8f0; border-radius:10px; overflow:hidden; display:flex; margin-top:8px; }
+        .bar-segment { height:100%; transition:width 0.5s; }
+
+        @media (max-width:700px) { .two-col { grid-template-columns:1fr; } }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🏛️ ARB Monitoring – Dashboard</h1>
-    <nav class="nav">
-        <a href="dashboard.html" class="active">Dashboard</a>
-        <a href="arbo.html">ARBO</a>
-        <a href="arb.html">ARB</a>
-        <a href="validators.html">Validators</a>
-        <a href="reports.html">Reports</a>
-        <span class="user-badge" id="userDisplay"></span>
-        <span class="logout-link" onclick="logout()">Logout</span>
-    </nav>
+    <h1>🏛️ ARB Global Cleansing <small>Activity Monitoring</small></h1>
+
+    <!-- Dynamic Navigation -->
+    <nav class="nav" id="mainNav"></nav>
 
     <!-- Stats -->
     <div class="stats-grid" id="statsGrid">
@@ -81,23 +86,17 @@
         <div class="stat-card"><div class="number" id="rejectedArbs">-</div><div class="label">Rejected</div></div>
     </div>
 
-    <!-- Two columns: Recent updates + Schedule -->
     <div class="two-col">
         <div class="card">
             <h3>📋 10 Most Recent ARB Updates</h3>
-            <ul class="recent-list" id="recentUpdates">
-                <li>Loading...</li>
-            </ul>
+            <ul class="recent-list" id="recentUpdates"><li>Loading...</li></ul>
         </div>
         <div class="card">
             <h3>📅 Upcoming Activities</h3>
-            <div id="scheduleList">
-                <div class="schedule-item"><span class="date">No upcoming activities</span></div>
-            </div>
+            <div id="scheduleList"><div class="schedule-item"><span class="date">No upcoming activities</span></div></div>
         </div>
     </div>
 
-    <!-- Validation status chart (text-based) -->
     <div class="card" style="margin-top:10px;">
         <h3>📊 Validation Status Breakdown</h3>
         <div style="display:flex; gap:30px; flex-wrap:wrap; padding:10px 0;">
@@ -105,47 +104,34 @@
             <div><span style="font-weight:600;">Pending:</span> <span id="pendingPercent">0%</span></div>
             <div><span style="font-weight:600;">Rejected:</span> <span id="rejectedPercent">0%</span></div>
         </div>
-        <div style="height:20px; background:#e2e8f0; border-radius:10px; overflow:hidden; display:flex;">
-            <div id="validBar" style="background:#2e7d32; height:100%; width:0%;"></div>
-            <div id="pendingBar" style="background:#e8a317; height:100%; width:0%;"></div>
-            <div id="rejectedBar" style="background:#b91c1c; height:100%; width:0%;"></div>
+        <div class="bar-container">
+            <div id="validBar" class="bar-segment" style="background:#2e7d32; width:0%;"></div>
+            <div id="pendingBar" class="bar-segment" style="background:#e8a317; width:0%;"></div>
+            <div id="rejectedBar" class="bar-segment" style="background:#b91c1c; width:0%;"></div>
         </div>
     </div>
 </div>
 
 <script>
     // ============================================================
-    // SUPABASE CONFIG
+    // SUPABASE CLIENT
     // ============================================================
     const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ============================================================
-    // AUTH CHECK
+    // RENDER NAVIGATION
     // ============================================================
-    async function checkAuth() {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            window.location.href = 'login.html';
-            return;
+    async function initNav() {
+        await renderNavigation('mainNav', '/dashboard.html');
+        const user = await getUserInfo();
+        const userBadge = document.querySelector('.nav .user-badge');
+        if (user && userBadge) {
+            userBadge.textContent = '👤 ' + user.full_name + ' (' + user.role + ')';
         }
-        // Get profile
-        const { data: profile, error: pErr } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .single();
-        if (pErr || !profile) {
-            alert('Profile not found. Please contact admin.');
-            await supabase.auth.signOut();
-            window.location.href = 'login.html';
-            return;
-        }
-        document.getElementById('userDisplay').textContent = '👤 ' + profile.full_name + ' (' + profile.role + ')';
-        // If viewer, hide some nav items? Not necessary for dashboard.
-        return profile;
     }
+    initNav();
 
     // ============================================================
     // LOGOUT
@@ -160,15 +146,13 @@
     // ============================================================
     async function loadDashboard() {
         try {
-            // 1. Total ARBs count
             const { count: total, error: e1 } = await supabase.from('arb').select('*', { count: 'exact', head: true });
             if (e1) throw e1;
             document.getElementById('totalArbs').textContent = total || 0;
 
-            // 2. Counts by validation_status
             const { data: statusCounts, error: e2 } = await supabase
                 .from('arb')
-                .select('validation_status', { count: 'exact' })
+                .select('validation_status')
                 .not('validation_status', 'is', null);
             if (e2) throw e2;
 
@@ -193,7 +177,6 @@
             document.getElementById('pendingBar').style.width = pendingPct + '%';
             document.getElementById('rejectedBar').style.width = rejectedPct + '%';
 
-            // 3. Recent updates – get 10 most recently updated ARBs (by updated_at)
             const { data: recent, error: e3 } = await supabase
                 .from('arb')
                 .select('id, first_name, last_name, validation_status, updated_at')
@@ -207,29 +190,14 @@
             } else {
                 list.innerHTML = recent.map(r => {
                     const name = r.last_name + ', ' + r.first_name;
-                    const statusBadge = `<span class="badge" style="background:${r.validation_status === 'Validated' ? '#2e7d32' : r.validation_status === 'Pending' ? '#e8a317' : '#b91c1c'}">${r.validation_status || 'Pending'}</span>`;
+                    const color = r.validation_status === 'Validated' ? '#2e7d32' : r.validation_status === 'Pending' ? '#e8a317' : '#b91c1c';
                     const date = new Date(r.updated_at).toLocaleDateString();
-                    return `<li><span>${name}</span> <span>${statusBadge} <span style="color:#64748b;font-size:0.8rem;">${date}</span></span></li>`;
+                    return `<li><span>${name}</span> <span><span class="badge" style="background:${color}">${r.validation_status || 'Pending'}</span> <span style="color:#64748b;font-size:0.8rem;">${date}</span></span></li>`;
                 }).join('');
             }
 
-            // 4. Schedule – dummy data for now (can be replaced with real events later)
-            const scheduleDiv = document.getElementById('scheduleList');
-            const today = new Date();
-            const upcoming = [
-                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+2), desc: 'Barangay validation meeting' },
-                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+5), desc: 'Submit quarterly report' },
-                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+8), desc: 'ARB orientation' },
-            ];
-            scheduleDiv.innerHTML = upcoming.map(s => `
-                <div class="schedule-item">
-                    <span class="date">${s.date.toLocaleDateString()}</span>
-                    <span class="desc">${s.desc}</span>
-                </div>
-            `).join('');
-
         } catch (err) {
-            console.error('Dashboard load error:', err);
+            console.error('Dashboard error:', err);
             document.getElementById('recentUpdates').innerHTML = '<li>Error loading data.</li>';
         }
     }
@@ -237,11 +205,7 @@
     // ============================================================
     // INIT
     // ============================================================
-    (async function() {
-        const profile = await checkAuth();
-        if (!profile) return;
-        await loadDashboard();
-    })();
+    loadDashboard();
 </script>
 </body>
 </html>
