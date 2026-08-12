@@ -1,165 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login – ARB Monitoring</title>
-    <!-- Load Supabase library (creates global `supabase`) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
+        body { background:#f0f4f8; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
+        .login-container {
+            max-width:400px; width:100%; background:white; padding:40px; border-radius:12px;
+            box-shadow:0 4px 20px rgba(0,0,0,0.1); border-top:5px solid #e8a317;
+        }
+        h1 { color:#0a3d62; text-align:center; margin-bottom:5px; }
+        .subtitle { text-align:center; color:#64748b; margin-bottom:25px; }
+        .form-group { margin-bottom:18px; }
+        label { display:block; font-weight:600; margin-bottom:5px; color:#1e293b; }
+        input {
+            width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:6px;
+            font-size:1rem; transition:0.2s;
+        }
+        input:focus { outline:none; border-color:#0a3d62; box-shadow:0 0 0 3px rgba(10,61,98,0.15); }
+        .btn {
+            width:100%; padding:12px; border:none; border-radius:6px; font-size:1rem;
+            font-weight:600; cursor:pointer; transition:0.2s; background:#0a3d62; color:white;
+        }
+        .btn:hover { background:#062b47; }
+        .btn:disabled { opacity:0.6; cursor:not-allowed; }
+        .msg {
+            padding:12px; border-radius:6px; margin-bottom:15px; display:none;
+            font-weight:500; font-size:0.95rem;
+        }
+        .msg-error { color:#991b1b; background:#fee2e2; border-left:4px solid #b91c1c; }
+        .msg-success { color:#155724; background:#d4edda; border-left:4px solid #28a745; }
+        .msg-info { color:#0c5460; background:#d1ecf1; border-left:4px solid #17a2b8; }
+        .debug {
+            margin-top:20px; padding:12px; background:#1e1e1e; color:#d4d4d4;
+            border-radius:6px; font-family:monospace; font-size:12px; max-height:150px;
+            overflow-y:auto; white-space:pre-wrap;
+        }
+        .debug-toggle {
+            margin-top:10px; background:transparent; border:none; color:#0a3d62;
+            cursor:pointer; font-size:0.85rem; text-decoration:underline;
+        }
+    </style>
 </head>
 <body>
 
-<div style="max-width:400px; margin:50px auto; padding:30px; background:white; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.1); font-family:Arial;">
-    <h1 style="text-align:center; color:#0a3d62;">ARB Monitoring</h1>
-    <p style="text-align:center; color:#64748b;">Department of Agrarian Reform</p>
+<div class="login-container">
+    <h1>🏛️ ARB Monitoring</h1>
+    <p class="subtitle">Department of Agrarian Reform</p>
 
-    <div id="status" style="padding:12px; margin:15px 0; border-radius:6px; background:#f8f9fa; border:1px solid #dee2e6; min-height:40px; font-size:14px;"></div>
+    <div id="status" class="msg msg-info">Please enter your credentials.</div>
 
     <form id="loginForm">
-        <div style="margin-bottom:15px;">
-            <label style="font-weight:600;">Email</label>
-            <input type="email" id="email" value="arbglobalcleansing@gmail.com" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
+        <div class="form-group">
+            <label for="loginEmail">Email Address</label>
+            <input type="email" id="loginEmail" required placeholder="your.email@example.com">
         </div>
-        <div style="margin-bottom:20px;">
-            <label style="font-weight:600;">Password</label>
-            <input type="password" id="password" value="111111" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
+        <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" required placeholder="••••••••">
         </div>
-        <button type="submit" id="loginBtn" style="width:100%; padding:12px; background:#0a3d62; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">Sign In</button>
+        <button type="submit" id="loginBtn" class="btn">🔐 Sign In</button>
     </form>
 
-    <div style="margin-top:15px; display:flex; gap:10px;">
-        <button onclick="alert('Button 1 works!')" style="flex:1; padding:10px; background:#64748b; color:white; border:none; border-radius:6px; cursor:pointer;">Test 1</button>
-        <button onclick="document.getElementById('status').innerHTML='✅ Test 2 works!'" style="flex:1; padding:10px; background:#e8a317; color:white; border:none; border-radius:6px; cursor:pointer;">Test 2</button>
-        <button onclick="testConnection()" style="flex:1; padding:10px; background:#2e7d32; color:white; border:none; border-radius:6px; cursor:pointer;">Test DB</button>
-    </div>
-
-    <div id="logBox" style="margin-top:20px; padding:12px; background:#1e1e1e; color:#d4d4d4; border-radius:6px; font-family:monospace; font-size:12px; max-height:200px; overflow-y:auto; white-space:pre-wrap;"></div>
+    <button class="debug-toggle" onclick="toggleDebug()">📋 Show debug log</button>
+    <div id="debugBox" class="debug" style="display:none;"></div>
 </div>
 
 <script>
     // ============================================================
-    // 1. CHECK JS
+    // SUPABASE CONFIG (hardcoded)
     // ============================================================
-    console.log('✅ JavaScript is running');
-    document.getElementById('status').innerHTML = '✅ JavaScript loaded!';
+    const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    window.supabaseClient = supabaseClient;
 
-    function log(msg) {
-        const logBox = document.getElementById('logBox');
-        const timestamp = new Date().toLocaleTimeString();
-        logBox.textContent += `[${timestamp}] ${msg}\n`;
-        logBox.scrollTop = logBox.scrollHeight;
+    // ============================================================
+    // DOM refs
+    // ============================================================
+    const status = document.getElementById('status');
+    const debugBox = document.getElementById('debugBox');
+    const loginBtn = document.getElementById('loginBtn');
+
+    // ============================================================
+    // Logging
+    // ============================================================
+    let debugVisible = false;
+
+    function log(msg, type = 'info') {
+        const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        debugBox.textContent += line + '\n';
+        debugBox.scrollTop = debugBox.scrollHeight;
         console.log(msg);
-        document.getElementById('status').innerHTML = msg;
+
+        // Update status box
+        status.textContent = msg;
+        status.className = 'msg';
+        if (type === 'error') status.classList.add('msg-error');
+        else if (type === 'success') status.classList.add('msg-success');
+        else status.classList.add('msg-info');
+        status.style.display = 'block';
     }
 
-    log('🚀 Page loaded');
-
-    // ============================================================
-    // 2. SUPABASE CONFIG – FIXED
-    // ============================================================
-    try {
-        // ✅ CORRECT: use a different variable name
-        const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        //                                    ^^^^^^^^^^^^^^ this is the global from CDN
-        window.supabaseClient = supabaseClient;
-        log('✅ Supabase client created');
-    } catch (err) {
-        log('❌ Supabase init failed: ' + err.message);
+    function toggleDebug() {
+        debugVisible = !debugVisible;
+        debugBox.style.display = debugVisible ? 'block' : 'none';
     }
 
     // ============================================================
-    // 3. TEST CONNECTION
+    // Login handler
     // ============================================================
-    window.testConnection = function() {
-        log('🔍 Testing connection...');
-        if (!window.supabaseClient) {
-            log('❌ Supabase client not initialized');
-            return;
-        }
-        window.supabaseClient.auth.getSession()
-            .then(({ data, error }) => {
-                if (error) {
-                    log('❌ Connection failed: ' + error.message);
-                } else {
-                    log('✅ Connected! Session: ' + (data.session ? 'Active' : 'None'));
-                }
-            })
-            .catch(err => {
-                log('❌ Error: ' + err.message);
-            });
-    };
-
-    // ============================================================
-    // 4. LOGIN FORM
-    // ============================================================
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        log('🔐 Login button clicked!');
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
 
-        const email = document.getElementById('email').value.trim();
-        const password = document.getElementById('password').value;
-        log('📧 Email: ' + email);
-
-        if (!window.supabaseClient) {
-            log('❌ Supabase not initialized');
+        if (!email || !password) {
+            log('❌ Please enter both email and password.', 'error');
             return;
         }
 
-        window.supabaseClient.auth.signInWithPassword({ email, password })
-            .then(({ data, error }) => {
-                if (error) {
-                    log('❌ Login failed: ' + error.message);
-                    return;
-                }
-                if (data.user) {
-                    log('✅ Login success! User: ' + data.user.email);
-                    log('🔄 Redirecting...');
-                    setTimeout(() => {
-                        window.location.href = 'arb.html';
-                    }, 1000);
-                } else {
-                    log('❌ No user returned');
-                }
-            })
-            .catch(err => {
-                log('❌ Error: ' + err.message);
-            });
+        log('🔐 Attempting login for ' + email, 'info');
+        loginBtn.disabled = true;
+        loginBtn.textContent = '⏳ Signing in...';
+
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) {
+                log('❌ Login failed: ' + error.message, 'error');
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🔐 Sign In';
+                return;
+            }
+            if (data.user) {
+                log('✅ Login successful! Redirecting...', 'success');
+                setTimeout(() => {
+                    window.location.href = 'dashboard.html';
+                }, 800);
+            } else {
+                log('❌ Unexpected response – no user object.', 'error');
+                loginBtn.disabled = false;
+                loginBtn.textContent = '🔐 Sign In';
+            }
+        } catch (err) {
+            log('❌ Error: ' + err.message, 'error');
+            loginBtn.disabled = false;
+            loginBtn.textContent = '🔐 Sign In';
+        }
     });
 
     // ============================================================
-    // 5. AUTO-REDIRECT CHECK
+    // Auto‑redirect if already logged in
     // ============================================================
-    if (window.supabaseClient) {
-        window.supabaseClient.auth.getSession().then(({ data }) => {
-            if (data.session) {
-                log('👤 Session found, redirecting...');
-                setTimeout(() => {
-                    window.location.href = 'arb.html';
-                }, 1000);
-            } else {
-                log('👤 No session, ready to login');
-            }
-        }).catch(err => {
-            log('⚠️ Session check: ' + err.message);
-        });
-    }
+    supabaseClient.auth.getSession().then(({ data }) => {
+        if (data.session) {
+            log('👤 Session found, redirecting...', 'info');
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 500);
+        } else {
+            log('👤 No session – please log in.', 'info');
+        }
+    }).catch(() => {});
 
-    // ============================================================
-    // 6. KEYBOARD SHORTCUT
-    // ============================================================
+    // Keyboard shortcut: Enter
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
             const active = document.activeElement;
-            if (active && (active.id === 'email' || active.id === 'password')) {
-                log('⏎ Enter pressed, submitting form');
+            if (active && (active.id === 'loginEmail' || active.id === 'loginPassword')) {
                 document.getElementById('loginForm').dispatchEvent(new Event('submit'));
             }
         }
     });
 
-    log('✅ All event listeners attached');
+    // Log startup
+    log('🚀 Login page ready. Enter your credentials.', 'info');
 </script>
 
 </body>
