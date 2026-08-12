@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validator Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="common.js"></script>
+</head>
+<body>
+<div class="container">
+    <h1>Validator Management</h1>
+    <nav class="nav">
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html">ARB</a>
+        <a href="validators.html" class="active">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+
+    <div class="section">
+        <p style="margin-bottom:15px;">Select an ARB to manage its validators (Barangay, DARMO, PBDD).</p>
+        <div class="toolbar">
+            <select id="validationArbSelect" onchange="loadValidations()" style="flex:0 0 300px;">
+                <option value="">-- Choose ARB --</option>
+            </select>
+        </div>
+        <div id="validationContainer"><p style="color:#64748b;">No ARB selected.</p></div>
+    </div>
+</div>
+
+<!-- Validator Modal -->
+<div id="validatorModal" class="modal">
+    <div class="modal-content">
+        <h2 id="validatorModalTitle">Add Validator</h2>
+        <form id="validatorForm" onsubmit="saveValidator(event)">
+            <input type="hidden" id="validatorId" />
+            <input type="hidden" id="validatorArbId" />
+            <input type="hidden" id="validatorType" />
+            <div class="form-grid">
+                <div><label>Validator Name *</label><input id="valName" required /></div>
+                <div><label>Position *</label><input id="valPosition" required /></div>
+                <div><label>Barangay</label><input id="valBarangay" /></div>
+                <div><label>Town</label><input id="valTown" /></div>
+                <div><label>Date Validated *</label><input id="valDate" type="date" required /></div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-danger" onclick="closeModal('validatorModal')">Cancel</button>
+                <button type="submit" class="btn btn-success">💾 Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    (async function() {
+        const ok = await checkAuth(['admin', 'staff']);
+        if (!ok) return;
+        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + window.currentProfile.role + ')';
+        await populateArbSelect();
+    })();
+
+    async function populateArbSelect() {
+        const { data, error } = await supabase.from('arb').select('id, first_name, last_name').order('last_name');
+        if (error) return;
+        const select = document.getElementById('validationArbSelect');
+        select.innerHTML = '<option value="">-- Choose ARB --</option>';
+        data.forEach(a => {
+            select.innerHTML += `<option value="${a.id}">${escapeHtml(a.last_name + ', ' + a.first_name)}</option>`;
+        });
+        if (select.value) loadValidations();
+    }
+
+    async function loadValidations() {
+        const arbId = document.getElementById('validationArbSelect').value;
+        const container = document.getElementById('validationContainer');
+        if (!arbId) {
+            container.innerHTML = '<p style="color:#64748b;">No ARB selected.</p>';
+            return;
+        }
+        const { data: arb, error: arbErr } = await supabase.from('arb').select('*').eq('id', arbId).single();
+        if (arbErr) { container.innerHTML = '<p>Error loading ARB.</p>'; return; }
+        const { data: vals, error: valErr } = await supabase.from('arb_validations').select('*').eq('arb_id', arbId);
+        if (valErr) console.error(valErr);
+
+        let html = `<h4>ARB: ${escapeHtml(arb.last_name + ', ' + arb.first_name)}</h4>
+                    <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:15px;">`;
+        const types = ['Barangay', 'DARMO', 'PBDD'];
+        types.forEach(type => {
+            const existing = vals ? vals.find(v => v.validator_type === type) : null;
+            html += `<div style="border:1px solid #e2e8f0; border-radius:8px; padding:15px; min-width:200px; flex:1; background:white;">
+                <h5 style="color:#0a3d62;">${type}</h5>`;
+            if (existing) {
+                html += `
+                    <p><strong>Name:</strong> ${escapeHtml(existing.validator_name)}</p>
+                    <p><strong>Position:</strong> ${escapeHtml(existing.position)}</p>
+                    <p><strong>Barangay:</strong> ${escapeHtml(existing.validator_barangay || '—')}</p>
+                    <p><strong>Town:</strong> ${escapeHtml(existing.validator_town || '—')}</p>
+                    <p><strong>Date:</strong> ${formatDate(existing.date_validated)}</p>
+                    <button class="btn btn-warning btn-sm" onclick="editValidator('${type}', ${arbId}, ${existing.id})">✏️ Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteValidator(${existing.id})">🗑️</button>
+                `;
+            } else {
+                html += `<p><em>Not yet validated.</em></p>
+                    <button class="btn btn-primary btn-sm" onclick="openValidatorModal('${type}', ${arbId})">➕ Add</button>`;
+            }
+            html += `</div>`;
+        });
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function openValidatorModal(type, arbId, id = null) {
+        document.getElementById('validatorId').value = id || '';
+        document.getElementById('validatorArbId').value = arbId;
+        document.getElementById('validatorType').value = type;
+        document.getElementById('validatorModalTitle').textContent = (id ? 'Edit' : 'Add') + ' ' + type + ' Validator';
+        document.getElementById('validatorForm').reset();
+        if (id) {
+            supabase.from('arb_validations').select('*').eq('id', id).single().then(({ data }) => {
+                if (!data) return;
+                document.getElementById('valName').value = data.validator_name || '';
+                document.getElementById('valPosition').value = data.position || '';
+                document.getElementById('valBarangay').value = data.validator_barangay || '';
+                document.getElementById('valTown').value = data.validator_town || '';
+                document.getElementById('valDate').value = data.date_validated || '';
+            });
+        } else {
+            document.getElementById('valDate').value = new Date().toISOString().split('T')[0];
+        }
+        showModal('validatorModal');
+    }
+
+    async function saveValidator(e) {
+        e.preventDefault();
+        const id = document.getElementById('validatorId').value;
+        const arbId = document.getElementById('validatorArbId').value;
+        const type = document.getElementById('validatorType').value;
+        const payload = {
+            arb_id: parseInt(arbId),
+            validator_type: type,
+            validator_name: document.getElementById('valName').value.trim(),
+            position: document.getElementById('valPosition').value.trim(),
+            validator_barangay: document.getElementById('valBarangay').value.trim(),
+            validator_town: document.getElementById('valTown').value.trim(),
+            date_validated: document.getElementById('valDate').value,
+        };
+        let result;
+        if (id) {
+            result = await supabase.from('arb_validations').update(payload).eq('id', id);
+        } else {
+            result = await supabase.from('arb_validations').insert([payload]);
+        }
+        if (result.error) {
+            alert('Error: ' + result.error.message);
+            return;
+        }
+        closeModal('validatorModal');
+        loadValidations();
+    }
+
+    async function deleteValidator(id) {
+        if (!confirm('Delete this validation record?')) return;
+        const { error } = await supabase.from('arb_validations').delete().eq('id', id);
+        if (error) { alert('Error: ' + error.message); return; }
+        loadValidations();
+    }
+</script>
+</body>
+</html>
