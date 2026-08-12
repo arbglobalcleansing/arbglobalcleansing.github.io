@@ -1,220 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login – ARB Monitoring</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <!-- Load Supabase from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <div style="max-width:400px; margin:100px auto; padding:40px; background:white; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.1); font-family:Arial;">
-        <h1 style="text-align:center; color:#0a3d62;">ARB Monitoring</h1>
-        <p style="text-align:center; color:#64748b;">Department of Agrarian Reform</p>
 
-        <div id="statusBox" style="padding:15px; margin:15px 0; border-radius:6px; display:none; font-weight:bold;"></div>
+<div style="max-width:400px; margin:50px auto; padding:30px; background:white; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.1); font-family:Arial;">
+    <h1 style="text-align:center; color:#0a3d62;">ARB Monitoring</h1>
+    <p style="text-align:center; color:#64748b;">Department of Agrarian Reform</p>
 
-        <form id="loginForm">
-            <div style="margin-bottom:15px;">
-                <label style="font-weight:600;">Email</label>
-                <input type="email" id="email" value="arbglobalcleansing@gmail.com" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
-            </div>
-            <div style="margin-bottom:20px;">
-                <label style="font-weight:600;">Password</label>
-                <input type="password" id="password" value="111111" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
-            </div>
-            <button type="submit" id="loginBtn" style="width:100%; padding:12px; background:#0a3d62; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">Sign In</button>
-        </form>
+    <!-- STATUS BOX - shows messages -->
+    <div id="status" style="padding:12px; margin:15px 0; border-radius:6px; background:#f8f9fa; border:1px solid #dee2e6; min-height:40px; font-size:14px;"></div>
 
-        <div style="margin-top:20px; text-align:center;">
-            <button onclick="testConnection()" style="padding:8px 16px; background:#64748b; color:white; border:none; border-radius:6px; cursor:pointer;">Test Connection</button>
-            <button onclick="checkUser()" style="padding:8px 16px; background:#e8a317; color:white; border:none; border-radius:6px; cursor:pointer; margin-left:8px;">Check User</button>
+    <!-- FORM -->
+    <form id="loginForm">
+        <div style="margin-bottom:15px;">
+            <label style="font-weight:600;">Email</label>
+            <input type="email" id="email" value="arbglobalcleansing@gmail.com" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
         </div>
+        <div style="margin-bottom:20px;">
+            <label style="font-weight:600;">Password</label>
+            <input type="password" id="password" value="111111" style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:5px;">
+        </div>
+        <button type="submit" id="loginBtn" style="width:100%; padding:12px; background:#0a3d62; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">Sign In</button>
+    </form>
 
-        <div id="logBox" style="margin-top:20px; padding:12px; background:#f8f9fa; border-radius:6px; font-size:13px; border:1px solid #dee2e6; max-height:200px; overflow-y:auto; white-space:pre-wrap;"></div>
+    <!-- TEST BUTTONS -->
+    <div style="margin-top:15px; display:flex; gap:10px;">
+        <button onclick="alert('Button 1 works!')" style="flex:1; padding:10px; background:#64748b; color:white; border:none; border-radius:6px; cursor:pointer;">Test 1</button>
+        <button onclick="document.getElementById('status').innerHTML='✅ Test 2 works!'" style="flex:1; padding:10px; background:#e8a317; color:white; border:none; border-radius:6px; cursor:pointer;">Test 2</button>
+        <button onclick="testConnection()" style="flex:1; padding:10px; background:#2e7d32; color:white; border:none; border-radius:6px; cursor:pointer;">Test DB</button>
     </div>
 
-    <script>
-        // ============================================================
-        //  SUPABASE CONFIG
-        // ============================================================
+    <!-- LOG BOX -->
+    <div id="logBox" style="margin-top:20px; padding:12px; background:#1e1e1e; color:#d4d4d4; border-radius:6px; font-family:monospace; font-size:12px; max-height:200px; overflow-y:auto; white-space:pre-wrap;"></div>
+</div>
+
+<script>
+    // ============================================================
+    // 1. CHECK IF JAVASCRIPT IS WORKING
+    // ============================================================
+    console.log('✅ JavaScript is working!');
+    document.getElementById('status').innerHTML = '✅ JavaScript loaded!';
+
+    // ============================================================
+    // 2. LOG HELPER
+    // ============================================================
+    function log(msg) {
+        const logBox = document.getElementById('logBox');
+        const timestamp = new Date().toLocaleTimeString();
+        logBox.textContent += `[${timestamp}] ${msg}\n`;
+        logBox.scrollTop = logBox.scrollHeight;
+        console.log(msg);
+        document.getElementById('status').innerHTML = msg;
+    }
+
+    log('🚀 Page loaded');
+
+    // ============================================================
+    // 3. SUPABASE CONFIG (hardcoded, no external file needed)
+    // ============================================================
+    try {
         const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
         const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        log('✅ Supabase client created');
+        window.supabase = supabase;
+    } catch (err) {
+        log('❌ Supabase init failed: ' + err.message);
+    }
 
-        // ============================================================
-        //  DOM REFS
-        // ============================================================
-        const statusBox = document.getElementById('statusBox');
-        const logBox = document.getElementById('logBox');
+    // ============================================================
+    // 4. TEST CONNECTION BUTTON
+    // ============================================================
+    window.testConnection = function() {
+        log('🔍 Testing connection...');
+        if (!window.supabase) {
+            log('❌ Supabase client not initialized');
+            return;
+        }
+        window.supabase.auth.getSession()
+            .then(({ data, error }) => {
+                if (error) {
+                    log('❌ Connection failed: ' + error.message);
+                } else {
+                    log('✅ Connected! Session: ' + (data.session ? 'Active' : 'None'));
+                }
+            })
+            .catch(err => {
+                log('❌ Error: ' + err.message);
+            });
+    };
 
-        // ============================================================
-        //  LOG HELPER
-        // ============================================================
-        function log(msg, isError = false) {
-            const timestamp = new Date().toLocaleTimeString();
-            const line = `[${timestamp}] ${msg}\n`;
-            logBox.textContent += line;
-            logBox.scrollTop = logBox.scrollHeight;
-            console.log(msg);
+    // ============================================================
+    // 5. LOGIN FORM
+    // ============================================================
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        log('🔐 Login button clicked!');
 
-            // Show status box
-            statusBox.style.display = 'block';
-            statusBox.textContent = msg;
-            statusBox.style.background = isError ? '#fee2e2' : '#d4edda';
-            statusBox.style.color = isError ? '#991b1b' : '#155724';
-            statusBox.style.borderLeft = isError ? '4px solid #b91c1c' : '4px solid #28a745';
+        const email = document.getElementById('email').value.trim();
+        const password = document.getElementById('password').value;
+
+        log('📧 Email: ' + email);
+
+        if (!window.supabase) {
+            log('❌ Supabase not initialized');
+            return;
         }
 
-        // ============================================================
-        //  TEST CONNECTION (works!)
-        // ============================================================
-        window.testConnection = function() {
-            log('🔍 Testing Supabase connection...');
-            supabase.auth.getSession()
-                .then(({ data, error }) => {
-                    if (error) {
-                        log('❌ Connection failed: ' + error.message, true);
-                    } else {
-                        log('✅ Connection successful! Supabase is reachable.');
-                        log('ℹ️ Session: ' + (data.session ? 'Active' : 'None'));
-                    }
-                })
-                .catch(err => {
-                    log('❌ Error: ' + err.message, true);
-                });
-        };
-
-        // ============================================================
-        //  CHECK USER (works!)
-        // ============================================================
-        window.checkUser = function() {
-            const email = document.getElementById('email').value.trim();
-            log('🔍 Checking user: ' + email);
-
-            // We can't directly check if a user exists, but we can try to sign in with a wrong password
-            // to see if the user exists (but this might trigger rate limiting)
-            // Instead, let's just try to get the session
-            supabase.auth.getUser()
-                .then(({ data, error }) => {
-                    if (error) {
-                        log('❌ Not logged in. Error: ' + error.message, true);
-                        return;
-                    }
-                    if (data.user) {
-                        log('✅ Currently logged in as: ' + data.user.email);
-                    } else {
-                        log('ℹ️ No user is currently logged in.');
-                    }
-                })
-                .catch(err => {
-                    log('❌ Error: ' + err.message, true);
-                });
-
-            // Also check if the user has a profile in the profiles table
-            supabase.from('profiles').select('*').limit(1)
-                .then(({ data, error }) => {
-                    if (error) {
-                        log('ℹ️ Could not check profiles: ' + error.message);
-                    } else if (data && data.length > 0) {
-                        log('✅ Found ' + data.length + ' profile(s) in the database.');
-                        data.forEach(p => {
-                            log('   - ' + p.full_name + ' (role: ' + p.role + ')');
-                        });
-                    } else {
-                        log('ℹ️ No profiles found in the database.');
-                    }
-                })
-                .catch(err => {
-                    log('❌ Error checking profiles: ' + err.message, true);
-                });
-        };
-
-        // ============================================================
-        //  LOGIN (works!)
-        // ============================================================
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault(); // prevents page reload
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-
-            log('🔐 Attempting login: ' + email);
-
-            if (!email || !password) {
-                log('❌ Please enter both email and password.', true);
-                return;
-            }
-
-            const loginBtn = document.getElementById('loginBtn');
-            loginBtn.disabled = true;
-            loginBtn.textContent = '⏳ Signing in...';
-
-            try {
-                const { data, error } = await supabase.auth.signInWithPassword({
-                    email: email,
-                    password: password
-                });
-
+        window.supabase.auth.signInWithPassword({ email, password })
+            .then(({ data, error }) => {
                 if (error) {
-                    log('❌ Login failed: ' + error.message, true);
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Sign In';
+                    log('❌ Login failed: ' + error.message);
                     return;
                 }
-
                 if (data.user) {
-                    log('✅ Login successful! User: ' + data.user.email);
-                    log('🔄 Redirecting to dashboard...');
+                    log('✅ Login success! User: ' + data.user.email);
+                    log('🔄 Redirecting...');
                     setTimeout(() => {
                         window.location.href = 'arb.html';
-                    }, 1500);
+                    }, 1000);
                 } else {
-                    log('❌ Login failed – no user returned.', true);
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = 'Sign In';
+                    log('❌ No user returned');
                 }
-            } catch (err) {
-                log('❌ Unexpected error: ' + err.message, true);
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Sign In';
-            }
-        });
+            })
+            .catch(err => {
+                log('❌ Error: ' + err.message);
+            });
+    });
 
-        // ============================================================
-        //  AUTO-REDIRECT IF ALREADY LOGGED IN
-        // ============================================================
-        supabase.auth.getSession().then(({ data }) => {
+    // ============================================================
+    // 6. AUTO-REDIRECT CHECK
+    // ============================================================
+    if (window.supabase) {
+        window.supabase.auth.getSession().then(({ data }) => {
             if (data.session) {
                 log('👤 Session found, redirecting...');
                 setTimeout(() => {
                     window.location.href = 'arb.html';
                 }, 1000);
             } else {
-                log('👤 No active session. Please log in.');
+                log('👤 No session, ready to login');
             }
         }).catch(err => {
-            log('❌ Session check failed: ' + err.message, true);
+            log('⚠️ Session check: ' + err.message);
         });
+    }
 
-        // ============================================================
-        //  KEYBOARD SHORTCUT
-        // ============================================================
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                const active = document.activeElement;
-                if (active && (active.id === 'email' || active.id === 'password')) {
-                    document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-                }
+    // ============================================================
+    // 7. KEYBOARD SHORTCUT
+    // ============================================================
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            const active = document.activeElement;
+            if (active && (active.id === 'email' || active.id === 'password')) {
+                log('⏎ Enter pressed, submitting form');
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
             }
-        });
+        }
+    });
 
-        // ============================================================
-        //  INIT LOG
-        // ============================================================
-        log('🚀 Login page loaded successfully.');
-        log('ℹ️ Supabase URL: ' + SUPABASE_URL);
-        log('ℹ️ Click "Test Connection" to check if Supabase is reachable.');
-        log('ℹ️ Click "Check User" to see if users exist in the database.');
-        log('ℹ️ Enter credentials and click "Sign In" to log in.');
-    </script>
+    // ============================================================
+    // 8. ADD CLICK LOGGING TO ALL BUTTONS
+    // ============================================================
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            log('🖱️ Clicked: ' + (this.textContent || 'button'));
+        });
+    });
+
+    log('✅ All event listeners attached');
+</script>
+
 </body>
 </html>
