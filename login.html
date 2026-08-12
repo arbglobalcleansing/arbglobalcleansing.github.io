@@ -1,73 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login – ARB Monitoring</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
-        body { background:#f0f4f8; display:flex; justify-content:center; align-items:center; min-height:100vh; padding:20px; }
-        .login-container { max-width:400px; width:100%; background:white; padding:40px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.1); border-top:5px solid #e8a317; }
-        h1 { color:#0a3d62; text-align:center; margin-bottom:5px; }
-        .subtitle { text-align:center; color:#64748b; margin-bottom:25px; }
-        .form-group { margin-bottom:18px; }
-        label { display:block; font-weight:600; margin-bottom:5px; }
-        input { width:100%; padding:10px 14px; border:1px solid #cbd5e1; border-radius:6px; font-size:1rem; }
-        input:focus { outline:none; border-color:#0a3d62; box-shadow:0 0 0 3px rgba(10,61,98,0.15); }
-        .btn { width:100%; padding:12px; border:none; border-radius:6px; font-size:1rem; font-weight:600; cursor:pointer; background:#0a3d62; color:white; }
-        .btn:hover { background:#062b47; }
-        .msg { padding:10px; border-radius:6px; margin-bottom:15px; display:none; font-weight:500; }
-        .msg-error { color:#b91c1c; background:#fee2e2; }
-    </style>
 </head>
-<body>
-<div class="login-container">
-    <h1>🏛️ ARB Monitoring</h1>
-    <p class="subtitle">Department of Agrarian Reform</p>
-    <div id="errorMsg" class="msg msg-error"></div>
-    <form id="loginForm" onsubmit="handleLogin(event)">
-        <div class="form-group">
-            <label for="loginEmail">Email Address</label>
-            <input type="email" id="loginEmail" required placeholder="arbglobalcleansing@gmail.com">
-        </div>
-        <div class="form-group">
-            <label for="loginPassword">Password</label>
-            <input type="password" id="loginPassword" required placeholder="••••••••">
-        </div>
-        <button type="submit" class="btn">🔐 Sign In</button>
-    </form>
-</div>
+<body style="display:flex; justify-content:center; align-items:center; min-height:100vh; font-family:Arial; background:#f0f4f8;">
+    <div style="background:white; padding:40px; border-radius:10px; width:350px; box-shadow:0 4px 20px rgba(0,0,0,0.1); border-top:5px solid #e8a317;">
+        <h1 style="text-align:center; color:#0a3d62;">ARB Monitoring</h1>
+        <p style="text-align:center; color:#64748b;">Department of Agrarian Reform</p>
+        <div id="error" style="color:#b91c1c; background:#fee2e2; padding:10px; border-radius:6px; margin-bottom:15px; display:none;"></div>
+        <form onsubmit="handleLogin(event)">
+            <div style="margin-bottom:15px;">
+                <label style="font-weight:600;">Email Address</label>
+                <input type="email" id="email" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;" placeholder="arbglobalcleansing@gmail.com">
+            </div>
+            <div style="margin-bottom:20px;">
+                <label style="font-weight:600;">Password</label>
+                <input type="password" id="password" required style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; margin-top:4px;" placeholder="••••••••">
+            </div>
+            <button type="submit" style="width:100%; padding:12px; background:#0a3d62; color:white; border:none; border-radius:6px; font-size:1rem; cursor:pointer;">Sign In</button>
+        </form>
+    </div>
 
-<script>
-    const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <script>
+        const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    const errorDiv = document.getElementById('errorMsg');
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error');
+            errorDiv.style.display = 'none';
 
-    function showError(msg) {
-        errorDiv.textContent = msg;
-        errorDiv.style.display = 'block';
-    }
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    window.handleLogin = async function(e) {
-        e.preventDefault();
-        errorDiv.style.display = 'none';
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginPassword').value;
-        if (!email || !password) { showError('❌ Please enter both email and password.'); return; }
+            if (error) {
+                errorDiv.textContent = '❌ ' + error.message;
+                errorDiv.style.display = 'block';
+                return;
+            }
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) { showError('❌ ' + error.message); return; }
-        if (data.user) window.location.href = 'arb.html';
-        else showError('❌ Login failed.');
-    };
+            if (data.user) {
+                window.location.href = 'arb.html';
+            }
+        }
 
-    // Auto‑redirect if already logged in
-    supabase.auth.getSession().then(({ data }) => {
-        if (data.session) window.location.href = 'arb.html';
-    });
-</script>
+        // Auto-redirect if already logged in
+        supabase.auth.getSession().then(({ data }) => {
+            if (data.session) window.location.href = 'arb.html';
+        });
+    </script>
 </body>
 </html>
