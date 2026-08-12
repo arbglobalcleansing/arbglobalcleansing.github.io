@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login – ARB Monitoring</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+</head>
+<body>
+<div class="container">
+    <div class="login-container">
+        <h1>🏛️ ARB Monitoring</h1>
+        <p class="subtitle">Department of Agrarian Reform</p>
+        <div id="errorMsg" class="error-msg"></div>
+        <form id="loginForm" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label for="loginEmail">Email Address</label>
+                <input type="email" id="loginEmail" required placeholder="user@example.com">
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-login">🔐 Sign In</button>
+        </form>
+        <div class="register-link">
+            Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+        </div>
+        <div id="registerForm" style="display:none; margin-top:25px; border-top:1px solid #e2e8f0; padding-top:20px;">
+            <form onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="regName">Full Name</label>
+                    <input type="text" id="regName" required placeholder="Juan Dela Cruz">
+                </div>
+                <div class="form-group">
+                    <label for="regEmail">Email Address</label>
+                    <input type="email" id="regEmail" required placeholder="user@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Password (min 6 characters)</label>
+                    <input type="password" id="regPassword" required minlength="6" placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-login" style="background:#2e7d32;">📝 Register</button>
+                <button type="button" class="btn-login" style="background:#64748b; margin-top:8px;" onclick="hideRegister()">Cancel</button>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    const errorDiv = document.getElementById('errorMsg');
+    function showError(msg) {
+        errorDiv.textContent = msg;
+        errorDiv.style.display = 'block';
+    }
+    function hideError() {
+        errorDiv.style.display = 'none';
+    }
+    window.showRegister = function() {
+        document.getElementById('registerForm').style.display = 'block';
+        hideError();
+    };
+    window.hideRegister = function() {
+        document.getElementById('registerForm').style.display = 'none';
+        hideError();
+    };
+    window.handleLogin = async function(e) {
+        e.preventDefault();
+        hideError();
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+            showError('❌ ' + error.message);
+            return;
+        }
+        window.location.href = 'arb.html';
+    };
+    window.handleRegister = async function(e) {
+        e.preventDefault();
+        hideError();
+        const name = document.getElementById('regName').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: name } }
+        });
+        if (error) {
+            showError('❌ ' + error.message);
+            return;
+        }
+        alert('✅ Registration successful! Please check your email to confirm (if required), then log in.');
+        hideRegister();
+        document.getElementById('loginEmail').value = email;
+        document.getElementById('loginPassword').value = '';
+    };
+    // Redirect if already logged in
+    supabase.auth.getUser().then(({ data }) => {
+        if (data.user) window.location.href = 'arb.html';
+    });
+</script>
+</body>
+</html>
