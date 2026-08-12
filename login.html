@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <!-- Load Supabase from CDN -->
+    <title>Login – ARB Monitoring</title>
+    <!-- Load Supabase library (creates global `supabase`) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -13,10 +13,8 @@
     <h1 style="text-align:center; color:#0a3d62;">ARB Monitoring</h1>
     <p style="text-align:center; color:#64748b;">Department of Agrarian Reform</p>
 
-    <!-- STATUS BOX - shows messages -->
     <div id="status" style="padding:12px; margin:15px 0; border-radius:6px; background:#f8f9fa; border:1px solid #dee2e6; min-height:40px; font-size:14px;"></div>
 
-    <!-- FORM -->
     <form id="loginForm">
         <div style="margin-bottom:15px;">
             <label style="font-weight:600;">Email</label>
@@ -29,27 +27,22 @@
         <button type="submit" id="loginBtn" style="width:100%; padding:12px; background:#0a3d62; color:white; border:none; border-radius:6px; font-size:16px; cursor:pointer;">Sign In</button>
     </form>
 
-    <!-- TEST BUTTONS -->
     <div style="margin-top:15px; display:flex; gap:10px;">
         <button onclick="alert('Button 1 works!')" style="flex:1; padding:10px; background:#64748b; color:white; border:none; border-radius:6px; cursor:pointer;">Test 1</button>
         <button onclick="document.getElementById('status').innerHTML='✅ Test 2 works!'" style="flex:1; padding:10px; background:#e8a317; color:white; border:none; border-radius:6px; cursor:pointer;">Test 2</button>
         <button onclick="testConnection()" style="flex:1; padding:10px; background:#2e7d32; color:white; border:none; border-radius:6px; cursor:pointer;">Test DB</button>
     </div>
 
-    <!-- LOG BOX -->
     <div id="logBox" style="margin-top:20px; padding:12px; background:#1e1e1e; color:#d4d4d4; border-radius:6px; font-family:monospace; font-size:12px; max-height:200px; overflow-y:auto; white-space:pre-wrap;"></div>
 </div>
 
 <script>
     // ============================================================
-    // 1. CHECK IF JAVASCRIPT IS WORKING
+    // 1. CHECK JS
     // ============================================================
-    console.log('✅ JavaScript is working!');
+    console.log('✅ JavaScript is running');
     document.getElementById('status').innerHTML = '✅ JavaScript loaded!';
 
-    // ============================================================
-    // 2. LOG HELPER
-    // ============================================================
     function log(msg) {
         const logBox = document.getElementById('logBox');
         const timestamp = new Date().toLocaleTimeString();
@@ -62,28 +55,30 @@
     log('🚀 Page loaded');
 
     // ============================================================
-    // 3. SUPABASE CONFIG (hardcoded, no external file needed)
+    // 2. SUPABASE CONFIG – FIXED
     // ============================================================
     try {
+        // ✅ CORRECT: use a different variable name
         const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        //                                    ^^^^^^^^^^^^^^ this is the global from CDN
+        window.supabaseClient = supabaseClient;
         log('✅ Supabase client created');
-        window.supabase = supabase;
     } catch (err) {
         log('❌ Supabase init failed: ' + err.message);
     }
 
     // ============================================================
-    // 4. TEST CONNECTION BUTTON
+    // 3. TEST CONNECTION
     // ============================================================
     window.testConnection = function() {
         log('🔍 Testing connection...');
-        if (!window.supabase) {
+        if (!window.supabaseClient) {
             log('❌ Supabase client not initialized');
             return;
         }
-        window.supabase.auth.getSession()
+        window.supabaseClient.auth.getSession()
             .then(({ data, error }) => {
                 if (error) {
                     log('❌ Connection failed: ' + error.message);
@@ -97,7 +92,7 @@
     };
 
     // ============================================================
-    // 5. LOGIN FORM
+    // 4. LOGIN FORM
     // ============================================================
     document.getElementById('loginForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -105,15 +100,14 @@
 
         const email = document.getElementById('email').value.trim();
         const password = document.getElementById('password').value;
-
         log('📧 Email: ' + email);
 
-        if (!window.supabase) {
+        if (!window.supabaseClient) {
             log('❌ Supabase not initialized');
             return;
         }
 
-        window.supabase.auth.signInWithPassword({ email, password })
+        window.supabaseClient.auth.signInWithPassword({ email, password })
             .then(({ data, error }) => {
                 if (error) {
                     log('❌ Login failed: ' + error.message);
@@ -135,10 +129,10 @@
     });
 
     // ============================================================
-    // 6. AUTO-REDIRECT CHECK
+    // 5. AUTO-REDIRECT CHECK
     // ============================================================
-    if (window.supabase) {
-        window.supabase.auth.getSession().then(({ data }) => {
+    if (window.supabaseClient) {
+        window.supabaseClient.auth.getSession().then(({ data }) => {
             if (data.session) {
                 log('👤 Session found, redirecting...');
                 setTimeout(() => {
@@ -153,7 +147,7 @@
     }
 
     // ============================================================
-    // 7. KEYBOARD SHORTCUT
+    // 6. KEYBOARD SHORTCUT
     // ============================================================
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -163,15 +157,6 @@
                 document.getElementById('loginForm').dispatchEvent(new Event('submit'));
             }
         }
-    });
-
-    // ============================================================
-    // 8. ADD CLICK LOGGING TO ALL BUTTONS
-    // ============================================================
-    document.querySelectorAll('button').forEach(btn => {
-        btn.addEventListener('click', function() {
-            log('🖱️ Clicked: ' + (this.textContent || 'button'));
-        });
     });
 
     log('✅ All event listeners attached');
