@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard – ARB Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
+        body { background:#f0f4f8; padding:20px; }
+        .container { max-width:1400px; margin:0 auto; }
+        h1 { color:#0a3d62; border-bottom:4px solid #e8a317; padding-bottom:12px; margin-bottom:25px; }
+        .nav {
+            display:flex; flex-wrap:wrap; gap:5px; background:white; padding:10px 15px;
+            border-radius:8px; box-shadow:0 2px 6px rgba(10,61,98,0.08); margin-bottom:25px;
+            border-left:5px solid #e8a317; align-items:center;
+        }
+        .nav a { padding:10px 20px; text-decoration:none; font-weight:600; color:#334155; border-radius:6px; transition:0.2s; }
+        .nav a:hover { background:#e2e8f0; }
+        .nav a.active { background:#0a3d62; color:white; }
+        .nav .user-badge { margin-left:auto; color:#0a3d62; font-weight:600; }
+        .nav .logout-link { color:#b91c1c; font-weight:600; margin-left:10px; cursor:pointer; }
+
+        .stats-grid {
+            display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:20px; margin-bottom:30px;
+        }
+        .stat-card {
+            background:white; padding:20px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06);
+            border-left:4px solid #0a3d62;
+        }
+        .stat-card .number { font-size:2rem; font-weight:700; color:#0a3d62; }
+        .stat-card .label { color:#64748b; font-size:0.9rem; }
+
+        .two-col {
+            display:grid; grid-template-columns:2fr 1fr; gap:25px; margin-bottom:30px;
+        }
+        .card {
+            background:white; padding:20px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.06);
+        }
+        .card h3 { color:#0a3d62; border-bottom:2px solid #e8a317; padding-bottom:8px; margin-bottom:15px; }
+
+        .recent-list { list-style:none; }
+        .recent-list li {
+            padding:12px 10px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between;
+            font-size:0.95rem;
+        }
+        .recent-list li:last-child { border-bottom:none; }
+        .recent-list .badge {
+            background:#0a3d62; color:white; padding:2px 10px; border-radius:20px; font-size:0.75rem;
+        }
+        .schedule-item {
+            padding:10px; background:#f8fafc; border-radius:6px; margin-bottom:10px;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .schedule-item .date { font-weight:600; color:#0a3d62; }
+        .schedule-item .desc { color:#334155; }
+
+        @media (max-width:700px) {
+            .two-col { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🏛️ ARB Monitoring – Dashboard</h1>
+    <nav class="nav">
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <span class="logout-link" onclick="logout()">Logout</span>
+    </nav>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+        <div class="stat-card"><div class="number" id="totalArbs">-</div><div class="label">Total ARBs</div></div>
+        <div class="stat-card"><div class="number" id="validatedArbs">-</div><div class="label">Validated</div></div>
+        <div class="stat-card"><div class="number" id="pendingArbs">-</div><div class="label">Pending</div></div>
+        <div class="stat-card"><div class="number" id="rejectedArbs">-</div><div class="label">Rejected</div></div>
+    </div>
+
+    <!-- Two columns: Recent updates + Schedule -->
+    <div class="two-col">
+        <div class="card">
+            <h3>📋 10 Most Recent ARB Updates</h3>
+            <ul class="recent-list" id="recentUpdates">
+                <li>Loading...</li>
+            </ul>
+        </div>
+        <div class="card">
+            <h3>📅 Upcoming Activities</h3>
+            <div id="scheduleList">
+                <div class="schedule-item"><span class="date">No upcoming activities</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validation status chart (text-based) -->
+    <div class="card" style="margin-top:10px;">
+        <h3>📊 Validation Status Breakdown</h3>
+        <div style="display:flex; gap:30px; flex-wrap:wrap; padding:10px 0;">
+            <div><span style="font-weight:600;">Validated:</span> <span id="validPercent">0%</span></div>
+            <div><span style="font-weight:600;">Pending:</span> <span id="pendingPercent">0%</span></div>
+            <div><span style="font-weight:600;">Rejected:</span> <span id="rejectedPercent">0%</span></div>
+        </div>
+        <div style="height:20px; background:#e2e8f0; border-radius:10px; overflow:hidden; display:flex;">
+            <div id="validBar" style="background:#2e7d32; height:100%; width:0%;"></div>
+            <div id="pendingBar" style="background:#e8a317; height:100%; width:0%;"></div>
+            <div id="rejectedBar" style="background:#b91c1c; height:100%; width:0%;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // SUPABASE CONFIG
+    // ============================================================
+    const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+    async function checkAuth() {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+            window.location.href = 'login.html';
+            return;
+        }
+        // Get profile
+        const { data: profile, error: pErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+        if (pErr || !profile) {
+            alert('Profile not found. Please contact admin.');
+            await supabase.auth.signOut();
+            window.location.href = 'login.html';
+            return;
+        }
+        document.getElementById('userDisplay').textContent = '👤 ' + profile.full_name + ' (' + profile.role + ')';
+        // If viewer, hide some nav items? Not necessary for dashboard.
+        return profile;
+    }
+
+    // ============================================================
+    // LOGOUT
+    // ============================================================
+    window.logout = async function() {
+        await supabase.auth.signOut();
+        window.location.href = 'login.html';
+    };
+
+    // ============================================================
+    // LOAD DASHBOARD DATA
+    // ============================================================
+    async function loadDashboard() {
+        try {
+            // 1. Total ARBs count
+            const { count: total, error: e1 } = await supabase.from('arb').select('*', { count: 'exact', head: true });
+            if (e1) throw e1;
+            document.getElementById('totalArbs').textContent = total || 0;
+
+            // 2. Counts by validation_status
+            const { data: statusCounts, error: e2 } = await supabase
+                .from('arb')
+                .select('validation_status', { count: 'exact' })
+                .not('validation_status', 'is', null);
+            if (e2) throw e2;
+
+            const counts = { Validated: 0, Pending: 0, Rejected: 0 };
+            statusCounts.forEach(row => {
+                if (row.validation_status === 'Validated') counts.Validated++;
+                else if (row.validation_status === 'Pending') counts.Pending++;
+                else if (row.validation_status === 'Rejected') counts.Rejected++;
+            });
+            document.getElementById('validatedArbs').textContent = counts.Validated;
+            document.getElementById('pendingArbs').textContent = counts.Pending;
+            document.getElementById('rejectedArbs').textContent = counts.Rejected;
+
+            const totalCount = total || 1;
+            const validPct = (counts.Validated / totalCount * 100).toFixed(1);
+            const pendingPct = (counts.Pending / totalCount * 100).toFixed(1);
+            const rejectedPct = (counts.Rejected / totalCount * 100).toFixed(1);
+            document.getElementById('validPercent').textContent = validPct + '%';
+            document.getElementById('pendingPercent').textContent = pendingPct + '%';
+            document.getElementById('rejectedPercent').textContent = rejectedPct + '%';
+            document.getElementById('validBar').style.width = validPct + '%';
+            document.getElementById('pendingBar').style.width = pendingPct + '%';
+            document.getElementById('rejectedBar').style.width = rejectedPct + '%';
+
+            // 3. Recent updates – get 10 most recently updated ARBs (by updated_at)
+            const { data: recent, error: e3 } = await supabase
+                .from('arb')
+                .select('id, first_name, last_name, validation_status, updated_at')
+                .order('updated_at', { ascending: false })
+                .limit(10);
+            if (e3) throw e3;
+
+            const list = document.getElementById('recentUpdates');
+            if (!recent || recent.length === 0) {
+                list.innerHTML = '<li>No ARB records found.</li>';
+            } else {
+                list.innerHTML = recent.map(r => {
+                    const name = r.last_name + ', ' + r.first_name;
+                    const statusBadge = `<span class="badge" style="background:${r.validation_status === 'Validated' ? '#2e7d32' : r.validation_status === 'Pending' ? '#e8a317' : '#b91c1c'}">${r.validation_status || 'Pending'}</span>`;
+                    const date = new Date(r.updated_at).toLocaleDateString();
+                    return `<li><span>${name}</span> <span>${statusBadge} <span style="color:#64748b;font-size:0.8rem;">${date}</span></span></li>`;
+                }).join('');
+            }
+
+            // 4. Schedule – dummy data for now (can be replaced with real events later)
+            const scheduleDiv = document.getElementById('scheduleList');
+            const today = new Date();
+            const upcoming = [
+                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+2), desc: 'Barangay validation meeting' },
+                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+5), desc: 'Submit quarterly report' },
+                { date: new Date(today.getFullYear(), today.getMonth(), today.getDate()+8), desc: 'ARB orientation' },
+            ];
+            scheduleDiv.innerHTML = upcoming.map(s => `
+                <div class="schedule-item">
+                    <span class="date">${s.date.toLocaleDateString()}</span>
+                    <span class="desc">${s.desc}</span>
+                </div>
+            `).join('');
+
+        } catch (err) {
+            console.error('Dashboard load error:', err);
+            document.getElementById('recentUpdates').innerHTML = '<li>Error loading data.</li>';
+        }
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    (async function() {
+        const profile = await checkAuth();
+        if (!profile) return;
+        await loadDashboard();
+    })();
+</script>
+</body>
+</html>
