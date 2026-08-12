@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARB Global Cleansing – Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="nav.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',Tahoma,sans-serif; }
         body { background:#f0f4f8; padding:20px; }
@@ -31,7 +30,6 @@
         .nav .user-badge { margin-left:auto; color:#0a3d62; font-weight:600; }
         .nav .logout-link { color:#b91c1c; font-weight:600; margin-left:10px; cursor:pointer; }
 
-        /* Stats cards */
         .stats-grid {
             display:grid;
             grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
@@ -48,26 +46,10 @@
             transition:0.2s;
             text-align:center;
         }
-        .stat-card:hover {
-            transform:translateY(-3px);
-            box-shadow:0 4px 12px rgba(0,0,0,0.12);
-        }
-        .stat-card .number {
-            font-size:2.2rem;
-            font-weight:700;
-            color:#0a3d62;
-        }
-        .stat-card .label {
-            color:#64748b;
-            font-size:0.9rem;
-            margin-top:4px;
-        }
-        .stat-card .sub-label {
-            font-size:0.75rem;
-            color:#94a3b8;
-        }
+        .stat-card:hover { transform:translateY(-3px); box-shadow:0 4px 12px rgba(0,0,0,0.12); }
+        .stat-card .number { font-size:2.2rem; font-weight:700; color:#0a3d62; }
+        .stat-card .label { color:#64748b; font-size:0.9rem; margin-top:4px; }
 
-        /* Modal */
         .modal {
             display:none;
             position:fixed;
@@ -88,39 +70,25 @@
             overflow-y:auto;
             box-shadow:0 10px 30px rgba(0,0,0,0.2);
         }
-        .modal-content h2 {
-            color:#0a3d62;
-            border-bottom:2px solid #e8a317;
-            padding-bottom:10px;
-            margin-bottom:15px;
-        }
-        .modal-close {
-            float:right;
-            background:transparent;
-            border:none;
-            font-size:1.5rem;
-            cursor:pointer;
-            color:#64748b;
-        }
+        .modal-content h2 { color:#0a3d62; border-bottom:2px solid #e8a317; padding-bottom:10px; margin-bottom:15px; }
+        .modal-close { float:right; background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:#64748b; }
         .modal-close:hover { color:#b91c1c; }
         .modal-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
         .modal-table th { background:#0a3d62; color:white; padding:10px; text-align:left; }
         .modal-table td { padding:8px 10px; border-bottom:1px solid #e2e8f0; }
         .modal-table tr:hover { background:#f8fafc; }
         .empty-msg { text-align:center; color:#64748b; padding:20px; }
-
-        .badge {
-            display:inline-block;
-            padding:2px 10px;
-            border-radius:20px;
-            font-size:0.75rem;
-            font-weight:600;
-        }
+        .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:600; }
         .badge-success { background:#d4edda; color:#155724; }
         .badge-warning { background:#fff3cd; color:#856404; }
         .badge-danger { background:#f8d7da; color:#721c24; }
         .badge-info { background:#d1ecf1; color:#0c5460; }
 
+        /* Debug banner */
+        .debug-banner {
+            background:#fff3cd; color:#856404; padding:8px 15px; border-radius:6px;
+            margin-bottom:15px; display:none;
+        }
         @media (max-width:600px) { .stats-grid { grid-template-columns:repeat(3,1fr); } }
     </style>
 </head>
@@ -128,124 +96,130 @@
 <div class="container">
     <h1>🏛️ ARB Global Cleansing <small>Activity Monitoring</small></h1>
 
-    <!-- Dynamic Navigation -->
+    <!-- Debug banner -->
+    <div id="debugBanner" class="debug-banner"></div>
+
+    <!-- Navigation -->
     <nav class="nav" id="mainNav"></nav>
 
     <!-- Stats Cards -->
-    <div class="stats-grid" id="statsGrid">
-        <!-- will be populated by JavaScript -->
-    </div>
+    <div class="stats-grid" id="statsGrid"></div>
 
     <!-- Modal -->
     <div id="modal" class="modal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeModal()">&times;</button>
             <h2 id="modalTitle">ARB List</h2>
-            <div id="modalBody">
-                <p class="empty-msg">Loading...</p>
-            </div>
+            <div id="modalBody"><p class="empty-msg">Loading...</p></div>
         </div>
     </div>
-
 </div>
 
 <script>
     // ============================================================
-    // SUPABASE CLIENT
+    // SUPABASE CONFIG
     // ============================================================
     const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
     const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     // ============================================================
-    // NAVIGATION (from nav.js)
+    // HARDCODED FALLBACK MENU (ALWAYS WORKS)
     // ============================================================
-    async function initNav() {
-        await renderNavigation('mainNav', '/dashboard.html');
-        const user = await getUserInfo();
-        const userBadge = document.querySelector('.nav .user-badge');
-        if (user && userBadge) {
-            userBadge.textContent = '👤 ' + user.full_name + ' (' + user.role + ')';
-        }
-    }
-    initNav();
+    const FALLBACK_NAV = [
+        { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
+        { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
+        { label: 'ARB Management', url: '/arb.html', icon: '👤' },
+        { label: 'Validators', url: '/validators.html', icon: '✅' },
+        { label: 'Reports', url: '/reports.html', icon: '📈' }
+    ];
 
+    // ============================================================
+    // RENDER NAVIGATION (with fallback)
+    // ============================================================
+    async function renderNavigation() {
+        const container = document.getElementById('mainNav');
+        const debugBanner = document.getElementById('debugBanner');
+        if (!container) return;
+
+        let navItems = FALLBACK_NAV; // start with fallback
+        let usingFallback = true;
+        let errorMsg = '';
+
+        try {
+            // Try to load from database
+            const { data, error } = await supabase
+                .from('system_navigation')
+                .select('*')
+                .order('sort_order', { ascending: true });
+
+            if (error) {
+                errorMsg = 'Database error: ' + error.message;
+                console.warn('Navigation DB error, using fallback:', error);
+            } else if (data && data.length > 0) {
+                navItems = data;
+                usingFallback = false;
+                console.log('✅ Navigation loaded from database:', navItems);
+            } else {
+                console.warn('Navigation table empty, using fallback');
+            }
+        } catch (err) {
+            errorMsg = 'Exception: ' + err.message;
+            console.warn('Navigation exception, using fallback:', err);
+        }
+
+        // Show debug banner if using fallback
+        if (usingFallback) {
+            debugBanner.style.display = 'block';
+            debugBanner.textContent = '⚠️ Using fallback menu (database not available). ' + errorMsg;
+        } else {
+            debugBanner.style.display = 'none';
+        }
+
+        // Get user info
+        let userHtml = '';
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name, role')
+                    .eq('id', user.id)
+                    .single();
+                if (profile) {
+                    userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
+                }
+            }
+        } catch (e) {}
+
+        // Build navigation HTML
+        const currentPath = window.location.pathname;
+        let html = '';
+        navItems.forEach(item => {
+            const isActive = currentPath === item.url || currentPath.includes(item.url.replace('/', '')) ||
+                           (item.url === '/dashboard.html' && currentPath === '/');
+            const activeClass = isActive ? 'active' : '';
+            html += `<a href="${item.url}" class="${activeClass}">${item.icon || ''} ${item.label}</a>`;
+        });
+
+        html += userHtml;
+        html += `<span class="logout-link" onclick="logout()">Logout</span>`;
+        container.innerHTML = html;
+
+        // Log what we rendered
+        console.log('✅ Navigation rendered with', navItems.length, 'items');
+    }
+
+    // ============================================================
+    // LOGOUT
+    // ============================================================
     window.logout = async function() {
         await supabase.auth.signOut();
         window.location.href = 'login.html';
     };
 
     // ============================================================
-    // LOAD DASHBOARD STATS
-    // ============================================================
-    async function loadStats() {
-        try {
-            // 1. Total ARBs
-            const { count: total, error: e1 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true });
-            if (e1) throw e1;
-
-            // 2. Validated (validation_status = 'Validated')
-            const { count: validated, error: e2 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true })
-                .eq('validation_status', 'Validated');
-            if (e2) throw e2;
-
-            // 3. AO 8 (ao8 = true)
-            const { count: ao8, error: e3 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true })
-                .eq('ao8', true);
-            if (e3) throw e3;
-
-            // 4. For TA (for_ta = true)
-            const { count: forTa, error: e4 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true })
-                .eq('for_ta', true);
-            if (e4) throw e4;
-
-            // 5. With TA (with_ta = true)
-            const { count: withTa, error: e5 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true })
-                .eq('with_ta', true);
-            if (e5) throw e5;
-
-            // 6. For Removal (for_removal = true)
-            const { count: forRemoval, error: e6 } = await supabase
-                .from('arb')
-                .select('*', { count: 'exact', head: true })
-                .eq('for_removal', true);
-            if (e6) throw e6;
-
-            // Build cards
-            const cards = [
-                { label: 'GLOBAL ARBs', count: total, filter: null, color: '#0a3d62' },
-                { label: 'VALIDATED', count: validated, filter: { field: 'validation_status', value: 'Validated' }, color: '#2e7d32' },
-                { label: 'AO 8', count: ao8, filter: { field: 'ao8', value: true }, color: '#e8a317' },
-                { label: 'For TA', count: forTa, filter: { field: 'for_ta', value: true }, color: '#f59e0b' },
-                { label: 'With TA', count: withTa, filter: { field: 'with_ta', value: true }, color: '#3b82f6' },
-                { label: 'For Removal', count: forRemoval, filter: { field: 'for_removal', value: true }, color: '#b91c1c' }
-            ];
-
-            const grid = document.getElementById('statsGrid');
-            grid.innerHTML = cards.map(c => `
-                <div class="stat-card" style="border-left-color:${c.color}" onclick="openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})">
-                    <div class="number">${c.count}</div>
-                    <div class="label">${c.label}</div>
-                </div>
-            `).join('');
-
-        } catch (err) {
-            console.error('Stats error:', err);
-        }
-    }
-
-    // ============================================================
-    // MODAL – Show ARB list for a category
+    // MODAL (same as before)
     // ============================================================
     window.openModal = async function(title, filter) {
         const modal = document.getElementById('modal');
@@ -271,18 +245,9 @@
 
             let tableHtml = `
                 <table class="modal-table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Name</th>
-                            <th>Validation</th>
-                            <th>AO8</th>
-                            <th>For TA</th>
-                            <th>With TA</th>
-                            <th>For Removal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                    <thead><tr>
+                        <th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th>
+                    </tr></thead><tbody>
             `;
             data.forEach(r => {
                 const name = r.last_name + ', ' + r.first_name;
@@ -311,16 +276,77 @@
         document.getElementById('modal').classList.remove('active');
     };
 
-    // Close modal on background click
     document.getElementById('modal').addEventListener('click', function(e) {
         if (e.target === this) closeModal();
     });
 
     // ============================================================
+    // LOAD STATS (unchanged)
+    // ============================================================
+    async function loadStats() {
+        try {
+            const { count: total, error: e1 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true });
+            if (e1) throw e1;
+
+            const { count: validated, error: e2 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true })
+                .eq('validation_status', 'Validated');
+            if (e2) throw e2;
+
+            const { count: ao8, error: e3 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true })
+                .eq('ao8', true);
+            if (e3) throw e3;
+
+            const { count: forTa, error: e4 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true })
+                .eq('for_ta', true);
+            if (e4) throw e4;
+
+            const { count: withTa, error: e5 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true })
+                .eq('with_ta', true);
+            if (e5) throw e5;
+
+            const { count: forRemoval, error: e6 } = await supabase
+                .from('arb')
+                .select('*', { count: 'exact', head: true })
+                .eq('for_removal', true);
+            if (e6) throw e6;
+
+            const cards = [
+                { label: 'GLOBAL ARBs', count: total, filter: null, color: '#0a3d62' },
+                { label: 'VALIDATED', count: validated, filter: { field: 'validation_status', value: 'Validated' }, color: '#2e7d32' },
+                { label: 'AO 8', count: ao8, filter: { field: 'ao8', value: true }, color: '#e8a317' },
+                { label: 'For TA', count: forTa, filter: { field: 'for_ta', value: true }, color: '#f59e0b' },
+                { label: 'With TA', count: withTa, filter: { field: 'with_ta', value: true }, color: '#3b82f6' },
+                { label: 'For Removal', count: forRemoval, filter: { field: 'for_removal', value: true }, color: '#b91c1c' }
+            ];
+
+            const grid = document.getElementById('statsGrid');
+            grid.innerHTML = cards.map(c => `
+                <div class="stat-card" style="border-left-color:${c.color}" onclick="openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})">
+                    <div class="number">${c.count}</div>
+                    <div class="label">${c.label}</div>
+                </div>
+            `).join('');
+
+        } catch (err) {
+            console.error('Stats error:', err);
+        }
+    }
+
+    // ============================================================
     // INIT
     // ============================================================
+    renderNavigation();
     loadStats();
 </script>
-
 </body>
 </html>
