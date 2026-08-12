@@ -48,59 +48,144 @@
         </div>
     </div>
 </div>
+
 <script>
     const errorDiv = document.getElementById('errorMsg');
+
     function showError(msg) {
         errorDiv.textContent = msg;
         errorDiv.style.display = 'block';
     }
+
     function hideError() {
         errorDiv.style.display = 'none';
     }
+
     window.showRegister = function() {
         document.getElementById('registerForm').style.display = 'block';
         hideError();
     };
+
     window.hideRegister = function() {
         document.getElementById('registerForm').style.display = 'none';
         hideError();
     };
+
+    // ---------- LOGIN ----------
     window.handleLogin = async function(e) {
         e.preventDefault();
         hideError();
+
         const email = document.getElementById('loginEmail').value.trim();
         const password = document.getElementById('loginPassword').value;
+
+        if (!email || !password) {
+            showError('❌ Please enter both email and password.');
+            return;
+        }
+
+        console.log('Attempting login for:', email);
+
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
         if (error) {
+            console.error('Login error:', error);
             showError('❌ ' + error.message);
             return;
         }
-        window.location.href = 'arb.html';
+
+        if (data.user) {
+            console.log('Login successful:', data.user.email);
+            window.location.href = 'arb.html';
+        }
     };
+
+    // ---------- REGISTRATION ----------
     window.handleRegister = async function(e) {
         e.preventDefault();
         hideError();
+
         const name = document.getElementById('regName').value.trim();
         const email = document.getElementById('regEmail').value.trim();
         const password = document.getElementById('regPassword').value;
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { full_name: name } }
-        });
-        if (error) {
-            showError('❌ ' + error.message);
+
+        if (!name || !email || !password) {
+            showError('❌ Please fill in all fields.');
             return;
         }
-        alert('✅ Registration successful! Please check your email to confirm (if required), then log in.');
-        hideRegister();
-        document.getElementById('loginEmail').value = email;
-        document.getElementById('loginPassword').value = '';
+
+        console.log('Registering:', { email, name });
+
+        try {
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { full_name: name }
+                }
+            });
+
+            console.log('SignUp response:', { data, error });
+
+            if (error) {
+                console.error('Registration error:', error);
+                // Show user‑friendly message
+                if (error.message.includes('already registered')) {
+                    showError('❌ This email is already registered. Please log in.');
+                } else if (error.message.includes('Password should be at least 6 characters')) {
+                    showError('❌ Password must be at least 6 characters.');
+                } else {
+                    showError('❌ ' + error.message);
+                }
+                return;
+            }
+
+            // Success: user object may exist, or confirmation may be required
+            if (data.user) {
+                // Check if email confirmation is required
+                if (data.user.confirmed_at) {
+                    // Already confirmed – go straight to login
+                    alert('✅ Registration successful! You can now log in.');
+                    hideRegister();
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = '';
+                    // Optionally auto‑fill and focus
+                    document.getElementById('loginEmail').focus();
+                } else {
+                    // Email confirmation required
+                    alert('✅ Registration successful! Please check your email to confirm your account, then log in.');
+                    hideRegister();
+                    document.getElementById('loginEmail').value = email;
+                    document.getElementById('loginPassword').value = '';
+                }
+            } else {
+                // Sometimes data.user is null (e.g., if email is taken, but error would have been caught)
+                showError('❌ Registration failed. Please try again.');
+            }
+        } catch (err) {
+            console.error('Unexpected error:', err);
+            showError('❌ An unexpected error occurred. Please try again.');
+        }
     };
-    // Redirect if already logged in
-    supabase.auth.getUser().then(({ data }) => {
-        if (data.user) window.location.href = 'arb.html';
-    });
+
+    // ---------- AUTO-REDIRECT IF ALREADY LOGGED IN ----------
+    supabase.auth.getUser()
+        .then(({ data, error }) => {
+            if (data.user) {
+                window.location.href = 'arb.html';
+            }
+        })
+        .catch(err => console.warn('Auto-login check failed:', err));
+
+    // Also check session (for more reliable detection)
+    supabase.auth.getSession()
+        .then(({ data, error }) => {
+            if (data.session) {
+                window.location.href = 'arb.html';
+            }
+        })
+        .catch(err => console.warn('Session check failed:', err));
 </script>
+
 </body>
 </html>
