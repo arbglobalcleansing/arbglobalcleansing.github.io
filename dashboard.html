@@ -378,10 +378,20 @@
         // ================================================================
         const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let supabase = null;
 
-        dbg('🚀 Dashboard initializing...', 'info');
-        dbg(`📡 Supabase URL: ${SUPABASE_URL}`, 'info');
+        try {
+            if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                dbg('✅ Supabase client created', 'ok');
+            } else {
+                dbg('⚠️ Supabase global not found — using fallback mode', 'warn');
+                supabase = null;
+            }
+        } catch (e) {
+            dbg(`❌ Supabase init error: ${e.message}`, 'err');
+            supabase = null;
+        }
 
         // ================================================================
         //  FALLBACK NAV (hardcoded, always works)
@@ -406,62 +416,77 @@
 
             let navItems = FALLBACK_NAV;
             let usingFallback = true;
-            let errorMsg = '';
-            let dbgDetail = '';
+            let dbgDetail = 'Using hardcoded fallback';
 
-            try {
-                dbg('📋 Fetching system_navigation...', 'info');
-                const { data, error } = await supabase
-                    .from('system_navigation')
-                    .select('*')
-                    .order('sort_order', { ascending: true });
+            // If Supabase is available, try to load from DB
+            if (supabase) {
+                try {
+                    dbg('📋 Fetching system_navigation...', 'info');
+                    const { data, error } = await supabase
+                        .from('system_navigation')
+                        .select('*')
+                        .order('sort_order', { ascending: true });
 
-                if (error) {
-                    errorMsg = error.message;
-                    dbgDetail = `DB error: ${error.code} – ${error.message}`;
-                    dbg(`⚠️ Navigation DB error: ${error.message}`, 'warn');
-                } else if (data && data.length > 0) {
-                    navItems = data;
-                    usingFallback = false;
-                    dbg(`✅ Loaded ${data.length} nav items from DB`, 'ok');
-                    dbgDetail = `✅ ${data.length} items from DB`;
-                } else {
-                    dbg('⚠️ system_navigation table empty → using fallback', 'warn');
-                    dbgDetail = '⚠️ Table empty → fallback';
+                    if (error) {
+                        dbg(`⚠️ Nav DB error: ${error.message}`, 'warn');
+                        dbgDetail = `DB error: ${error.message}`;
+                    } else if (data && data.length > 0) {
+                        navItems = data;
+                        usingFallback = false;
+                        dbg(`✅ Loaded ${data.length} nav items from DB`, 'ok');
+                        dbgDetail = `✅ ${data.length} items from DB`;
+                    } else {
+                        dbg('⚠️ system_navigation table empty → using fallback', 'warn');
+                        dbgDetail = 'Table empty → fallback';
+                    }
+                } catch (err) {
+                    dbg(`⚠️ Nav exception: ${err.message}`, 'err');
+                    dbgDetail = `Exception: ${err.message}`;
                 }
-            } catch (err) {
-                errorMsg = err.message;
-                dbgDetail = `Exception: ${err.message}`;
-                dbg(`⚠️ Navigation exception: ${err.message}`, 'err');
+            } else {
+                dbg('ℹ️ Supabase unavailable — using fallback nav', 'info');
             }
 
             // ---- Auth check ----
             let userHtml = '';
             let authStatus = 'Not logged in';
-            try {
-                const { data: { user }, error: authErr } = await supabase.auth.getUser();
-                if (authErr) {
-                    dbg(`⚠️ Auth getUser error: ${authErr.message}`, 'warn');
-                } else if (user) {
-                    authStatus = `Logged in: ${user.email}`;
-                    dbg(`👤 User: ${user.email}`, 'ok');
-                    const { data: profile, error: profErr } = await supabase
-                        .from('profiles')
-                        .select('full_name, role')
-                        .eq('id', user.id)
-                        .single();
-                    if (profErr) {
-                        dbg(`⚠️ Profile fetch error: ${profErr.message}`, 'warn');
-                        userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
-                    } else if (profile) {
-                        userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
-                        dbg(`✅ Profile: ${profile.full_name} (${profile.role})`, 'ok');
+            if (supabase) {
+                try {
+                    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+                    if (authErr) {
+                        dbg(`⚠️ Auth getUser error: ${authErr.message}`, 'warn');
+                        authStatus = `Auth error: ${authErr.message}`;
+                    } else if (user) {
+                        authStatus = `Logged in: ${user.email}`;
+                        dbg(`👤 User: ${user.email}`, 'ok');
+                        try {
+                            const { data: profile, error: profErr } = await supabase
+                                .from('profiles')
+                                .select('full_name, role')
+                                .eq('id', user.id)
+                                .single();
+                            if (profErr) {
+                                dbg(`⚠️ Profile fetch error: ${profErr.message}`, 'warn');
+                                userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
+                            } else if (profile) {
+                                userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
+                                dbg(`✅ Profile: ${profile.full_name} (${profile.role})`, 'ok');
+                            }
+                        } catch (e) {
+                            dbg(`⚠️ Profile exception: ${e.message}`, 'err');
+                            userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
+                        }
+                    } else {
+                        dbg('🔓 No user session', 'warn');
+                        authStatus = 'Not logged in';
                     }
-                } else {
-                    dbg('🔓 No user session', 'warn');
+                } catch (e) {
+                    dbg(`⚠️ Auth exception: ${e.message}`, 'err');
+                    authStatus = `Auth exception: ${e.message}`;
                 }
-            } catch (e) {
-                dbg(`⚠️ Auth exception: ${e.message}`, 'err');
+            } else {
+                dbg('ℹ️ Supabase unavailable — skipping auth', 'info');
+                authStatus = 'Supabase unavailable';
             }
 
             // ---- Build HTML ----
@@ -483,7 +508,8 @@
             // ---- Debug summary ----
             const navSource = usingFallback ? '⚠️ FALLBACK (hardcoded)' : '✅ DATABASE';
             dbg(`📋 Navigation: ${navSource} — ${navItems.length} items`, usingFallback ? 'warn' : 'ok');
-            dbg(`👤 Auth: ${authStatus}`, authStatus.includes('Logged in') ? 'ok' : 'warn');
+            dbg(`👤 Auth: ${authStatus}`, authStatus.includes('Logged in') || authStatus.includes('unavailable') ? 'ok' :
+                'warn');
 
             // Also show a toast for visual feedback
             if (usingFallback) {
@@ -497,7 +523,7 @@
             if (summaryLine) {
                 const status = usingFallback ? '⚠️ FALLBACK MODE' : '✅ DB MODE';
                 summaryLine.innerHTML =
-                `<span class="dbg-label">🔍 DEBUG LOG</span> <span style="float:right;font-weight:600;color:${usingFallback ? '#facc15' : '#4ade80'}">${status}</span>`;
+                    `<span class="dbg-label">🔍 DEBUG LOG</span> <span style="float:right;font-weight:600;color:${usingFallback ? '#facc15' : '#4ade80'}">${status}</span>`;
             }
         }
 
@@ -506,7 +532,9 @@
         // ================================================================
         window.logout = async function() {
             dbg('🚪 Logging out...', 'info');
-            await supabase.auth.signOut();
+            if (supabase) {
+                await supabase.auth.signOut();
+            }
             showToast('Logged out', 'info');
             window.location.href = 'login.html';
         };
@@ -523,6 +551,12 @@
             modalBody.innerHTML = '<p class="empty-msg">⏳ Loading…</p>';
             modal.classList.add('active');
             dbg(`🔍 Opening modal: ${title}`, 'info');
+
+            // If Supabase is not available, show error
+            if (!supabase) {
+                modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available. Please check your connection.</p>';
+                return;
+            }
 
             try {
                 let query = supabase.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
@@ -604,8 +638,23 @@
                     `).join('');
             }
 
+            // If Supabase is not available, show fallback
+            if (!supabase) {
+                dbg('⚠️ Supabase unavailable — showing fallback stats', 'warn');
+                const fallbackCards = [
+                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'offline' },
+                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'offline' },
+                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'offline' },
+                    { label: 'For TA', count: '⚠️', color: '#94a3b8', note: 'offline' },
+                    { label: 'With TA', count: '⚠️', color: '#94a3b8', note: 'offline' },
+                    { label: 'For Removal', count: '⚠️', color: '#94a3b8', note: 'offline' }
+                ];
+                renderStats(fallbackCards);
+                showToast('⚠️ Supabase unavailable — stats offline', 'warn');
+                return;
+            }
+
             try {
-                // ---- Count queries ----
                 const counts = {};
 
                 // total
@@ -682,16 +731,13 @@
 
                 // ---- Build cards ----
                 const cards = [
-                    { label: 'GLOBAL ARBs', count: counts.total, color: '#0a3d62',
-                    filter: null },
+                    { label: 'GLOBAL ARBs', count: counts.total, color: '#0a3d62', filter: null },
                     { label: 'VALIDATED', count: counts.validated, color: '#2e7d32',
                         filter: { field: 'validation_status', value: 'Validated' } },
-                    { label: 'AO 8', count: counts.ao8, color: '#e8a317',
-                    filter: { field: 'ao8', value: true } },
-                    { label: 'For TA', count: counts.forTa, color: '#f59e0b',
-                    filter: { field: 'for_ta', value: true } },
-                    { label: 'With TA', count: counts.withTa, color: '#3b82f6',
-                        filter: { field: 'with_ta', value: true } },
+                    { label: 'AO 8', count: counts.ao8, color: '#e8a317', filter: { field: 'ao8', value: true } },
+                    { label: 'For TA', count: counts.forTa, color: '#f59e0b', filter: { field: 'for_ta', value: true } },
+                    { label: 'With TA', count: counts.withTa, color: '#3b82f6', filter: { field: 'with_ta',
+                            value: true } },
                     { label: 'For Removal', count: counts.forRemoval, color: '#b91c1c',
                         filter: { field: 'for_removal', value: true } }
                 ];
@@ -712,7 +758,6 @@
 
             } catch (err) {
                 dbg(`❌ loadStats exception: ${err.message}`, 'err');
-                // Show fallback stats
                 const fallbackCards = [
                     { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'error' },
                     { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'error' },
@@ -731,6 +776,8 @@
         // ================================================================
         async function init() {
             dbg('🔄 Initializing...', 'info');
+            dbg(`📡 Supabase URL: ${SUPABASE_URL}`, 'info');
+            dbg(`🔑 Supabase key: ${SUPABASE_KEY.substring(0, 10)}...`, 'info');
 
             // Render nav first (always works with fallback)
             await renderNavigation();
