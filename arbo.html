@@ -57,7 +57,7 @@
 </div>
 
 <script>
-    // Isolate scope to prevent variable collisions with common.js and config.js
+    // Isolate scope to prevent variable collisions
     (async function() {
         
         // 1. Failsafe Error Catcher
@@ -69,25 +69,52 @@
         };
 
         try {
-            // 2. Validate dependencies from common.js
-            if (typeof checkAuth !== 'function') {
-                throw new Error("common.js dependencies failed to load. Ensure the file is linked correctly.");
+            // ====================================================================
+            // LOUD AUTHENTICATION CHECK (Bypassing common.js to find the bug)
+            // ====================================================================
+            console.log("Checking authentication status...");
+            
+            // Step A: Check if logged in
+            const { data: authData, error: authErr } = await supabase.auth.getUser();
+            if (authErr || !authData || !authData.user) {
+                alert("Auth Error: You are not fully logged in. Redirecting to dashboard.");
+                window.location.href = 'dashboard.html';
+                return;
             }
 
-            // 3. Authenticate User
-            const isAuthorized = await checkAuth(['admin', 'staff']);
-            if (!isAuthorized) return; // checkAuth handles the redirect
+            // Step B: Check if profile exists and can be read
+            const { data: profile, error: profErr } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', authData.user.id)
+                .single();
 
-            // Set user profile badge safely
-            if (window.currentProfile) {
-                document.getElementById('userDisplay').textContent = `👤 ${window.currentProfile.full_name} (${window.currentProfile.role})`;
-            } else {
-                document.getElementById('userDisplay').textContent = `👤 Authenticated User`;
+            if (profErr) {
+                alert("Database Error: Cannot read your profile.\nSupabase says: " + profErr.message);
+                window.location.href = 'dashboard.html';
+                return;
             }
+
+            if (!profile) {
+                alert("Profile Missing: Your account exists, but your 'profiles' row is missing in the database.");
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            // Step C: Check if role is correct
+            if (profile.role !== 'admin' && profile.role !== 'staff') {
+                alert("Access Denied: Your role is currently set to '" + profile.role + "'. You must be an 'admin' or 'staff' to view this page.");
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            // If we make it here, you are officially authorized!
+            window.currentProfile = profile;
+            document.getElementById('userDisplay').textContent = `👤 ${profile.full_name || authData.user.email} (${profile.role})`;
+            
+            // ====================================================================
 
             // 4. Attach application functions to the 'window' object 
-            // This ensures your inline HTML events (like onclick="loadArbos()") can find them
-            
             window.loadArbos = async function() {
                 try {
                     const search = document.getElementById('searchArbo').value.trim();
@@ -108,7 +135,7 @@
                     // Render table safely
                     tbody.innerHTML = data.map(a => `
                         <tr>
-                            <td>${a.id}</td>
+                            <td>${(a.id || '-').toString().substring(0,8)}</td>
                             <td>${typeof escapeHtml === 'function' ? escapeHtml(a.name) : a.name}</td>
                             <td>${typeof escapeHtml === 'function' ? escapeHtml(a.barangay) : a.barangay}</td>
                             <td>${typeof escapeHtml === 'function' ? escapeHtml(a.municipality) : a.municipality}</td>
@@ -151,7 +178,7 @@
             };
 
             window.saveArbo = async function(e) {
-                e.preventDefault(); // Stop page reload
+                e.preventDefault(); 
                 try {
                     const id = document.getElementById('arboId').value;
                     const payload = {
@@ -162,7 +189,6 @@
                     };
                     
                     let result;
-                    // If ID exists, Update. Otherwise, Insert.
                     if (id) {
                         result = await supabase.from('arbo').update(payload).eq('id', id);
                     } else {
@@ -172,7 +198,7 @@
                     if (result.error) throw new Error(result.error.message);
                     
                     if (typeof closeModal === 'function') closeModal('arboModal');
-                    window.loadArbos(); // Refresh the table
+                    window.loadArbos(); 
                 } catch (err) {
                     alert(`Error saving ARBO: ${err.message}`);
                 }
@@ -185,7 +211,7 @@
                     const { error } = await supabase.from('arbo').delete().eq('id', id);
                     if (error) throw new Error(error.message);
                     
-                    window.loadArbos(); // Refresh the table
+                    window.loadArbos(); 
                 } catch (err) {
                     alert(`Error deleting ARBO: ${err.message}`);
                 }
