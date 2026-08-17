@@ -100,7 +100,7 @@
 
     <script>
         // ================================================================
-        //  DEBUG HELPER
+        //  DEBUG HELPER & GLOBAL ERROR CATCHERS
         // ================================================================
         const debugLog = document.getElementById('debugLog');
         function dbg(msg, type = 'info') {
@@ -117,6 +117,15 @@
             }
             console.log('[DBG]', msg);
         }
+
+        // Catch silent script crashes and print them to the panel
+        window.onerror = function(message, source, lineno, colno, error) {
+            dbg(`CRASH: ${message}`, 'err');
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            dbg(`PROMISE REJECTED: ${event.reason}`, 'err');
+        };
 
         // ================================================================
         //  TOAST
@@ -143,12 +152,12 @@
         try {
             if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
                 supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                dbg('✅ Supabase client created', 'ok');
+                dbg('✅ Supabase client generated', 'ok');
             } else {
-                dbg('⚠️ Supabase global not found — using fallback mode', 'warn');
+                dbg('⚠️ Supabase CDN script failed to load — operating in fallback mode', 'warn');
             }
         } catch (e) {
-            dbg(`❌ Supabase init error: ${e.message}`, 'err');
+            dbg(`❌ Supabase generation error: ${e.message}`, 'err');
         }
 
         const FALLBACK_NAV = [
@@ -172,20 +181,18 @@
                     if (!error && data && data.length > 0) {
                         navItems = data;
                         dbg(`✅ Loaded ${data.length} nav items from DB`, 'ok');
-                    } else {
-                        dbg('⚠️ Nav DB error or empty, using fallback', 'warn');
                     }
                 } catch (err) {
-                    dbg(`⚠️ Nav exception: ${err.message}`, 'err');
+                    dbg(`⚠️ Nav error (using fallback): ${err.message}`, 'warn');
                 }
             }
 
             // Auth badge handling
-            let userHtml = `<span class="user-badge">⚠️ Not Logged In</span>`;
+            let userHtml = `<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>`;
             if (user) {
                 try {
                     const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single();
-                    if (profile) {
+                    if (profile && profile.full_name) {
                         userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
                     } else {
                         userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
@@ -197,8 +204,9 @@
 
             const currentPath = window.location.pathname;
             let html = navItems.map(item => {
-                const isActive = currentPath.includes(item.url.replace('/', '')) || (item.url === '/dashboard.html' && currentPath === '/');
-                return `<a href="${item.url}" class="${isActive ? 'active' : ''}">${item.icon || ''} ${item.label}</a>`;
+                const urlStr = item.url || '';
+                const isActive = currentPath.includes(urlStr.replace('/', '')) || (urlStr === '/dashboard.html' && currentPath === '/');
+                return `<a href="${urlStr}" class="${isActive ? 'active' : ''}">${item.icon || ''} ${item.label || 'Link'}</a>`;
             }).join('');
 
             html += userHtml;
@@ -214,7 +222,7 @@
         window.logout = async function() {
             if (supabase) await supabase.auth.signOut();
             showToast('Logged out', 'info');
-            window.location.href = 'login.html'; // Adjust to your actual login page
+            window.location.href = 'login.html'; 
         };
 
         // ================================================================
@@ -236,14 +244,14 @@
                 if (filter) query = query.eq(filter.field, filter.value);
                 
                 const { data, error } = await query.order('last_name', { ascending: true });
-                if (error) throw error;
+                if (error) throw new Error(error.message);
                 if (!data || data.length === 0) return modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found.</p>';
 
                 let tableHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
                 data.forEach(r => {
                     const statusColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
                     tableHtml += `<tr>
-                        <td>${r.id.substring(0,8) || '-'}</td>
+                        <td>${(r.id || '-').toString().substring(0,8)}</td>
                         <td>${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
                         <td><span class="badge ${statusColor}">${r.validation_status || 'Pending'}</span></td>
                         <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
@@ -268,7 +276,7 @@
             function renderStats(cards) {
                 grid.innerHTML = cards.map(c => `
                     <div class="stat-card" style="border-left-color:${c.color || '#94a3b8'}" 
-                         onclick="${c.filter && c.count !== '🔒' ? `openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})` : ''}">
+                         onclick="${c.filter && c.count !== '🔒' && c.count !== '⚠️' ? `openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})` : ''}">
                         <div class="number">${c.count ?? '?'}</div>
                         <div class="label">${c.label}</div>
                         ${c.note ? `<div class="status-badge">${c.note}</div>` : ''}
@@ -287,8 +295,7 @@
 
                 const results = await Promise.all(queries);
                 
-                // If the first query has an error, RLS likely rejected it
-                if (results[0].error) throw results[0].error;
+                if (results[0].error) throw new Error(results[0].error.message || "Failed to query the arb table.");
 
                 const counts = results.map(r => r.count ?? 0);
                 
@@ -300,55 +307,75 @@
                     { label: 'With TA', count: counts[4], color: '#3b82f6', filter: { field: 'with_ta', value: true } },
                     { label: 'For Removal', count: counts[5], color: '#b91c1c', filter: { field: 'for_removal', value: true } }
                 ]);
-                dbg(`✅ Stats loaded successfully`, 'ok');
+                dbg(`✅ Database stats loaded successfully`, 'ok');
 
             } catch (err) {
                 dbg(`❌ loadStats exception: ${err.message}`, 'err');
                 renderStats([
-                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'Error loading' },
-                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'Error loading' },
-                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'Error loading' }
+                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
+                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
+                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'Data blocked' }
                 ]);
             }
         }
 
         // ================================================================
-        //  INIT PIPELINE
+        //  INIT PIPELINE (100% Robust Execution)
         // ================================================================
         async function init() {
-            dbg('🔄 Initializing...', 'info');
+            try {
+                dbg('🔄 Initializing interface and verifying Auth state...', 'info');
 
-            if (!supabase) {
-                dbg('⚠️ Supabase missing, rendering fallback', 'warn');
-                await renderNavigation(null);
-                return;
-            }
+                if (!supabase) {
+                    dbg('⚠️ Supabase missing entirely, rendering disconnected fallback UI', 'warn');
+                    await renderNavigation(null);
+                    return;
+                }
 
-            // 1. Force Authentication Check due to strict RLS policies
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            if (!user) {
-                dbg('🛑 User not authenticated. RLS will block data retrieval.', 'err');
-                showToast('Please log in to view data', 'warn');
+                // Safely check auth (This is what caused the silent crash in the previous version)
+                const { data, error } = await supabase.auth.getUser();
+                const user = data ? data.user : null;
                 
-                // Render locked UI
-                await renderNavigation(null);
+                if (error) {
+                    dbg(`ℹ️ Note: Unauthenticated visitor (${error.message})`, 'info');
+                }
+
+                // If no active session is found, RLS prevents reading data. Show Login wall.
+                if (!user) {
+                    dbg('🛑 User not authenticated. Generating locked view.', 'err');
+                    showToast('Authentication Required', 'warn');
+                    
+                    await renderNavigation(null);
+                    
+                    document.getElementById('statsGrid').innerHTML = `
+                        <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                            <div class="number">🔒</div>
+                            <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Login Required</div>
+                            <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your Row Level Security (RLS) policies require an active session to view this dashboard data.</p>
+                            <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Here</button>
+                        </div>`;
+                    return; 
+                }
+
+                // Authorized state -> Load system
+                dbg(`👤 Found active session for ${user.email}`, 'ok');
+                await renderNavigation(user);
+                await loadStats();
+                showToast('✅ Dashboard connection synced', 'ok');
+
+            } catch (criticalErr) {
+                // Failsafe catch block ensures the UI never visually "freezes" again without context
+                dbg(`CRITICAL SYSTEM ERROR: ${criticalErr.message}`, 'err');
                 document.getElementById('statsGrid').innerHTML = `
                     <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                        <div class="number">🔒</div>
-                        <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Authentication Required</div>
-                        <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your database security (RLS) requires an active session to view this data.</p>
-                        <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Now</button>
+                        <div class="number">❌</div>
+                        <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>
+                        <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">${criticalErr.message}</p>
                     </div>`;
-                return; 
             }
-
-            // 2. Load safe authenticated data
-            await renderNavigation(user);
-            await loadStats();
-            showToast('✅ Dashboard synced', 'ok');
         }
 
+        // Initialize when the script is loaded
         init();
     </script>
 </body>
