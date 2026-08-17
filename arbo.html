@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBO Management</title>
-    <!-- Unified Stylesheet -->
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase CDN & Global Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
@@ -34,6 +32,10 @@
         .profile-list li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         .profile-list li:last-child { border-bottom: none; }
         
+        /* Ensure dynamic date inputs match the theme */
+        .qa-input-field { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; background: white; font-family: inherit; }
+        .qa-input-field:focus { border-color: #0a3d62; box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.1); }
+
         @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -117,16 +119,16 @@
                 <h3><span>🚜 Machinery Inventory</span> <button class="add-mini-btn" onclick="openQuickAdd('machinery')">+ Add</button></h3>
                 <ul class="profile-list" id="profMachinery"><li>⏳ Loading...</li></ul>
             </div>
-            <!-- Updated Members Section to support assigning multiple ARBs -->
+            <!-- Members Section -->
             <div class="profile-section" style="grid-column: 1 / -1;">
                 <h3><span>👥 Registered ARBs (Members)</span> <button class="add-mini-btn" onclick="openQuickAdd('member')">+ Add Member</button></h3>
-                <ul class="profile-list" id="profMembers" style="max-height: 120px;"><li>⏳ Loading...</li></ul>
+                <ul class="profile-list" id="profMembers" style="max-height: 140px;"><li>⏳ Loading...</li></ul>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Scalable Quick Add Modal (Async Search) -->
+<!-- Scalable Quick Add Modal -->
 <div id="quickAddModal" class="modal" style="z-index: 2000;">
     <div class="modal-content" style="max-width: 550px;">
         <button class="modal-close" onclick="closeModal('quickAddModal')">&times;</button>
@@ -154,6 +156,18 @@
         function safeHtml(str) {
             if (!str) return '';
             return String(str).replace(/[&<>'"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match]));
+        }
+
+        // Standardize Date Formatting
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const d = new Date(dateString);
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
+        function getTodayString() {
+            const d = new Date();
+            return d.toISOString().split('T')[0];
         }
 
         function createDonutHTML(value, total, color, label, subtext) {
@@ -270,7 +284,7 @@
                 } catch (err) { document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Error loading data: ${err.message}</td></tr>`; }
             };
 
-            // PROFILE MODAL LOGIC
+            // PROFILE MODAL LOGIC WITH DATES
             window.viewArboProfile = async function(id, name) {
                 document.getElementById('currentProfileId').value = id;
                 document.getElementById('currentProfileName').value = name;
@@ -299,36 +313,56 @@
                     else vList.innerHTML = data.map(v => `<li><span>👤 ${safeHtml(v.validator_name)}</span></li>`).join('');
                 } catch(e) { vList.innerHTML = '<li>📭 No records found.</li>'; }
 
-                // 2. Fetch Activities
+                // 2. Fetch Activities (WITH TRAINING DATE)
                 try {
                     const { data } = await dbClient.from('arbo_activities').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
                     if (!data || data.length === 0) aList.innerHTML = '<li>📭 No activities logged.</li>';
-                    else aList.innerHTML = data.map(act => `<li><span>📅 <strong>${safeHtml(act.activity_name)}</strong></span></li>`).join('');
+                    else aList.innerHTML = data.map(act => `
+                        <li>
+                            <span>📅 <strong>${safeHtml(act.activity_name)}</strong></span>
+                            <span style="font-size:0.75rem; color:#64748b;">${formatDate(act.created_at)}</span>
+                        </li>
+                    `).join('');
                 } catch(e) { aList.innerHTML = '<li>📭 No records found.</li>'; }
 
-                // 3. Fetch Income
+                // 3. Fetch Income (WITH DATE)
                 try {
-                    const { data } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
+                    const { data } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('date', { ascending: false });
                     if (!data || data.length === 0) iList.innerHTML = '<li>📭 No income data.</li>';
-                    else iList.innerHTML = data.map(inc => `<li><span>💵 <strong>₱${Number(inc.amount).toLocaleString()}</strong></span> <span>${safeHtml(inc.source)}</span></li>`).join('');
+                    else iList.innerHTML = data.map(inc => `
+                        <li>
+                            <span>💵 <strong>₱${Number(inc.amount).toLocaleString()}</strong> - ${safeHtml(inc.source)}</span>
+                            <span style="font-size:0.75rem; color:#64748b;">${formatDate(inc.date)}</span>
+                        </li>
+                    `).join('');
                 } catch(e) { iList.innerHTML = '<li>📭 No records found.</li>'; }
 
                 // 4. Fetch Machinery
                 try {
                     const { data } = await dbClient.from('arbo_machinery').select('*').eq('arbo_id', id);
                     if (!data || data.length === 0) mList.innerHTML = '<li>📭 No machinery listed.</li>';
-                    else mList.innerHTML = data.map(mac => `<li><span>⚙️ <strong>${safeHtml(mac.equipment_name)}</strong></span> <span style="color: #16a34a; font-size:0.75rem;">[${safeHtml(mac.status)}]</span></li>`).join('');
+                    else mList.innerHTML = data.map(mac => `
+                        <li>
+                            <span>⚙️ <strong>${safeHtml(mac.equipment_name)}</strong></span> 
+                            <span style="color: #16a34a; font-size:0.75rem;">[${safeHtml(mac.status)}]</span>
+                        </li>
+                    `).join('');
                 } catch(e) { mList.innerHTML = '<li>📭 No records found.</li>'; }
 
-                // 5. Fetch Assigned ARB Members (Using new arbo_members table)
+                // 5. Fetch Assigned ARB Members (WITH MEMBERSHIP DATE)
                 try {
-                    const { data } = await dbClient.from('arbo_members').select('arb_id, arb_name').eq('arbo_id', id).order('assigned_at', { ascending: false });
+                    const { data } = await dbClient.from('arbo_members').select('arb_id, arb_name, assigned_at').eq('arbo_id', id).order('assigned_at', { ascending: false });
                     if (!data || data.length === 0) memList.innerHTML = '<li>📭 No ARBs are currently assigned to this ARBO.</li>';
-                    else memList.innerHTML = data.map(mem => `<li style="display:inline-block; margin-right:15px; border:none; padding:2px;">👤 ${safeHtml(mem.arb_name)}</li>`).join('');
-                } catch(e) { memList.innerHTML = '<li>📭 Ensure arbo_members table is created.</li>'; }
+                    else memList.innerHTML = data.map(mem => `
+                        <li style="display:flex; justify-content:space-between; width:100%; border-bottom: 1px dashed #e2e8f0; padding:6px 0;">
+                            <span>👤 ${safeHtml(mem.arb_name)}</span>
+                            <span style="font-size:0.75rem; color:#64748b;">Joined: ${formatDate(mem.assigned_at)}</span>
+                        </li>
+                    `).join('');
+                } catch(e) { memList.innerHTML = '<li>📭 Feature requires arbo_members table.</li>'; }
             };
 
-            // --- SCALABLE QUICK ADD (ASYNC SEARCH) ---
+            // --- SCALABLE QUICK ADD W/ EXPLICIT DATE INPUTS ---
             window.openQuickAdd = function(type) {
                 const arboId = document.getElementById('currentProfileId').value;
                 if (!arboId) return;
@@ -339,6 +373,7 @@
                 const submitBtn = document.getElementById('qaSubmitBtn');
                 
                 submitBtn.style.display = 'inline-flex'; // Reset button visibility
+                const today = getTodayString(); // Helper for pre-filling inputs
 
                 if (type === 'validator') {
                     qaTitle.textContent = '➕ Assign System Validator';
@@ -347,7 +382,7 @@
                         <div style="margin-bottom:10px;">
                             <label>Search User Database (Name or Email) *</label>
                             <div style="display: flex; gap: 10px; margin-top:5px;">
-                                <input type="text" id="userSearchInput" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchUsers();}" />
+                                <input type="text" id="userSearchInput" class="qa-input-field" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchUsers();}" />
                                 <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchUsers()">🔍 Find</button>
                             </div>
                         </div>
@@ -359,10 +394,14 @@
                     qaTitle.textContent = '➕ Assign ARB Member';
                     submitBtn.style.display = 'none'; // Uses Select button
                     qaBody.innerHTML = `
+                        <div style="margin-bottom:15px;">
+                            <label>Membership Date *</label>
+                            <input type="date" id="qaDateInput" value="${today}" required class="qa-input-field" style="margin-top:5px;" />
+                        </div>
                         <div style="margin-bottom:10px;">
                             <label>Search ARB Database (First or Last Name) *</label>
                             <div style="display: flex; gap: 10px; margin-top:5px;">
-                                <input type="text" id="arbSearchInput" placeholder="Type ARB name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchArbs();}" />
+                                <input type="text" id="arbSearchInput" class="qa-input-field" placeholder="Type ARB name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchArbs();}" />
                                 <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchArbs()">🔍 Find</button>
                             </div>
                         </div>
@@ -373,18 +412,22 @@
                 }
                 else if (type === 'activity') {
                     qaTitle.textContent = '➕ Add Activity/Training';
-                    qaBody.innerHTML = `<div><label>Activity/Training Title *</label><input type="text" id="qaInput1" required placeholder="e.g. Agrarian Seminar 2026" /></div>`;
+                    qaBody.innerHTML = `
+                        <div style="margin-bottom: 10px;"><label>Activity/Training Title *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="e.g. Agrarian Seminar 2026" /></div>
+                        <div><label>Date of Training *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
+                    `;
                 }
                 else if (type === 'income') {
                     qaTitle.textContent = '➕ Add Income Record';
                     qaBody.innerHTML = `
-                        <div style="margin-bottom: 10px;"><label>Amount (₱) *</label><input type="number" step="0.01" id="qaInput1" required placeholder="0.00" /></div>
-                        <div><label>Source/Description *</label><input type="text" id="qaInput2" required placeholder="e.g. Harvest Sales" /></div>
+                        <div style="margin-bottom: 10px;"><label>Amount (₱) *</label><input type="number" step="0.01" id="qaInput1" class="qa-input-field" required placeholder="0.00" /></div>
+                        <div style="margin-bottom: 10px;"><label>Source/Description *</label><input type="text" id="qaInput2" class="qa-input-field" required placeholder="e.g. Harvest Sales" /></div>
+                        <div><label>Date of Income *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
                     `;
                 }
                 else if (type === 'machinery') {
                     qaTitle.textContent = '➕ Add Machinery';
-                    qaBody.innerHTML = `<div><label>Equipment Name *</label><input type="text" id="qaInput1" required placeholder="e.g. Tractor Model X" /></div>`;
+                    qaBody.innerHTML = `<div><label>Equipment Name *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="e.g. Tractor Model X" /></div>`;
                 }
                 
                 document.getElementById('quickAddModal').classList.add('active');
@@ -417,7 +460,10 @@
             // Database Search Function for ARB Members
             window.searchArbs = async function() {
                 const term = document.getElementById('arbSearchInput').value.trim();
+                const memDate = document.getElementById('qaDateInput').value;
                 const resEl = document.getElementById('arbSearchResults');
+                
+                if (!memDate) { alert('Please select a Membership Date first.'); return; }
                 if (!term) { alert('Please enter a name to search.'); return; }
 
                 resEl.style.display = 'block';
@@ -448,9 +494,11 @@
                     document.getElementById('qaInput2').value = val2; // Name
                     document.getElementById('arbSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${val2}...</li>`;
                 }
+                // Auto trigger form submission
                 document.getElementById('qaForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
             }
 
+            // FORM SUBMISSION WITH DATES
             window.submitQuickAdd = async function(e) {
                 e.preventDefault();
                 const type = document.getElementById('qaType').value;
@@ -463,14 +511,20 @@
                     table = 'arbo_validators'; 
                     payload = { arbo_id: arboId, validator_name: document.getElementById('qaInput1').value };
                 } else if (type === 'member') {
+                    const memDate = document.getElementById('qaDateInput').value;
+                    if (!memDate) { alert("Date is missing."); return; }
                     table = 'arbo_members'; 
-                    payload = { arbo_id: arboId, arb_id: document.getElementById('qaInput1').value, arb_name: document.getElementById('qaInput2').value };
+                    payload = { arbo_id: arboId, arb_id: document.getElementById('qaInput1').value, arb_name: document.getElementById('qaInput2').value, assigned_at: memDate };
                 } else if (type === 'activity') {
+                    const actDate = document.getElementById('qaDateInput').value;
+                    if (!actDate) { alert("Date is missing."); return; }
                     table = 'arbo_activities'; 
-                    payload = { arbo_id: arboId, activity_name: document.getElementById('qaInput1').value.trim() };
+                    payload = { arbo_id: arboId, activity_name: document.getElementById('qaInput1').value.trim(), created_at: actDate };
                 } else if (type === 'income') {
+                    const incDate = document.getElementById('qaDateInput').value;
+                    if (!incDate) { alert("Date is missing."); return; }
                     table = 'arbo_income'; 
-                    payload = { arbo_id: arboId, amount: parseFloat(document.getElementById('qaInput1').value), source: document.getElementById('qaInput2').value.trim() };
+                    payload = { arbo_id: arboId, amount: parseFloat(document.getElementById('qaInput1').value), source: document.getElementById('qaInput2').value.trim(), date: incDate };
                 } else if (type === 'machinery') {
                     table = 'arbo_machinery'; 
                     payload = { arbo_id: arboId, equipment_name: document.getElementById('qaInput1').value.trim(), status: 'Operational' };
