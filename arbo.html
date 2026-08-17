@@ -13,6 +13,7 @@
 <div class="container">
     <h1>ARBO Management</h1>
     <nav class="nav">
+        <a href="dashboard.html">Dashboard</a>
         <a href="arbo.html" class="active">ARBO</a>
         <a href="arb.html">ARB</a>
         <a href="validators.html">Validators</a>
@@ -29,7 +30,7 @@
         <div class="table-wrap">
             <table>
                 <thead><tr><th>ID</th><th>ARBO Name</th><th>Barangay</th><th>Municipality</th><th>Contact</th><th>Actions</th></tr></thead>
-                <tbody id="arboTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+                <tbody id="arboTableBody"><tr><td colspan="6" style="text-align: center;">Loading...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -56,87 +57,148 @@
 </div>
 
 <script>
+    // Isolate scope to prevent variable collisions with common.js and config.js
     (async function() {
-        const ok = await checkAuth(['admin', 'staff']);
-        if (!ok) return;
-        document.getElementById('userDisplay').textContent = '👤 ' + window.currentProfile.full_name + ' (' + window.currentProfile.role + ')';
-        loadArbos();
-    })();
-
-    async function loadArbos() {
-        const search = document.getElementById('searchArbo').value.trim();
-        let query = supabase.from('arbo').select('*');
-        if (search) query = query.ilike('name', `%${search}%`);
-        const { data, error } = await query.order('id', { ascending: false });
-        if (error) { console.error(error); return; }
-        const tbody = document.getElementById('arboTableBody');
-        if (!data || data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6">No ARBO records.</td></tr>`;
-            return;
-        }
-        tbody.innerHTML = data.map(a => `
-            <tr>
-                <td>${a.id}</td>
-                <td>${escapeHtml(a.name)}</td>
-                <td>${escapeHtml(a.barangay)}</td>
-                <td>${escapeHtml(a.municipality)}</td>
-                <td>${escapeHtml(a.contact_number)}</td>
-                <td class="actions">
-                    <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})">✏️</button>
-                    <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})">🗑️</button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    function openArboModal() {
-        document.getElementById('arboId').value = '';
-        document.getElementById('arboForm').reset();
-        document.getElementById('arboModalTitle').textContent = 'Add ARBO';
-        showModal('arboModal');
-    }
-
-    async function editArbo(id) {
-        const { data, error } = await supabase.from('arbo').select('*').eq('id', id).single();
-        if (error) { alert('Error loading ARBO'); return; }
-        document.getElementById('arboId').value = data.id;
-        document.getElementById('arboName').value = data.name || '';
-        document.getElementById('arboBarangay').value = data.barangay || '';
-        document.getElementById('arboMunicipality').value = data.municipality || '';
-        document.getElementById('arboContact').value = data.contact_number || '';
-        document.getElementById('arboModalTitle').textContent = 'Edit ARBO';
-        showModal('arboModal');
-    }
-
-    async function saveArbo(e) {
-        e.preventDefault();
-        const id = document.getElementById('arboId').value;
-        const payload = {
-            name: document.getElementById('arboName').value.trim(),
-            barangay: document.getElementById('arboBarangay').value.trim(),
-            municipality: document.getElementById('arboMunicipality').value.trim(),
-            contact_number: document.getElementById('arboContact').value.trim(),
+        
+        // 1. Failsafe Error Catcher
+        window.onerror = function(msg, url, line) {
+            console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
+            const tbody = document.getElementById('arboTableBody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Script Crash: ${msg}</td></tr>`;
+            return false;
         };
-        let result;
-        if (id) {
-            result = await supabase.from('arbo').update(payload).eq('id', id);
-        } else {
-            result = await supabase.from('arbo').insert([payload]);
-        }
-        if (result.error) {
-            alert('Error: ' + result.error.message);
-            return;
-        }
-        closeModal('arboModal');
-        loadArbos();
-    }
 
-    async function deleteArbo(id) {
-        if (!confirm('Delete this ARBO? ARBs linked will have ARBO set to NULL.')) return;
-        const { error } = await supabase.from('arbo').delete().eq('id', id);
-        if (error) { alert('Error deleting: ' + error.message); return; }
-        loadArbos();
-    }
+        try {
+            // 2. Validate dependencies from common.js
+            if (typeof checkAuth !== 'function') {
+                throw new Error("common.js dependencies failed to load. Ensure the file is linked correctly.");
+            }
+
+            // 3. Authenticate User
+            const isAuthorized = await checkAuth(['admin', 'staff']);
+            if (!isAuthorized) return; // checkAuth handles the redirect
+
+            // Set user profile badge safely
+            if (window.currentProfile) {
+                document.getElementById('userDisplay').textContent = `👤 ${window.currentProfile.full_name} (${window.currentProfile.role})`;
+            } else {
+                document.getElementById('userDisplay').textContent = `👤 Authenticated User`;
+            }
+
+            // 4. Attach application functions to the 'window' object 
+            // This ensures your inline HTML events (like onclick="loadArbos()") can find them
+            
+            window.loadArbos = async function() {
+                try {
+                    const search = document.getElementById('searchArbo').value.trim();
+                    let query = supabase.from('arbo').select('*');
+                    
+                    if (search) query = query.ilike('name', `%${search}%`);
+                    
+                    const { data, error } = await query.order('id', { ascending: false });
+                    if (error) throw new Error(error.message);
+                    
+                    const tbody = document.getElementById('arboTableBody');
+                    
+                    if (!data || data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b;">📭 No ARBO records found.</td></tr>`;
+                        return;
+                    }
+
+                    // Render table safely
+                    tbody.innerHTML = data.map(a => `
+                        <tr>
+                            <td>${a.id}</td>
+                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.name) : a.name}</td>
+                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.barangay) : a.barangay}</td>
+                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.municipality) : a.municipality}</td>
+                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.contact_number) : a.contact_number}</td>
+                            <td class="actions">
+                                <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                } catch (err) {
+                    console.error("Load Error:", err);
+                    document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Error loading data: ${err.message}</td></tr>`;
+                }
+            };
+
+            window.openArboModal = function() {
+                document.getElementById('arboId').value = '';
+                document.getElementById('arboForm').reset();
+                document.getElementById('arboModalTitle').textContent = 'Add ARBO';
+                if (typeof showModal === 'function') showModal('arboModal');
+            };
+
+            window.editArbo = async function(id) {
+                try {
+                    const { data, error } = await supabase.from('arbo').select('*').eq('id', id).single();
+                    if (error) throw new Error(error.message);
+                    
+                    document.getElementById('arboId').value = data.id;
+                    document.getElementById('arboName').value = data.name || '';
+                    document.getElementById('arboBarangay').value = data.barangay || '';
+                    document.getElementById('arboMunicipality').value = data.municipality || '';
+                    document.getElementById('arboContact').value = data.contact_number || '';
+                    document.getElementById('arboModalTitle').textContent = 'Edit ARBO';
+                    
+                    if (typeof showModal === 'function') showModal('arboModal');
+                } catch (err) {
+                    alert(`Error loading ARBO details: ${err.message}`);
+                }
+            };
+
+            window.saveArbo = async function(e) {
+                e.preventDefault(); // Stop page reload
+                try {
+                    const id = document.getElementById('arboId').value;
+                    const payload = {
+                        name: document.getElementById('arboName').value.trim(),
+                        barangay: document.getElementById('arboBarangay').value.trim(),
+                        municipality: document.getElementById('arboMunicipality').value.trim(),
+                        contact_number: document.getElementById('arboContact').value.trim(),
+                    };
+                    
+                    let result;
+                    // If ID exists, Update. Otherwise, Insert.
+                    if (id) {
+                        result = await supabase.from('arbo').update(payload).eq('id', id);
+                    } else {
+                        result = await supabase.from('arbo').insert([payload]);
+                    }
+                    
+                    if (result.error) throw new Error(result.error.message);
+                    
+                    if (typeof closeModal === 'function') closeModal('arboModal');
+                    window.loadArbos(); // Refresh the table
+                } catch (err) {
+                    alert(`Error saving ARBO: ${err.message}`);
+                }
+            };
+
+            window.deleteArbo = async function(id) {
+                if (!confirm('Are you sure you want to delete this ARBO?\nAny ARBs linked to it will have their ARBO set to NULL.')) return;
+                
+                try {
+                    const { error } = await supabase.from('arbo').delete().eq('id', id);
+                    if (error) throw new Error(error.message);
+                    
+                    window.loadArbos(); // Refresh the table
+                } catch (err) {
+                    alert(`Error deleting ARBO: ${err.message}`);
+                }
+            };
+
+            // 5. Initialize the table on load
+            window.loadArbos();
+
+        } catch (fatalErr) {
+            console.error("Fatal Page Error:", fatalErr);
+            document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Critical Page Error: ${fatalErr.message}</td></tr>`;
+        }
+    })();
 </script>
 </body>
 </html>
