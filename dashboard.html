@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARB Global Cleansing – Dashboard</title>
+    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -65,7 +66,7 @@
 
         <!-- ===== DEBUG PANEL ===== -->
         <div id="debugPanel">
-            <div class="dbg-row" id="debugTitleRow"><span class="dbg-label">🔍 DEBUG LOG</span></div>
+            <div class="dbg-row"><span class="dbg-label">🔍 DEBUG LOG</span></div>
             <div id="debugLog"></div>
         </div>
 
@@ -74,16 +75,16 @@
 
         <!-- Stats Cards -->
         <div class="stats-grid" id="statsGrid">
-            <div class="stat-card" style="border-left-color:#94a3b8;">
+            <div class="stat-card" style="border-left-color:#94a3b8; cursor: default;">
                 <div class="number">⏳</div>
-                <div class="label">Loading…</div>
+                <div class="label">Loading Interface…</div>
             </div>
         </div>
 
         <!-- Modal -->
         <div id="modal" class="modal">
             <div class="modal-content">
-                <button class="modal-close" onclick="closeModal()">&times;</button>
+                <button class="modal-close" id="closeModalBtn">&times;</button>
                 <h2 id="modalTitle">ARB List</h2>
                 <div id="modalBody"><p class="empty-msg">Loading…</p></div>
             </div>
@@ -93,345 +94,254 @@
     <!-- Toast -->
     <div id="toast"></div>
 
-    <!-- SCRIPT 1: FAILSAFE ERROR CATCHER -->
-    <!-- This is isolated so that if the main script has a typo, this will STILL run and tell you why. -->
+    <!-- MAIN DASHBOARD SCRIPT (ISOLATED) -->
     <script>
-        window.onerror = function(msg, url, line) {
-            var dbgLog = document.getElementById('debugLog');
-            var errorMsg = '[CRITICAL CRASH] Line ' + line + ': ' + msg;
-            console.error(errorMsg);
-            if (dbgLog) {
-                dbgLog.innerHTML += '<div style="color:#f87171; padding: 4px 0; border-bottom: 1px solid #334155;">' + errorMsg + '</div>';
-            } else {
-                alert("FATAL ERROR:\n" + errorMsg);
-            }
-            return false;
-        };
-    </script>
-
-    <!-- SCRIPT 2: MAIN LOGIC -->
-    <script>
-        // ================================================================
-        //  DEBUG HELPER
-        // ================================================================
-        function dbg(msg, type) {
-            type = type || 'info';
-            var ts = new Date().toLocaleTimeString();
-            var entry = '[' + ts + '] ' + msg;
-            var debugLog = document.getElementById('debugLog');
+        // Wrapping everything in an anonymous async function prevents variables from leaking
+        // and colliding with other files in your project like nav.js or config.js
+        (async function() {
             
-            if (debugLog) {
-                var cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
-                var div = document.createElement('div');
-                div.className = 'dbg-row';
-                div.innerHTML = '<span class="' + cls + '">' + entry + '</span>';
-                debugLog.appendChild(div);
-                
-                while (debugLog.children.length > 50) { 
-                    debugLog.removeChild(debugLog.firstChild); 
+            // --- Helper: Debugging ---
+            function logDebug(msg, type = 'info') {
+                const ts = new Date().toLocaleTimeString();
+                const entry = `[${ts}] ${msg}`;
+                const dbgLog = document.getElementById('debugLog');
+                if (dbgLog) {
+                    const cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
+                    const div = document.createElement('div');
+                    div.className = 'dbg-row';
+                    div.innerHTML = `<span class="${cls}">${entry}</span>`;
+                    dbgLog.appendChild(div);
+                    while (dbgLog.children.length > 50) dbgLog.removeChild(dbgLog.firstChild);
+                    dbgLog.scrollTop = dbgLog.scrollHeight;
                 }
-                debugLog.scrollTop = debugLog.scrollHeight;
-            }
-            console.log('[DBG] ' + msg);
-        }
-
-        // ================================================================
-        //  TOAST
-        // ================================================================
-        var toastTimer;
-        function showToast(msg, type) {
-            type = type || 'info';
-            var el = document.getElementById('toast');
-            var colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
-            el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
-            el.style.background = colors[type] || '#1e293b';
-            el.textContent = msg;
-            el.classList.add('show');
-            clearTimeout(toastTimer);
-            toastTimer = setTimeout(function() { el.classList.remove('show'); }, 5000);
-        }
-
-        // ================================================================
-        //  SUPABASE CONFIG
-        // ================================================================
-        var SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-        var SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        var supabase = null;
-
-        var FALLBACK_NAV = [
-            { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
-            { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
-            { label: 'ARB Management', url: '/arb.html', icon: '👤' },
-            { label: 'Validators', url: '/validators.html', icon: '✅' },
-            { label: 'Reports', url: '/reports.html', icon: '📈' }
-        ];
-
-        // ================================================================
-        //  RENDER NAVIGATION 
-        // ================================================================
-        async function renderNavigation(user) {
-            var container = document.getElementById('mainNav');
-            var navItems = FALLBACK_NAV;
-
-            if (supabase && user) {
-                try {
-                    var result = await supabase.from('system_navigation').select('*').order('sort_order', { ascending: true });
-                    if (!result.error && result.data && result.data.length > 0) {
-                        navItems = result.data;
-                        dbg('✅ Loaded ' + result.data.length + ' nav items from DB', 'ok');
-                    }
-                } catch (err) {
-                    dbg('⚠️ Nav error (using fallback): ' + err.message, 'warn');
-                }
+                console.log('[DBG] ' + msg);
             }
 
-            // Auth badge handling
-            var userHtml = '<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>';
-            if (user) {
-                try {
-                    var profResult = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single();
-                    if (profResult.data && profResult.data.full_name) {
-                        userHtml = '<span class="user-badge">👤 ' + profResult.data.full_name + ' (' + profResult.data.role + ')</span>';
-                    } else {
-                        userHtml = '<span class="user-badge">👤 ' + user.email + '</span>';
-                    }
-                } catch (e) {
-                    userHtml = '<span class="user-badge">👤 ' + user.email + '</span>';
-                }
+            // --- Helper: Toast ---
+            let toastTimer;
+            function popToast(msg, type = 'info') {
+                const el = document.getElementById('toast');
+                if (!el) return;
+                const colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
+                el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
+                el.style.background = colors[type] || '#1e293b';
+                el.textContent = msg;
+                el.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
             }
 
-            var currentPath = window.location.pathname;
-            var html = '';
-            
-            navItems.forEach(function(item) {
-                var urlStr = item.url || '';
-                var isActive = currentPath.includes(urlStr.replace('/', '')) || (urlStr === '/dashboard.html' && currentPath === '/');
-                var activeClass = isActive ? 'active' : '';
-                var icon = item.icon || '';
-                var label = item.label || 'Link';
-                html += '<a href="' + urlStr + '" class="' + activeClass + '">' + icon + ' ' + label + '</a>';
-            });
+            logDebug('Starting secure dashboard isolation environment...', 'info');
 
-            html += userHtml;
-            if (user) {
-                html += '<span class="logout-link" onclick="logout()">🚪 Logout</span>';
-            } else {
-                html += '<span class="logout-link" style="color:#0a3d62" onclick="window.location.href=\'login.html\'">🔑 Login</span>';
-            }
-            
-            container.innerHTML = html;
-        }
-
-        // ================================================================
-        //  LOGOUT & MODALS
-        // ================================================================
-        window.logout = async function() {
-            if (supabase) await supabase.auth.signOut();
-            showToast('Logged out', 'info');
-            window.location.href = 'login.html'; 
-        };
-
-        window.openModal = async function(title, filter) {
-            var modal = document.getElementById('modal');
-            var modalTitle = document.getElementById('modalTitle');
-            var modalBody = document.getElementById('modalBody');
-
-            modalTitle.textContent = title + ' – ARB List';
-            modalBody.innerHTML = '<p class="empty-msg">⏳ Loading…</p>';
-            modal.classList.add('active');
-
-            if (!supabase) {
-                modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available.</p>';
-                return;
-            }
-
+            // --- Setup Database Connection safely ---
+            let secureDbClient = null;
             try {
-                var query = supabase.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
-                if (filter && filter.field) {
-                    query = query.eq(filter.field, filter.value);
+                // We check the raw window object without triggering prototype getters
+                if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
+                    secureDbClient = window.supabase.createClient(
+                        'https://xnwttnpfzcjbszwxsgox.supabase.co', 
+                        'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI'
+                    );
+                    logDebug('✅ Secure database link established', 'ok');
+                } else {
+                    logDebug('⚠️ Database CDN missing or blocked', 'warn');
                 }
-                
-                var result = await query.order('last_name', { ascending: true });
-                if (result.error) throw new Error(result.error.message);
-                
-                var data = result.data;
-                if (!data || data.length === 0) {
-                    modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found.</p>';
-                    return;
-                }
-
-                var tableHtml = '<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>';
-                
-                data.forEach(function(r) {
-                    var statusColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
-                    var shortId = r.id ? r.id.toString().substring(0,8) : '-';
-                    var fullName = (r.last_name || '') + ', ' + (r.first_name || '');
-                    
-                    tableHtml += '<tr>';
-                    tableHtml += '<td>' + shortId + '</td>';
-                    tableHtml += '<td>' + fullName + '</td>';
-                    tableHtml += '<td><span class="badge ' + statusColor + '">' + (r.validation_status || 'Pending') + '</span></td>';
-                    tableHtml += '<td>' + (r.ao8 ? '✅' : '❌') + '</td>';
-                    tableHtml += '<td>' + (r.for_ta ? '✅' : '❌') + '</td>';
-                    tableHtml += '<td>' + (r.with_ta ? '✅' : '❌') + '</td>';
-                    tableHtml += '<td>' + (r.for_removal ? '✅' : '❌') + '</td>';
-                    tableHtml += '</tr>';
-                });
-                tableHtml += '</tbody></table>';
-                modalBody.innerHTML = tableHtml;
             } catch (err) {
-                modalBody.innerHTML = '<p class="empty-msg">❌ Error: ' + err.message + '</p>';
+                logDebug(`❌ Setup Exception: ${err.message}`, 'err');
             }
-        };
 
-        window.closeModal = function() {
-            document.getElementById('modal').classList.remove('active');
-        };
-
-        document.getElementById('modal').addEventListener('click', function(e) { 
-            if (e.target === this) closeModal(); 
-        });
-
-        // ================================================================
-        //  LOAD STATS (Built Safely via DOM nodes to prevent string errors)
-        // ================================================================
-        async function loadStats() {
-            var grid = document.getElementById('statsGrid');
-            
-            function renderStats(cards) {
-                grid.innerHTML = ''; // clear loading state
+            // --- Navigation Renderer ---
+            async function buildNavbar(user) {
+                const navEl = document.getElementById('mainNav');
+                if (!navEl) return;
                 
-                cards.forEach(function(c) {
-                    var cardDiv = document.createElement('div');
-                    cardDiv.className = 'stat-card';
-                    cardDiv.style.borderLeftColor = c.color || '#94a3b8';
-                    
-                    var displayCount = (c.count !== undefined && c.count !== null) ? c.count : '?';
-                    
-                    var inner = '<div class="number">' + displayCount + '</div>';
-                    inner += '<div class="label">' + c.label + '</div>';
-                    if (c.note) {
-                        inner += '<div class="status-badge">' + c.note + '</div>';
-                    }
-                    cardDiv.innerHTML = inner;
-
-                    // Attach click listener cleanly (NO inline string manipulation)
-                    if (c.filter && c.count !== '🔒' && c.count !== '⚠️') {
-                        cardDiv.style.cursor = 'pointer';
-                        cardDiv.addEventListener('click', function() {
-                            openModal(c.label, c.filter);
-                        });
-                    } else {
-                        cardDiv.style.cursor = 'default';
-                    }
-                    
-                    grid.appendChild(cardDiv);
-                });
-            }
-
-            try {
-                var queries = [
-                    supabase.from('arb').select('*', { count: 'exact', head: true }),
-                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
-                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('ao8', true),
-                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('for_ta', true),
-                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('with_ta', true),
-                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true)
+                const curPath = window.location.pathname;
+                const links = [
+                    { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
+                    { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
+                    { label: 'ARB Management', url: '/arb.html', icon: '👤' },
+                    { label: 'Validators', url: '/validators.html', icon: '✅' },
+                    { label: 'Reports', url: '/reports.html', icon: '📈' }
                 ];
 
-                var results = await Promise.all(queries);
-                
-                if (results[0].error) throw new Error(results[0].error.message || "Failed to query the arb table.");
+                let html = links.map(l => {
+                    const active = curPath.includes(l.url.replace('/','')) || (l.url === '/dashboard.html' && curPath === '/') ? 'active' : '';
+                    return `<a href="${l.url}" class="${active}">${l.icon} ${l.label}</a>`;
+                }).join('');
 
-                var counts = results.map(function(r) { return r.count || 0; });
-                
-                renderStats([
-                    { label: 'GLOBAL ARBs', count: counts[0], color: '#0a3d62', filter: null },
-                    { label: 'VALIDATED', count: counts[1], color: '#2e7d32', filter: { field: 'validation_status', value: 'Validated' } },
-                    { label: 'AO 8', count: counts[2], color: '#e8a317', filter: { field: 'ao8', value: true } },
-                    { label: 'For TA', count: counts[3], color: '#f59e0b', filter: { field: 'for_ta', value: true } },
-                    { label: 'With TA', count: counts[4], color: '#3b82f6', filter: { field: 'with_ta', value: true } },
-                    { label: 'For Removal', count: counts[5], color: '#b91c1c', filter: { field: 'for_removal', value: true } }
-                ]);
-                dbg('✅ Database stats loaded successfully', 'ok');
-
-            } catch (err) {
-                dbg('❌ loadStats exception: ' + err.message, 'err');
-                renderStats([
-                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
-                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
-                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'Data blocked' }
-                ]);
-            }
-        }
-
-        // ================================================================
-        //  INIT PIPELINE
-        // ================================================================
-        async function init() {
-            try {
-                dbg('🔄 Initializing interface and verifying Auth state...', 'info');
-
-                try {
-                    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-                        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                        dbg('✅ Supabase client generated', 'ok');
-                    } else {
-                        dbg('⚠️ Supabase CDN script failed to load — operating in fallback mode', 'warn');
-                    }
-                } catch (e) {
-                    dbg('❌ Supabase generation error: ' + e.message, 'err');
+                if (user) {
+                    html += `<span class="user-badge">👤 ${user.email}</span>`;
+                    html += `<span class="logout-link" id="navLogoutBtn">🚪 Logout</span>`;
+                } else {
+                    html += `<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>`;
+                    html += `<span class="logout-link" style="color:#0a3d62" onclick="window.location.href='login.html'">🔑 Login</span>`;
                 }
+                
+                navEl.innerHTML = html;
 
-                if (!supabase) {
-                    dbg('⚠️ Supabase missing entirely, rendering disconnected fallback UI', 'warn');
-                    await renderNavigation(null);
+                // Safely bind logout click
+                const logoutBtn = document.getElementById('navLogoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', async () => {
+                        if (secureDbClient) await secureDbClient.auth.signOut();
+                        window.location.href = 'login.html';
+                    });
+                }
+            }
+
+            // --- Modal Functions ---
+            const modalEl = document.getElementById('modal');
+            const modalTitleEl = document.getElementById('modalTitle');
+            const modalBodyEl = document.getElementById('modalBody');
+            
+            function hideModal() { if (modalEl) modalEl.classList.remove('active'); }
+            
+            document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
+            modalEl?.addEventListener('click', (e) => { if (e.target === modalEl) hideModal(); });
+
+            async function displayModal(title, filterField, filterValue) {
+                if (!modalEl || !modalTitleEl || !modalBodyEl) return;
+                
+                modalTitleEl.textContent = title + ' – ARB List';
+                modalBodyEl.innerHTML = '<p class="empty-msg">⏳ Fetching Secure Data…</p>';
+                modalEl.classList.add('active');
+
+                if (!secureDbClient) {
+                    modalBodyEl.innerHTML = '<p class="empty-msg">❌ Database connection required.</p>';
                     return;
                 }
 
-                var authResponse = await supabase.auth.getUser();
-                var user = authResponse.data ? authResponse.data.user : null;
-                
-                if (authResponse.error) {
-                    dbg('ℹ️ Note: Unauthenticated visitor (' + authResponse.error.message + ')', 'info');
-                }
-
-                if (!user) {
-                    dbg('🛑 User not authenticated. Generating locked view.', 'err');
-                    showToast('Authentication Required', 'warn');
+                try {
+                    let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
+                    if (filterField) req = req.eq(filterField, filterValue);
                     
-                    await renderNavigation(null);
+                    const { data, error } = await req.order('last_name', { ascending: true });
+                    if (error) throw new Error(error.message);
                     
-                    document.getElementById('statsGrid').innerHTML = 
-                        '<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">' +
-                            '<div class="number">🔒</div>' +
-                            '<div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Login Required</div>' +
-                            '<p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your Row Level Security (RLS) policies require an active session to view this dashboard data.</p>' +
-                            '<button onclick="window.location.href=\'login.html\'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Here</button>' +
-                        '</div>';
-                    return; 
+                    if (!data || data.length === 0) {
+                        modalBodyEl.innerHTML = '<p class="empty-msg">📭 No records found for this category.</p>';
+                        return;
+                    }
+
+                    let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
+                    data.forEach(r => {
+                        const sColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
+                        tHtml += `<tr>
+                            <td>${(r.id || '-').toString().substring(0,8)}</td>
+                            <td>${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
+                            <td><span class="badge ${sColor}">${r.validation_status || 'Pending'}</span></td>
+                            <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
+                            <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
+                        </tr>`;
+                    });
+                    modalBodyEl.innerHTML = tHtml + '</tbody></table>';
+                } catch (err) {
+                    modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ Access Denied or Error: ${err.message}</p>`;
                 }
-
-                dbg('👤 Found active session for ' + user.email, 'ok');
-                await renderNavigation(user);
-                await loadStats();
-                showToast('✅ Dashboard connection synced', 'ok');
-
-            } catch (criticalErr) {
-                dbg('CRITICAL SYSTEM ERROR: ' + criticalErr.message, 'err');
-                document.getElementById('statsGrid').innerHTML = 
-                    '<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">' +
-                        '<div class="number">❌</div>' +
-                        '<div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>' +
-                        '<p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">' + criticalErr.message + '</p>' +
-                    '</div>';
             }
-        }
 
-        // Delay execution safely until HTML fully constructs
-        document.addEventListener('DOMContentLoaded', function() {
-            init();
-        });
+            // --- Execution Pipeline ---
+            try {
+                const gridEl = document.getElementById('statsGrid');
+                
+                // 1. If database failed to load globally (Adblocker/Network)
+                if (!secureDbClient) {
+                    logDebug('🚫 Halting execution: Offline Mode', 'warn');
+                    await buildNavbar(null);
+                    if (gridEl) {
+                        gridEl.innerHTML = `
+                            <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                                <div class="number">🔌</div>
+                                <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">System Offline</div>
+                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">The database engine could not be reached. Ensure you are connected to the internet.</p>
+                            </div>`;
+                    }
+                    return;
+                }
+
+                // 2. Database available, Verify Auth State
+                logDebug('🔒 Verifying security clearance...', 'info');
+                const { data: authObj, error: authErr } = await secureDbClient.auth.getUser();
+                const sessionUser = authObj ? authObj.user : null;
+
+                // 3. Reject Unauthenticated (RLS triggers null responses without this)
+                if (!sessionUser) {
+                    logDebug('🛑 Access denied. User lacks valid session token.', 'err');
+                    popToast('Secure Login Required', 'warn');
+                    await buildNavbar(null);
+                    
+                    if (gridEl) {
+                        gridEl.innerHTML = `
+                            <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                                <div class="number">🔒</div>
+                                <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Security Lockout</div>
+                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Database rules require an active session to query global statistics.</p>
+                                <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Proceed to Login</button>
+                            </div>`;
+                    }
+                    return;
+                }
+
+                // 4. Authenticated -> Build Safe UI
+                logDebug(`👤 Active Session Verified: ${sessionUser.email}`, 'ok');
+                await buildNavbar(sessionUser);
+
+                // 5. Query Real Data concurrently
+                logDebug('📊 Downloading statistical matrix...', 'info');
+                const qrs = await Promise.all([
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }),
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('ao8', true),
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_ta', true),
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('with_ta', true),
+                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true)
+                ]);
+
+                // Check for RLS rejections
+                if (qrs[0].error) throw new Error(qrs[0].error.message);
+
+                const c = qrs.map(r => r.count || 0);
+                
+                const stats = [
+                    { label: 'GLOBAL ARBs', count: c[0], color: '#0a3d62', fField: null, fVal: null },
+                    { label: 'VALIDATED', count: c[1], color: '#2e7d32', fField: 'validation_status', fVal: 'Validated' },
+                    { label: 'AO 8', count: c[2], color: '#e8a317', fField: 'ao8', fVal: true },
+                    { label: 'For TA', count: c[3], color: '#f59e0b', fField: 'for_ta', fVal: true },
+                    { label: 'With TA', count: c[4], color: '#3b82f6', fField: 'with_ta', fVal: true },
+                    { label: 'For Removal', count: c[5], color: '#b91c1c', fField: 'for_removal', fVal: true }
+                ];
+
+                if (gridEl) {
+                    gridEl.innerHTML = '';
+                    stats.forEach(st => {
+                        const div = document.createElement('div');
+                        div.className = 'stat-card';
+                        div.style.borderLeftColor = st.color;
+                        div.innerHTML = `<div class="number">${st.count}</div><div class="label">${st.label}</div>`;
+                        
+                        // Safely bind click event
+                        div.addEventListener('click', () => displayModal(st.label, st.fField, st.fVal));
+                        gridEl.appendChild(div);
+                    });
+                }
+                
+                logDebug('✅ Realtime statistics rendered', 'ok');
+                popToast('Dashboard Sync Complete', 'ok');
+
+            } catch (fatalObj) {
+                logDebug(`💥 CRITICAL FAILURE: ${fatalObj.message}`, 'err');
+                const gEl = document.getElementById('statsGrid');
+                if (gEl) {
+                    gEl.innerHTML = `
+                        <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                            <div class="number">❌</div>
+                            <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>
+                            <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">${fatalObj.message}</p>
+                        </div>`;
+                }
+            }
+
+        })(); // End of protected sandbox
     </script>
 </body>
 </html>
