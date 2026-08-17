@@ -69,13 +69,24 @@
         };
 
         try {
+            console.log("Initializing Standalone Database Connection...");
+            
+            if (typeof window.supabase === 'undefined') {
+                throw new Error("Supabase CDN script failed to load. Check your internet connection.");
+            }
+
+            // Explicitly generate the database client to guarantee it exists
+            const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+            const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+            const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
             // ====================================================================
-            // LOUD AUTHENTICATION CHECK (Bypassing common.js to find the bug)
+            // LOUD AUTHENTICATION CHECK
             // ====================================================================
             console.log("Checking authentication status...");
             
             // Step A: Check if logged in
-            const { data: authData, error: authErr } = await supabase.auth.getUser();
+            const { data: authData, error: authErr } = await dbClient.auth.getUser();
             if (authErr || !authData || !authData.user) {
                 alert("Auth Error: You are not fully logged in. Redirecting to dashboard.");
                 window.location.href = 'dashboard.html';
@@ -83,7 +94,7 @@
             }
 
             // Step B: Check if profile exists and can be read
-            const { data: profile, error: profErr } = await supabase
+            const { data: profile, error: profErr } = await dbClient
                 .from('profiles')
                 .select('*')
                 .eq('id', authData.user.id)
@@ -118,7 +129,7 @@
             window.loadArbos = async function() {
                 try {
                     const search = document.getElementById('searchArbo').value.trim();
-                    let query = supabase.from('arbo').select('*');
+                    let query = dbClient.from('arbo').select('*');
                     
                     if (search) query = query.ilike('name', `%${search}%`);
                     
@@ -156,12 +167,27 @@
                 document.getElementById('arboId').value = '';
                 document.getElementById('arboForm').reset();
                 document.getElementById('arboModalTitle').textContent = 'Add ARBO';
-                if (typeof showModal === 'function') showModal('arboModal');
+                const m = document.getElementById('arboModal');
+                if (m) m.classList.add('active');
             };
+
+            // Custom closeModal to avoid common.js dependencies
+            window.closeModal = function(modalId) {
+                const m = document.getElementById(modalId);
+                if (m) m.classList.remove('active');
+            };
+
+            // Allow clicking outside the modal to close it
+            const modalEl = document.getElementById('arboModal');
+            if (modalEl) {
+                modalEl.addEventListener('click', function(e) {
+                    if (e.target === this) window.closeModal('arboModal');
+                });
+            }
 
             window.editArbo = async function(id) {
                 try {
-                    const { data, error } = await supabase.from('arbo').select('*').eq('id', id).single();
+                    const { data, error } = await dbClient.from('arbo').select('*').eq('id', id).single();
                     if (error) throw new Error(error.message);
                     
                     document.getElementById('arboId').value = data.id;
@@ -171,7 +197,8 @@
                     document.getElementById('arboContact').value = data.contact_number || '';
                     document.getElementById('arboModalTitle').textContent = 'Edit ARBO';
                     
-                    if (typeof showModal === 'function') showModal('arboModal');
+                    const m = document.getElementById('arboModal');
+                    if (m) m.classList.add('active');
                 } catch (err) {
                     alert(`Error loading ARBO details: ${err.message}`);
                 }
@@ -190,14 +217,14 @@
                     
                     let result;
                     if (id) {
-                        result = await supabase.from('arbo').update(payload).eq('id', id);
+                        result = await dbClient.from('arbo').update(payload).eq('id', id);
                     } else {
-                        result = await supabase.from('arbo').insert([payload]);
+                        result = await dbClient.from('arbo').insert([payload]);
                     }
                     
                     if (result.error) throw new Error(result.error.message);
                     
-                    if (typeof closeModal === 'function') closeModal('arboModal');
+                    window.closeModal('arboModal');
                     window.loadArbos(); 
                 } catch (err) {
                     alert(`Error saving ARBO: ${err.message}`);
@@ -208,13 +235,18 @@
                 if (!confirm('Are you sure you want to delete this ARBO?\nAny ARBs linked to it will have their ARBO set to NULL.')) return;
                 
                 try {
-                    const { error } = await supabase.from('arbo').delete().eq('id', id);
+                    const { error } = await dbClient.from('arbo').delete().eq('id', id);
                     if (error) throw new Error(error.message);
                     
                     window.loadArbos(); 
                 } catch (err) {
                     alert(`Error deleting ARBO: ${err.message}`);
                 }
+            };
+
+            window.logout = async function() {
+                await dbClient.auth.signOut();
+                window.location.href = 'login.html'; 
             };
 
             // 5. Initialize the table on load
