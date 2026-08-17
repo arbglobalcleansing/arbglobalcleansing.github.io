@@ -178,272 +178,249 @@
     let currentArbId = null;
 
     (async function() {
-        if (typeof window.supabase === 'undefined') { 
-            document.getElementById('profileContent').innerHTML = `
-                <div style="background: white; border-top: 4px solid #dc2626; border-radius: 8px; padding: 40px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px;">
-                    <div style="font-size: 2.5rem; margin-bottom: 10px; color: #475569;">🔌</div>
-                    <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 600;">Connection Offline</h3>
-                    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">The database driver could not load. This usually means a network filter or ad-blocker prevented the script from downloading.</p>
-                </div>
-            `;
-            return; 
-        }
+        // MATCHING ARBO: Global Error Handler
+        window.onerror = function(msg, url, line) {
+            console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
+            return false;
+        };
 
-        const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        window.dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Utility Functions
+        function safeHtml(str) { return String(str || '').replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m])); }
+        function formatDate(ds) { return ds ? new Date(ds).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
+        function getTodayString() { return new Date().toISOString().split('T')[0]; }
 
-        // Dummy auth for UI testing (Replace with actual auth verification)
-        window.currentProfile = { id: 'admin-uuid', role: 'admin', full_name: 'Admin User' }; 
-
-        const urlParams = new URLSearchParams(window.location.search);
-        currentArbId = urlParams.get('id') || 'dummy-uuid-for-testing'; // In prod, require valid ID
-
-        await loadProfile(currentArbId);
-    })();
-
-    // --- Core Logging Function ---
-    async function logAction(actionStr, detailsStr) {
         try {
-            await dbClient.from('audit_logs').insert([{
-                action: actionStr,
-                record_id: currentArbId,
-                user_id: window.currentProfile.id,
-                details: detailsStr
-            }]);
-        } catch(e) { console.error("Audit log failed:", e); }
-    }
+            // MATCHING ARBO: Strict Script Load Check
+            if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
 
-    async function loadProfile(id) {
-        const container = document.getElementById('profileContent');
-        try {
-            // Fetch ARB Profile (using arb_profiles schema from image_2f6fdd.png)
-            // Joined with mother_titles (image_2f681f.png)
-            const { data: arb, error: arbErr } = await dbClient
-                .from('arb_profiles')
-                .select(`*, mother_titles(mother_title_no, municipality, barangay, split_status)`)
-                .eq('id', id)
-                .single();
+            const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+            const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+            const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            window.dbClient = dbClient; // Expose globally for forms
 
-            // Note: Using dummy rendering fallback if table is empty for testing UI
-            const data = arb || {
-                fb_name: 'Juan Dela Cruz', fb_gender: 'Male', sequence_no: '001', life_status: 'Alive', e_title_no: null,
-                mother_titles: { mother_title_no: 'OCT-12345', split_status: 'PENDING SPLIT', municipality: 'Quezon', barangay: 'San Jose' }
+            // MATCHING ARBO: Real Authentication Logic
+            const { data: authData, error: authErr } = await dbClient.auth.getUser();
+            if (authErr || !authData || !authData.user) { window.location.href = 'dashboard.html'; return; }
+
+            const { data: profile } = await dbClient.from('profiles').select('*').eq('id', authData.user.id).single();
+            if (!profile) { window.location.href = 'dashboard.html'; return; }
+            window.currentProfile = profile; 
+
+            // --- Expose Page Functions to Window (for HTML onClick handlers) ---
+
+            window.logAction = async function(actionStr, detailsStr) {
+                try {
+                    await dbClient.from('audit_logs').insert([{
+                        action: actionStr, record_id: currentArbId, user_id: window.currentProfile.id, details: detailsStr
+                    }]);
+                } catch(e) { console.error("Audit log failed:", e); }
             };
 
-            const lifeClass = data.life_status === 'Deceased' ? 'bg-dead' : 'bg-alive';
-            const splitClass = data.mother_titles?.split_status === 'SPLIT COMPLETED' ? 'bg-success' : 'bg-pending';
+            window.loadProfile = async function(id) {
+                const container = document.getElementById('profileContent');
+                try {
+                    const { data: arb, error: arbErr } = await dbClient
+                        .from('arb_profiles')
+                        .select(`*, mother_titles(mother_title_no, municipality, barangay, split_status)`)
+                        .eq('id', id).single();
 
-            let html = `
-                <div class="profile-header">
-                    <h2>${safeHtml(data.fb_name)}</h2>
-                    <div>
-                        <button class="btn btn-warning" onclick="openModal('editArbModal')">✏️ Edit Status</button>
+                    const data = arb || {
+                        fb_name: 'Juan Dela Cruz', fb_gender: 'Male', sequence_no: '001', life_status: 'Alive', e_title_no: null,
+                        mother_titles: { mother_title_no: 'OCT-12345', split_status: 'PENDING SPLIT', municipality: 'Quezon', barangay: 'San Jose' }
+                    };
+
+                    const lifeClass = data.life_status === 'Deceased' ? 'bg-dead' : 'bg-alive';
+                    const splitClass = data.mother_titles?.split_status === 'SPLIT COMPLETED' ? 'bg-success' : 'bg-pending';
+
+                    let html = `
+                        <div class="profile-header">
+                            <h2>${safeHtml(data.fb_name)}</h2>
+                            <div><button class="btn btn-warning" onclick="openModal('editArbModal')">✏️ Edit Status</button></div>
+                        </div>
+                        <div class="profile-grid">
+                            <div class="profile-card">
+                                <h3>👤 ARB Personal Details</h3>
+                                <div class="field"><span class="label">Gender</span><span class="value">${safeHtml(data.fb_gender || '—')}</span></div>
+                                <div class="field"><span class="label">Sequence No.</span><span class="value">${safeHtml(data.sequence_no || '—')}</span></div>
+                                <div class="field"><span class="label">Life Status</span><span class="value"><span class="badge ${lifeClass}">${data.life_status || 'Alive'}</span></span></div>
+                                ${data.life_status === 'Deceased' ? `
+                                    <div class="field"><span class="label">Death Cert Submitted</span><span class="value">${data.death_cert_submitted ? '✅ Yes' : '❌ No'}</span></div>
+                                    <div class="field"><span class="label">Heir Name</span><span class="value">${safeHtml(data.heir_name || '—')}</span></div>
+                                    <div class="field"><span class="label">Relation</span><span class="value">${safeHtml(data.heir_relation || '—')}</span></div>
+                                ` : ''}
+                            </div>
+                            <div class="profile-card">
+                                <h3>📜 Landholding & Title <button class="btn btn-mini btn-primary" onclick="openModal('landModal')">Update</button></h3>
+                                ${data.e_title_no ? `
+                                    <div class="field"><span class="label">Individual E-Title</span><span class="value" style="color:#16a34a; font-size:1.1rem;">${safeHtml(data.e_title_no)}</span></div>
+                                    <div class="field"><span class="label">SPLIT Status</span><span class="value"><span class="badge bg-split">COMPLETED</span></span></div>
+                                ` : data.mother_titles ? `
+                                    <div class="field"><span class="label">Mother Title (CCLOA)</span><span class="value">${safeHtml(data.mother_titles.mother_title_no)}</span></div>
+                                    <div class="field"><span class="label">Project SPLIT Status</span><span class="value"><span class="badge ${splitClass}">${safeHtml(data.mother_titles.split_status)}</span></span></div>
+                                    <div class="field"><span class="label">Location</span><span class="value">${safeHtml(data.mother_titles.barangay)}, ${safeHtml(data.mother_titles.municipality)}</span></div>
+                                ` : `<p style="color:#64748b; font-size:0.85rem; text-align:center; padding:10px;">No Title Linked</p>`}
+                            </div>
+                            <div class="profile-card">
+                                <h3>⚖️ Legal & Case Tags <button class="btn btn-mini btn-danger" onclick="openModal('tagModal')">+ Add Tag</button></h3>
+                                <ul class="tag-list" id="tagList"><li>⏳ Loading...</li></ul>
+                            </div>
+                            <div class="profile-card">
+                                <h3>✅ Validations <button class="btn btn-mini btn-success" onclick="openModal('valModal')">+ Add Validation</button></h3>
+                                <ul class="val-list" id="valList"><li>⏳ Loading...</li></ul>
+                            </div>
+                        </div>
+                    `;
+                    container.innerHTML = html;
+
+                    document.getElementById('editLifeStatus').value = data.life_status || 'Alive';
+                    if(data.life_status === 'Deceased') {
+                        document.getElementById('heirFields').style.display = 'block';
+                        document.getElementById('editHeirName').value = data.heir_name || '';
+                        document.getElementById('editHeirRel').value = data.heir_relation || '';
+                        document.getElementById('editDeathCert').value = data.death_cert_submitted ? 'true' : 'false';
+                    }
+
+                    window.loadTags(id);
+                    window.loadValidations(id);
+
+                } catch (err) { container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;">❌ Error loading profile.</div>`; }
+            };
+
+            window.loadTags = async function(id) {
+                try {
+                    const { data } = await dbClient.from('arb_tags').select('*').eq('arb_profile_id', id).order('created_at', { ascending: false });
+                    const list = document.getElementById('tagList');
+                    if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">No tags found</li>'; return; }
+                    list.innerHTML = data.map(t => `<li><strong>${safeHtml(t.tag_type)}</strong><br><span style="font-size:0.75rem; color:#64748b;">Status: ${safeHtml(t.status)} | Added by: ${safeHtml(t.tagged_by)}</span><div style="font-size:0.8rem; margin-top:4px;">${safeHtml(t.case_details)}</div></li>`).join('');
+                } catch(e) {}
+            };
+
+            window.loadValidations = async function(id) {
+                try {
+                    const { data } = await dbClient.from('arb_validations').select('*').eq('arb_id', id).order('date_validated', { ascending: false });
+                    const list = document.getElementById('valList');
+                    if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">Pending Validation</li>'; return; }
+                    list.innerHTML = data.map(v => `<li><span style="color:#16a34a; font-weight:bold;">✓ ${safeHtml(v.validator_type)}</span><br><span style="font-size:0.8rem;">${safeHtml(v.validator_name)} (${safeHtml(v.position)})</span><br><span style="font-size:0.75rem; color:#64748b;">${safeHtml(v.validator_barangay)}, ${safeHtml(v.validator_town)} | ${formatDate(v.date_validated)}</span></li>`).join('');
+                } catch(e) {}
+            };
+
+            window.saveArbStatus = async function(e) {
+                e.preventDefault();
+                const life = document.getElementById('editLifeStatus').value;
+                const payload = { life_status: life };
+                let detailLog = `Status updated to ${life}.`;
+
+                if (life === 'Deceased') {
+                    payload.heir_name = document.getElementById('editHeirName').value;
+                    payload.heir_relation = document.getElementById('editHeirRel').value;
+                    payload.death_cert_submitted = document.getElementById('editDeathCert').value === 'true';
+                    detailLog += ` Heir: ${payload.heir_name}. Death Cert: ${payload.death_cert_submitted}`;
+                } else {
+                    payload.heir_name = null; payload.heir_relation = null; payload.death_cert_submitted = false;
+                }
+
+                const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
+                if(!error) { await window.logAction('UPDATE_LIFE_STATUS', detailLog); window.closeModal('editArbModal'); window.loadProfile(currentArbId); } 
+                else alert(error.message);
+            };
+
+            window.saveLandStatus = async function(e) {
+                e.preventDefault();
+                const action = document.getElementById('landAction').value;
+                let payload = {}; let detailLog = '';
+
+                if (action === 'link_ccloa') {
+                    const mId = document.getElementById('selectedMotherId').value;
+                    if(!mId) { alert('Please search and select a mother title first.'); return; }
+                    payload = { mother_title_id: mId, e_title_no: null };
+                    detailLog = `Linked to CCLOA ID: ${mId}`;
+                } else {
+                    const eTitle = document.getElementById('inputEtitle').value.trim();
+                    if(!eTitle) { alert('Please enter E-Title number.'); return; }
+                    payload = { e_title_no: eTitle };
+                    detailLog = `Issued individual E-Title: ${eTitle}`;
+                }
+
+                const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
+                if(!error) { await window.logAction('UPDATE_TITLE_STATUS', detailLog); window.closeModal('landModal'); window.loadProfile(currentArbId); } 
+                else alert(error.message);
+            };
+
+            window.saveTag = async function(e) {
+                e.preventDefault();
+                const payload = {
+                    arb_profile_id: currentArbId, tag_type: document.getElementById('tagType').value,
+                    status: document.getElementById('tagStatus').value, case_details: document.getElementById('tagDetails').value,
+                    tagged_by: window.currentProfile.full_name
+                };
+
+                const { error } = await dbClient.from('arb_tags').insert([payload]);
+                if(!error) { await window.logAction('ADD_LEGAL_TAG', `Tag: ${payload.tag_type}, Status: ${payload.status}`); window.closeModal('tagModal'); window.loadTags(currentArbId); } 
+                else alert(error.message);
+            };
+
+            window.saveValidation = async function(e) {
+                e.preventDefault();
+                const payload = {
+                    arb_id: currentArbId, validator_type: document.getElementById('valType').value,
+                    validator_name: document.getElementById('valName').value, position: document.getElementById('valPos').value,
+                    validator_barangay: document.getElementById('valBrgy').value, validator_town: document.getElementById('valTown').value,
+                    date_validated: getTodayString()
+                };
+
+                const { error } = await dbClient.from('arb_validations').insert([payload]);
+                if(!error) { await window.logAction('MANUAL_VALIDATION', `Validated by ${payload.validator_name}`); window.closeModal('valModal'); window.loadValidations(currentArbId); } 
+                else alert(error.message);
+            };
+
+            window.searchCCLOA = async function() {
+                const term = document.getElementById('searchCcloaInput').value.trim();
+                const resEl = document.getElementById('ccloaResults');
+                if(!term) return;
+                resEl.style.display = 'block'; resEl.innerHTML = '<li>Searching...</li>';
+                try {
+                    const { data } = await dbClient.from('mother_titles').select('id, mother_title_no, municipality, split_status').ilike('mother_title_no', `%${term}%`).limit(5);
+                    if(!data || data.length===0) resEl.innerHTML = '<li>No Title Found</li>';
+                    else resEl.innerHTML = data.map(d => `<li style="display:flex; justify-content:space-between; align-items:center;"><span>${safeHtml(d.mother_title_no)} <small>(${safeHtml(d.municipality)})</small></span> <button type="button" class="btn btn-mini btn-primary" onclick="selectCcloa('${d.id}', '${safeHtml(d.mother_title_no)}')">Select</button></li>`).join('');
+                } catch(e) { resEl.innerHTML = '<li>Error searching database.</li>'; }
+            };
+
+            window.selectCcloa = function(id, no) {
+                document.getElementById('selectedMotherId').value = id;
+                document.getElementById('ccloaResults').innerHTML = `<li style="color:#16a34a;">✅ Selected: ${no}</li>`;
+            };
+
+            window.toggleHeirFields = function() { document.getElementById('heirFields').style.display = document.getElementById('editLifeStatus').value === 'Deceased' ? 'block' : 'none'; };
+            window.toggleLandFields = function() {
+                const action = document.getElementById('landAction').value;
+                document.getElementById('ccloaField').style.display = action === 'link_ccloa' ? 'block' : 'none';
+                document.getElementById('etitleField').style.display = action === 'issue_etitle' ? 'block' : 'none';
+            };
+
+            window.openModal = function(id) { document.getElementById(id).classList.add('active'); };
+            window.closeModal = function(id) { document.getElementById(id).classList.remove('active'); };
+
+            // Page Initialization execution
+            const urlParams = new URLSearchParams(window.location.search);
+            currentArbId = urlParams.get('id') || 'dummy-uuid-for-testing'; // Ensure ID fallback exists for UI test
+            await window.loadProfile(currentArbId);
+
+        } catch (fatalErr) {
+            // MATCHING ARBO: Critical Catch Fallback
+            const container = document.getElementById('profileContent');
+            if (fatalErr.message === "Supabase CDN script failed to load.") {
+                container.innerHTML = `
+                    <div style="background: white; border-top: 4px solid #dc2626; border-radius: 8px; padding: 40px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px;">
+                        <div style="font-size: 2.5rem; margin-bottom: 10px; color: #475569;">🔌</div>
+                        <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 600;">Connection Offline</h3>
+                        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">The database driver could not load. This usually means a network filter or ad-blocker prevented the script from downloading.</p>
                     </div>
-                </div>
-                <div class="profile-grid">
-
-                    <!-- Basic Info & Status -->
-                    <div class="profile-card">
-                        <h3>👤 ARB Personal Details</h3>
-                        <div class="field"><span class="label">Gender</span><span class="value">${safeHtml(data.fb_gender || '—')}</span></div>
-                        <div class="field"><span class="label">Sequence No.</span><span class="value">${safeHtml(data.sequence_no || '—')}</span></div>
-                        <div class="field"><span class="label">Life Status</span><span class="value"><span class="badge ${lifeClass}">${data.life_status || 'Alive'}</span></span></div>
-                        ${data.life_status === 'Deceased' ? `
-                            <div class="field"><span class="label">Death Cert Submitted</span><span class="value">${data.death_cert_submitted ? '✅ Yes' : '❌ No'}</span></div>
-                            <div class="field"><span class="label">Heir Name</span><span class="value">${safeHtml(data.heir_name || '—')}</span></div>
-                            <div class="field"><span class="label">Relation</span><span class="value">${safeHtml(data.heir_relation || '—')}</span></div>
-                        ` : ''}
-                    </div>
-
-                    <!-- Landholding & Title -->
-                    <div class="profile-card">
-                        <h3>📜 Landholding & Title <button class="btn btn-mini btn-primary" onclick="openModal('landModal')">Update</button></h3>
-                        ${data.e_title_no ? `
-                            <div class="field"><span class="label">Individual E-Title</span><span class="value" style="color:#16a34a; font-size:1.1rem;">${safeHtml(data.e_title_no)}</span></div>
-                            <div class="field"><span class="label">SPLIT Status</span><span class="value"><span class="badge bg-split">COMPLETED</span></span></div>
-                        ` : data.mother_titles ? `
-                            <div class="field"><span class="label">Mother Title (CCLOA)</span><span class="value">${safeHtml(data.mother_titles.mother_title_no)}</span></div>
-                            <div class="field"><span class="label">Project SPLIT Status</span><span class="value"><span class="badge ${splitClass}">${safeHtml(data.mother_titles.split_status)}</span></span></div>
-                            <div class="field"><span class="label">Location</span><span class="value">${safeHtml(data.mother_titles.barangay)}, ${safeHtml(data.mother_titles.municipality)}</span></div>
-                        ` : `<p style="color:#64748b; font-size:0.85rem; text-align:center; padding:10px;">No Title Linked</p>`}
-                    </div>
-
-                    <!-- Legal & Tags (arb_tags: image_2f6b49.png) -->
-                    <div class="profile-card">
-                        <h3>⚖️ Legal & Case Tags <button class="btn btn-mini btn-danger" onclick="openModal('tagModal')">+ Add Tag</button></h3>
-                        <ul class="tag-list" id="tagList"><li>⏳ Loading...</li></ul>
-                    </div>
-
-                    <!-- Validations (arb_validations: image_2f6f27.png) -->
-                    <div class="profile-card">
-                        <h3>✅ Validations <button class="btn btn-mini btn-success" onclick="openModal('valModal')">+ Add Validation</button></h3>
-                        <ul class="val-list" id="valList"><li>⏳ Loading...</li></ul>
-                    </div>
-
-                </div>
-            `;
-            container.innerHTML = html;
-
-            // Prefill edit modal
-            document.getElementById('editLifeStatus').value = data.life_status || 'Alive';
-            if(data.life_status === 'Deceased') {
-                document.getElementById('heirFields').style.display = 'block';
-                document.getElementById('editHeirName').value = data.heir_name || '';
-                document.getElementById('editHeirRel').value = data.heir_relation || '';
-                document.getElementById('editDeathCert').value = data.death_cert_submitted ? 'true' : 'false';
+                `;
+            } else {
+                container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;">❌ Critical Page Error: ${fatalErr.message}</div>`;
             }
-
-            loadTags(id);
-            loadValidations(id);
-
-        } catch (err) {
-            container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;">❌ Error loading profile.</div>`;
         }
-    }
-
-    async function loadTags(id) {
-        try {
-            const { data } = await dbClient.from('arb_tags').select('*').eq('arb_profile_id', id).order('created_at', { ascending: false });
-            const list = document.getElementById('tagList');
-            if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">No tags found</li>'; return; }
-            list.innerHTML = data.map(t => `<li><strong>${safeHtml(t.tag_type)}</strong><br><span style="font-size:0.75rem; color:#64748b;">Status: ${safeHtml(t.status)} | Added by: ${safeHtml(t.tagged_by)}</span><div style="font-size:0.8rem; margin-top:4px;">${safeHtml(t.case_details)}</div></li>`).join('');
-        } catch(e) {}
-    }
-
-    async function loadValidations(id) {
-        try {
-            const { data } = await dbClient.from('arb_validations').select('*').eq('arb_id', id).order('date_validated', { ascending: false });
-            const list = document.getElementById('valList');
-            if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">Pending Validation</li>'; return; }
-            list.innerHTML = data.map(v => `<li><span style="color:#16a34a; font-weight:bold;">✓ ${safeHtml(v.validator_type)}</span><br><span style="font-size:0.8rem;">${safeHtml(v.validator_name)} (${safeHtml(v.position)})</span><br><span style="font-size:0.75rem; color:#64748b;">${safeHtml(v.validator_barangay)}, ${safeHtml(v.validator_town)} | ${formatDate(v.date_validated)}</span></li>`).join('');
-        } catch(e) {}
-    }
-
-    // --- Form Submissions ---
-
-    async function saveArbStatus(e) {
-        e.preventDefault();
-        const life = document.getElementById('editLifeStatus').value;
-        const payload = { life_status: life };
-
-        let detailLog = `Status updated to ${life}.`;
-
-        if (life === 'Deceased') {
-            payload.heir_name = document.getElementById('editHeirName').value;
-            payload.heir_relation = document.getElementById('editHeirRel').value;
-            payload.death_cert_submitted = document.getElementById('editDeathCert').value === 'true';
-            detailLog += ` Heir: ${payload.heir_name}. Death Cert: ${payload.death_cert_submitted}`;
-        } else {
-            payload.heir_name = null; payload.heir_relation = null; payload.death_cert_submitted = false;
-        }
-
-        const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
-        if(!error) {
-            await logAction('UPDATE_LIFE_STATUS', detailLog);
-            closeModal('editArbModal');
-            loadProfile(currentArbId);
-        } else alert(error.message);
-    }
-
-    async function saveLandStatus(e) {
-        e.preventDefault();
-        const action = document.getElementById('landAction').value;
-        let payload = {}; let detailLog = '';
-
-        if (action === 'link_ccloa') {
-            const mId = document.getElementById('selectedMotherId').value;
-            if(!mId) { alert('Please search and select a mother title first.'); return; }
-            payload = { mother_title_id: mId, e_title_no: null }; // Reset e-title if relinking to CCLOA
-            detailLog = `Linked to CCLOA ID: ${mId}`;
-        } else {
-            const eTitle = document.getElementById('inputEtitle').value.trim();
-            if(!eTitle) { alert('Please enter E-Title number.'); return; }
-            payload = { e_title_no: eTitle };
-            detailLog = `Issued individual E-Title: ${eTitle}`;
-        }
-
-        const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
-        if(!error) {
-            await logAction('UPDATE_TITLE_STATUS', detailLog);
-            closeModal('landModal');
-            loadProfile(currentArbId);
-        } else alert(error.message);
-    }
-
-    async function saveTag(e) {
-        e.preventDefault();
-        const payload = {
-            arb_profile_id: currentArbId,
-            tag_type: document.getElementById('tagType').value,
-            status: document.getElementById('tagStatus').value,
-            case_details: document.getElementById('tagDetails').value,
-            tagged_by: window.currentProfile.full_name // From auth
-        };
-
-        const { error } = await dbClient.from('arb_tags').insert([payload]);
-        if(!error) {
-            await logAction('ADD_LEGAL_TAG', `Tag: ${payload.tag_type}, Status: ${payload.status}`);
-            closeModal('tagModal');
-            loadTags(currentArbId);
-        } else alert(error.message);
-    }
-
-    async function saveValidation(e) {
-        e.preventDefault();
-        const payload = {
-            arb_id: currentArbId,
-            validator_type: document.getElementById('valType').value,
-            validator_name: document.getElementById('valName').value,
-            position: document.getElementById('valPos').value,
-            validator_barangay: document.getElementById('valBrgy').value,
-            validator_town: document.getElementById('valTown').value,
-            date_validated: getTodayString()
-        };
-
-        const { error } = await dbClient.from('arb_validations').insert([payload]);
-        if(!error) {
-            await logAction('MANUAL_VALIDATION', `Validated by ${payload.validator_name} (${payload.validator_type})`);
-            closeModal('valModal');
-            loadValidations(currentArbId);
-        } else alert(error.message);
-    }
-
-    // --- Helpers & UI Toggles ---
-
-    async function searchCCLOA() {
-        const term = document.getElementById('searchCcloaInput').value.trim();
-        const resEl = document.getElementById('ccloaResults');
-        if(!term) return;
-        resEl.style.display = 'block'; resEl.innerHTML = '<li>Searching...</li>';
-        try {
-            const { data } = await dbClient.from('mother_titles').select('id, mother_title_no, municipality, split_status').ilike('mother_title_no', `%${term}%`).limit(5);
-            if(!data || data.length===0) resEl.innerHTML = '<li>No Title Found</li>';
-            else resEl.innerHTML = data.map(d => `<li style="display:flex; justify-content:space-between; align-items:center;"><span>${safeHtml(d.mother_title_no)} <small>(${safeHtml(d.municipality)})</small></span> <button type="button" class="btn btn-mini btn-primary" onclick="selectCcloa('${d.id}', '${safeHtml(d.mother_title_no)}')">Select</button></li>`).join('');
-        } catch(e) { resEl.innerHTML = '<li>Error searching database.</li>'; }
-    }
-
-    function selectCcloa(id, no) {
-        document.getElementById('selectedMotherId').value = id;
-        document.getElementById('ccloaResults').innerHTML = `<li style="color:#16a34a;">✅ Selected: ${no}</li>`;
-    }
-
-    function toggleHeirFields() {
-        document.getElementById('heirFields').style.display = document.getElementById('editLifeStatus').value === 'Deceased' ? 'block' : 'none';
-    }
-
-    function toggleLandFields() {
-        const action = document.getElementById('landAction').value;
-        document.getElementById('ccloaField').style.display = action === 'link_ccloa' ? 'block' : 'none';
-        document.getElementById('etitleField').style.display = action === 'issue_etitle' ? 'block' : 'none';
-    }
-
-    function openModal(id) { document.getElementById(id).classList.add('active'); }
-    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
-    function safeHtml(str) { return String(str || '').replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m])); }
-    function formatDate(ds) { return ds ? new Date(ds).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
-    function getTodayString() { return new Date().toISOString().split('T')[0]; }
-
+    })();
 </script>
 </body>
 </html>
