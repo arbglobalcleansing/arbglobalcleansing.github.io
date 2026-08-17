@@ -3,424 +3,854 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARB Profile Management</title>
+    <title>ARB Profile</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; color: #334155; }
-        .container { max-width: 1200px; margin: auto; }
-        .nav { background: white; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .nav a { text-decoration: none; color: #475569; font-weight: 600; padding: 8px 12px; border-radius: 6px; }
-        .nav a.active, .nav a:hover { background: #e2e8f0; color: #0a3d62; }
+        .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+        .profile-header h2 { margin: 0; }
+        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
+        .validator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
+        .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #0a3d62; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .validator-item .type-badge { display: inline-block; background: #dbeafe; color: #0a3d62; padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
+        .validator-item .name { font-weight: 700; font-size: 1.05rem; }
+        .validator-item .detail { font-size: 0.9rem; color: #334155; }
 
-        .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #cbd5e1; }
-        .profile-header h2 { margin: 0; color: #0a3d62; font-size: 1.8rem; }
-        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-        .profile-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .profile-card h3 { color: #0a3d62; font-size: 1.1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 0; display: flex; justify-content: space-between; }
-
-        .field { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; }
-        .field:last-child { border-bottom: none; }
-        .label { font-weight: 600; color: #64748b; font-size: 0.85rem; }
-        .value { font-weight: 600; color: #0f172a; font-size: 0.9rem; text-align: right; }
-
-        .btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
-        .btn-primary { background: #0a3d62; color: white; }
-        .btn-success { background: #16a34a; color: white; }
-        .btn-danger { background: #dc2626; color: white; }
-        .btn-warning { background: #f59e0b; color: white; }
-        .btn-mini { padding: 2px 8px; font-size: 0.7rem; }
-
-        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; }
-        .bg-alive { background: #16a34a; }
-        .bg-dead { background: #dc2626; }
-        .bg-split { background: #4f46e5; }
-        .bg-pending { background: #f59e0b; }
-
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
-        .modal.active { display: flex; }
-        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; position: relative; }
-        .modal-close { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b; }
-        .form-group { margin-bottom: 15px; }
-        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-
-        .tag-list, .val-list { list-style: none; padding: 0; margin: 0; }
-        .tag-list li, .val-list li { background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; }
-        .tag-list li strong { color: #dc2626; }
-
-        @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
+        /* Functional additions only; the existing site design and colors are retained. */
+        .profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+        .profile-form-grid .full-row { grid-column: 1 / -1; }
+        .profile-form-grid label { display: block; font-size: 0.85rem; font-weight: 700; color: #334155; margin-bottom: 4px; }
+        .profile-form-grid input, .profile-form-grid select, .profile-form-grid textarea,
+        .search-row input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #cbd5e1; border-radius: 5px; background: white; }
+        .search-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .search-row input[type="text"] { flex: 1 1 260px; }
+        .search-row label { display: flex; gap: 6px; align-items: center; font-size: 0.9rem; }
+        .search-row input[type="checkbox"] { width: auto; }
+        .table-responsive { width: 100%; overflow-x: auto; margin-top: 12px; }
+        .profile-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .profile-table th, .profile-table td { text-align: left; padding: 9px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        .profile-table th { color: #334155; background: #f8fafc; }
+        .action-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+        .notice { display: none; margin-bottom: 15px; padding: 12px 14px; border-radius: 5px; }
+        .notice.success { display: block; background: #dcfce7; color: #166534; }
+        .notice.error { display: block; background: #fee2e2; color: #991b1b; }
+        .section-note { color: #64748b; font-size: 0.9rem; }
+        details.profile-card > summary { cursor: pointer; font-weight: 700; color: #0a3d62; }
+        details.profile-card[open] > summary { margin-bottom: 16px; }
+        @media (max-width: 700px) {
+            .profile-grid, .profile-form-grid { grid-template-columns: 1fr; }
+            .profile-form-grid .full-row { grid-column: auto; }
+            .profile-header { flex-direction: column; align-items: stretch; gap: 12px; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>ARB Profile Management</h1>
-    <nav class="nav" id="mainNav"></nav>
-
-    <div id="profileContent"><p style="text-align:center; padding:40px;">⏳ Loading profile data...</p></div>
-</div>
-
-<!-- Modals -->
-
-<!-- 1. Edit Basic & Life Status Modal -->
-<div id="editArbModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('editArbModal')">&times;</button>
-        <h2>✏️ Update ARB Status</h2>
-        <form onsubmit="saveArbStatus(event)">
-            <div class="form-group">
-                <label>Life Status</label>
-                <select id="editLifeStatus" onchange="toggleHeirFields()">
-                    <option value="Alive">Alive</option>
-                    <option value="Deceased">Deceased</option>
-                </select>
-            </div>
-            <div id="heirFields" style="display:none; background: #fef2f2; padding: 15px; border-radius: 6px; border: 1px dashed #fca5a5; margin-bottom: 15px;">
-                <div class="form-group">
-                    <label>Has Death Certificate been submitted?</label>
-                    <select id="editDeathCert"><option value="false">No</option><option value="true">Yes</option></select>
-                </div>
-                <div class="form-group"><label>Designated Heir Name</label><input type="text" id="editHeirName" placeholder="e.g. Maria Clara" /></div>
-                <div class="form-group"><label>Relationship to ARB</label><input type="text" id="editHeirRel" placeholder="e.g. Daughter, Spouse" /></div>
-            </div>
-            <button type="submit" class="btn btn-success" style="width:100%;">💾 Save Changes</button>
-        </form>
-    </div>
-</div>
-
-<!-- 2. Landholding / CCLOA Modal -->
-<div id="landModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('landModal')">&times;</button>
-        <h2>📜 Update Title Status</h2>
-        <form onsubmit="saveLandStatus(event)">
-            <div class="form-group">
-                <label>Update Action</label>
-                <select id="landAction" onchange="toggleLandFields()">
-                    <option value="link_ccloa">Link to Collective CLOA (Mother Title)</option>
-                    <option value="issue_etitle">Issue Individual E-Title (Project SPLIT)</option>
-                </select>
-            </div>
-
-            <div id="ccloaField">
-                <div class="form-group">
-                    <label>Search Mother Title No.</label>
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" id="searchCcloaInput" placeholder="Type title number..." />
-                        <button type="button" class="btn btn-primary" onclick="searchCCLOA()">🔍 Find</button>
-                    </div>
-                </div>
-                <ul id="ccloaResults" class="tag-list" style="max-height: 150px; overflow-y: auto; display:none;"></ul>
-                <input type="hidden" id="selectedMotherId" />
-            </div>
-
-            <div id="etitleField" style="display:none;">
-                <div class="form-group">
-                    <label>Individual E-Title Number</label>
-                    <input type="text" id="inputEtitle" placeholder="Enter uniquely generated E-Title No." />
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-success" style="width:100%; margin-top: 15px;">💾 Update Title</button>
-        </form>
-    </div>
-</div>
-
-<!-- 3. Legal Tags Modal -->
-<div id="tagModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('tagModal')">&times;</button>
-        <h2>🏷️ Add Legal/Transfer Tag</h2>
-        <form onsubmit="saveTag(event)">
-            <div class="form-group">
-                <label>Tag Type</label>
-                <select id="tagType">
-                    <option value="AO8 Subject">AO8 Subject</option>
-                    <option value="Subject for Transfer Action">Subject for Transfer Action</option>
-                    <option value="With Transfer Action Case">With Transfer Action Case</option>
-                </select>
-            </div>
-            <div class="form-group"><label>Status</label><input type="text" id="tagStatus" placeholder="e.g. Pending, Ongoing" required /></div>
-            <div class="form-group"><label>Case Details / Remarks</label><textarea id="tagDetails" rows="3" placeholder="Brief description..."></textarea></div>
-            <button type="submit" class="btn btn-danger" style="width:100%;">🚨 Apply Tag</button>
-        </form>
-    </div>
-</div>
-
-<!-- 4. Manual Validation Modal -->
-<div id="valModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('valModal')">&times;</button>
-        <h2>✅ Add Manual Validation</h2>
-        <p style="font-size:0.8rem; color:#64748b;">(For Barangay Officials without system accounts)</p>
-        <form onsubmit="saveValidation(event)">
-            <div class="form-group">
-                <label>Validator Type</label>
-                <select id="valType"><option value="Barangay">Barangay Official</option><option value="DARMO">DARMO Personnel</option></select>
-            </div>
-            <div class="form-group"><label>Official's Name *</label><input type="text" id="valName" required placeholder="e.g. Brgy Capt. Juan" /></div>
-            <div class="form-group"><label>Position *</label><input type="text" id="valPos" required placeholder="e.g. Barangay Chairman" /></div>
-            <div class="form-group">
-                <label>Location (Brgy, Town)</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="valBrgy" placeholder="Barangay" />
-                    <input type="text" id="valTown" placeholder="Town/Municipality" />
-                </div>
-            </div>
-            <button type="submit" class="btn btn-success" style="width:100%;">✔️ Confirm Validation</button>
-        </form>
-    </div>
+    <h1>ARB Profile</h1>
+    <nav class="nav">
+        <a href="arbo.html">ARBO</a>
+        <a href="arb.html" class="active">ARB</a>
+        <a href="validators.html">Validators</a>
+        <a href="reports.html">Reports</a>
+        <span class="user-badge" id="userDisplay"></span>
+        <a href="#" class="logout-link" onclick="logout()">Logout</a>
+    </nav>
+    <div id="profileContent"><p style="text-align:center; padding:40px;">Loading profile...</p></div>
 </div>
 
 <script>
-    let currentArbId = null;
+    let activeArbId = null;
+    let activeArb = null;
+    let activeArbProfile = null;
+    let activeMotherTitle = null;
+    let authenticatedUserId = null;
+
+    const VALIDATOR_TYPES = ['Barangay', 'DARMO', 'PBDD'];
+    const TAG_TYPES = [
+        'AO8',
+        'SUBJECT FOR TRANSFER ACTION',
+        'WITH TRANSFER ACTION CASE',
+        'REGULAR ALI CASE',
+        'SPLIT ALI CASE'
+    ];
+    const ALI_STATUSES = [
+        '',
+        'AT DARPO',
+        'AT DARMO WITH INDORSEMENT',
+        'AT DARPO FROM DARMO - COMPLETE',
+        'AT DARPO FROM DARMO - INCOMPLETE',
+        'AT REGION FOR DECISION',
+        'GRANTED',
+        'DENIED',
+        'MOTION FOR RECONSIDERATION',
+        'WITH OF'
+    ];
 
     (async function() {
-        // MATCHING ARBO: Global Error Handler
-        window.onerror = function(msg, url, line) {
-            console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
-            return false;
-        };
+        const ok = await checkAuth(['admin', 'staff', 'viewer', 'legal']);
+        if (!ok) return;
 
-        // Utility Functions
-        function safeHtml(str) { return String(str || '').replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m])); }
-        function formatDate(ds) { return ds ? new Date(ds).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-'; }
-        function getTodayString() { return new Date().toISOString().split('T')[0]; }
+        const role = String(window.currentProfile.role || '').toLowerCase();
+        document.getElementById('userDisplay').textContent =
+            '👤 ' + window.currentProfile.full_name + ' (' + role + ')';
+
+        if (role === 'viewer') {
+            document.querySelector('a[href="arbo.html"]').style.display = 'none';
+            document.querySelector('a[href="validators.html"]').style.display = 'none';
+            document.querySelector('a[href="reports.html"]').style.display = 'none';
+        }
 
         try {
-            // MATCHING ARBO: Strict Script Load Check
-            if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
+            const { data } = await supabase.auth.getUser();
+            authenticatedUserId = data && data.user ? data.user.id : null;
+        } catch (authError) {
+            console.warn('Unable to obtain authenticated user ID:', authError);
+        }
 
-            const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-            const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-            const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-            window.dbClient = dbClient; // Expose globally for forms
+        const arbId = getParam('id');
+        if (!arbId) {
+            document.getElementById('profileContent').innerHTML = `
+                <div style="text-align:center; padding:40px;"><p>❌ No ARB ID provided.</p><a href="arb.html" class="back-link">← Back to ARB List</a></div>
+            `;
+            return;
+        }
 
-            // MATCHING ARBO: Real Authentication Logic
-            const { data: authData, error: authErr } = await dbClient.auth.getUser();
-            if (authErr || !authData || !authData.user) { window.location.href = 'dashboard.html'; return; }
+        activeArbId = arbId;
+        await loadProfile(arbId);
+    })();
 
-            const { data: profile } = await dbClient.from('profiles').select('*').eq('id', authData.user.id).single();
-            if (!profile) { window.location.href = 'dashboard.html'; return; }
-            window.currentProfile = profile; 
+    function safeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 
-            // --- Expose Page Functions to Window (for HTML onClick handlers) ---
+    function showValue(value) {
+        return value == null || String(value).trim() === '' ? '—' : safeHtml(value);
+    }
 
-            window.logAction = async function(actionStr, detailsStr) {
-                try {
-                    await dbClient.from('audit_logs').insert([{
-                        action: actionStr, record_id: currentArbId, user_id: window.currentProfile.id, details: detailsStr
-                    }]);
-                } catch(e) { console.error("Audit log failed:", e); }
-            };
+    function fullName(arb) {
+        if (!arb) return 'Unknown ARB';
+        return [arb.last_name ? arb.last_name + ',' : '', arb.first_name || '', arb.middle_name || '']
+            .filter(Boolean)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
 
-            window.loadProfile = async function(id) {
-                const container = document.getElementById('profileContent');
-                try {
-                    const { data: arb, error: arbErr } = await dbClient
-                        .from('arb_profiles')
-                        .select(`*, mother_titles(mother_title_no, municipality, barangay, split_status)`)
-                        .eq('id', id).single();
+    function dateValue(value) {
+        if (!value) return '—';
+        return typeof formatDate === 'function' ? formatDate(value) : new Date(value).toLocaleDateString();
+    }
 
-                    const data = arb || {
-                        fb_name: 'Juan Dela Cruz', fb_gender: 'Male', sequence_no: '001', life_status: 'Alive', e_title_no: null,
-                        mother_titles: { mother_title_no: 'OCT-12345', split_status: 'PENDING SPLIT', municipality: 'Quezon', barangay: 'San Jose' }
-                    };
+    function badge(value, kind) {
+        return `<span class="badge ${kind}">${safeHtml(value || '—')}</span>`;
+    }
 
-                    const lifeClass = data.life_status === 'Deceased' ? 'bg-dead' : 'bg-alive';
-                    const splitClass = data.mother_titles?.split_status === 'SPLIT COMPLETED' ? 'bg-success' : 'bg-pending';
+    function statusBadge(value) {
+        const normalized = String(value || '').toUpperCase();
+        let kind = 'badge-warning';
+        if (['VALIDATED', 'ALIVE', 'GRANTED', 'SPLIT', 'NON-SPLIT', 'COMPLETE', 'CURRENT'].some(item => normalized === item || normalized.endsWith(' - ' + item))) {
+            kind = 'badge-success';
+        }
+        if (['REJECTED', 'DENIED', 'DEAD - VALIDATED'].includes(normalized)) {
+            kind = 'badge-danger';
+        }
+        return badge(value || 'Pending', kind);
+    }
 
-                    let html = `
-                        <div class="profile-header">
-                            <h2>${safeHtml(data.fb_name)}</h2>
-                            <div><button class="btn btn-warning" onclick="openModal('editArbModal')">✏️ Edit Status</button></div>
-                        </div>
-                        <div class="profile-grid">
-                            <div class="profile-card">
-                                <h3>👤 ARB Personal Details</h3>
-                                <div class="field"><span class="label">Gender</span><span class="value">${safeHtml(data.fb_gender || '—')}</span></div>
-                                <div class="field"><span class="label">Sequence No.</span><span class="value">${safeHtml(data.sequence_no || '—')}</span></div>
-                                <div class="field"><span class="label">Life Status</span><span class="value"><span class="badge ${lifeClass}">${data.life_status || 'Alive'}</span></span></div>
-                                ${data.life_status === 'Deceased' ? `
-                                    <div class="field"><span class="label">Death Cert Submitted</span><span class="value">${data.death_cert_submitted ? '✅ Yes' : '❌ No'}</span></div>
-                                    <div class="field"><span class="label">Heir Name</span><span class="value">${safeHtml(data.heir_name || '—')}</span></div>
-                                    <div class="field"><span class="label">Relation</span><span class="value">${safeHtml(data.heir_relation || '—')}</span></div>
-                                ` : ''}
-                            </div>
-                            <div class="profile-card">
-                                <h3>📜 Landholding & Title <button class="btn btn-mini btn-primary" onclick="openModal('landModal')">Update</button></h3>
-                                ${data.e_title_no ? `
-                                    <div class="field"><span class="label">Individual E-Title</span><span class="value" style="color:#16a34a; font-size:1.1rem;">${safeHtml(data.e_title_no)}</span></div>
-                                    <div class="field"><span class="label">SPLIT Status</span><span class="value"><span class="badge bg-split">COMPLETED</span></span></div>
-                                ` : data.mother_titles ? `
-                                    <div class="field"><span class="label">Mother Title (CCLOA)</span><span class="value">${safeHtml(data.mother_titles.mother_title_no)}</span></div>
-                                    <div class="field"><span class="label">Project SPLIT Status</span><span class="value"><span class="badge ${splitClass}">${safeHtml(data.mother_titles.split_status)}</span></span></div>
-                                    <div class="field"><span class="label">Location</span><span class="value">${safeHtml(data.mother_titles.barangay)}, ${safeHtml(data.mother_titles.municipality)}</span></div>
-                                ` : `<p style="color:#64748b; font-size:0.85rem; text-align:center; padding:10px;">No Title Linked</p>`}
-                            </div>
-                            <div class="profile-card">
-                                <h3>⚖️ Legal & Case Tags <button class="btn btn-mini btn-danger" onclick="openModal('tagModal')">+ Add Tag</button></h3>
-                                <ul class="tag-list" id="tagList"><li>⏳ Loading...</li></ul>
-                            </div>
-                            <div class="profile-card">
-                                <h3>✅ Validations <button class="btn btn-mini btn-success" onclick="openModal('valModal')">+ Add Validation</button></h3>
-                                <ul class="val-list" id="valList"><li>⏳ Loading...</li></ul>
-                            </div>
-                        </div>
-                    `;
-                    container.innerHTML = html;
+    function canEditProfile() {
+        const role = String(window.currentProfile.role || '').toLowerCase();
+        return role === 'admin' || role === 'staff';
+    }
 
-                    document.getElementById('editLifeStatus').value = data.life_status || 'Alive';
-                    if(data.life_status === 'Deceased') {
-                        document.getElementById('heirFields').style.display = 'block';
-                        document.getElementById('editHeirName').value = data.heir_name || '';
-                        document.getElementById('editHeirRel').value = data.heir_relation || '';
-                        document.getElementById('editDeathCert').value = data.death_cert_submitted ? 'true' : 'false';
-                    }
+    function canTagLegal() {
+        const role = String(window.currentProfile.role || '').toLowerCase();
+        return role === 'admin' || role === 'staff' || role === 'legal';
+    }
 
-                    window.loadTags(id);
-                    window.loadValidations(id);
+    async function loadProfile(id) {
+        const container = document.getElementById('profileContent');
+        try {
+            const { data: arb, error: arbErr } = await supabase
+                .from('arb')
+                .select(`*, arbo:arbo_id ( id, name, barangay, municipality )`)
+                .eq('id', id)
+                .single();
+            if (arbErr) throw new Error('ARB not found');
 
-                } catch (err) { container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;">❌ Error loading profile.</div>`; }
-            };
+            const [validationResult, profileResult] = await Promise.all([
+                supabase.from('arb_validations').select('*').eq('arb_id', id).order('date_validated', { ascending: false }),
+                supabase.from('arb_profiles').select('*').eq('arb_id', String(id)).order('created_at', { ascending: false }).limit(1)
+            ]);
 
-            window.loadTags = async function(id) {
-                try {
-                    const { data } = await dbClient.from('arb_tags').select('*').eq('arb_profile_id', id).order('created_at', { ascending: false });
-                    const list = document.getElementById('tagList');
-                    if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">No tags found</li>'; return; }
-                    list.innerHTML = data.map(t => `<li><strong>${safeHtml(t.tag_type)}</strong><br><span style="font-size:0.75rem; color:#64748b;">Status: ${safeHtml(t.status)} | Added by: ${safeHtml(t.tagged_by)}</span><div style="font-size:0.8rem; margin-top:4px;">${safeHtml(t.case_details)}</div></li>`).join('');
-                } catch(e) {}
-            };
+            if (validationResult.error) throw validationResult.error;
+            if (profileResult.error) throw profileResult.error;
 
-            window.loadValidations = async function(id) {
-                try {
-                    const { data } = await dbClient.from('arb_validations').select('*').eq('arb_id', id).order('date_validated', { ascending: false });
-                    const list = document.getElementById('valList');
-                    if(!data || data.length === 0) { list.innerHTML = '<li style="color:#64748b; text-align:center; border:none;">Pending Validation</li>'; return; }
-                    list.innerHTML = data.map(v => `<li><span style="color:#16a34a; font-weight:bold;">✓ ${safeHtml(v.validator_type)}</span><br><span style="font-size:0.8rem;">${safeHtml(v.validator_name)} (${safeHtml(v.position)})</span><br><span style="font-size:0.75rem; color:#64748b;">${safeHtml(v.validator_barangay)}, ${safeHtml(v.validator_town)} | ${formatDate(v.date_validated)}</span></li>`).join('');
-                } catch(e) {}
-            };
+            const validations = validationResult.data || [];
+            const arbProfile = profileResult.data && profileResult.data.length ? profileResult.data[0] : null;
+            let motherTitle = null;
+            let tags = [];
+            let heirs = [];
 
-            window.saveArbStatus = async function(e) {
-                e.preventDefault();
-                const life = document.getElementById('editLifeStatus').value;
-                const payload = { life_status: life };
-                let detailLog = `Status updated to ${life}.`;
-
-                if (life === 'Deceased') {
-                    payload.heir_name = document.getElementById('editHeirName').value;
-                    payload.heir_relation = document.getElementById('editHeirRel').value;
-                    payload.death_cert_submitted = document.getElementById('editDeathCert').value === 'true';
-                    detailLog += ` Heir: ${payload.heir_name}. Death Cert: ${payload.death_cert_submitted}`;
-                } else {
-                    payload.heir_name = null; payload.heir_relation = null; payload.death_cert_submitted = false;
+            if (arbProfile) {
+                const requests = [
+                    supabase.from('arb_tags').select('*').eq('arb_profile_id', arbProfile.id).order('created_at', { ascending: false }),
+                    supabase.from('arb_heirs').select('*').eq('arb_profile_id', arbProfile.id).order('created_at', { ascending: true })
+                ];
+                if (arbProfile.mother_title_id) {
+                    requests.push(supabase.from('mother_titles').select('*').eq('id', arbProfile.mother_title_id).maybeSingle());
                 }
 
-                const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
-                if(!error) { await window.logAction('UPDATE_LIFE_STATUS', detailLog); window.closeModal('editArbModal'); window.loadProfile(currentArbId); } 
-                else alert(error.message);
-            };
-
-            window.saveLandStatus = async function(e) {
-                e.preventDefault();
-                const action = document.getElementById('landAction').value;
-                let payload = {}; let detailLog = '';
-
-                if (action === 'link_ccloa') {
-                    const mId = document.getElementById('selectedMotherId').value;
-                    if(!mId) { alert('Please search and select a mother title first.'); return; }
-                    payload = { mother_title_id: mId, e_title_no: null };
-                    detailLog = `Linked to CCLOA ID: ${mId}`;
-                } else {
-                    const eTitle = document.getElementById('inputEtitle').value.trim();
-                    if(!eTitle) { alert('Please enter E-Title number.'); return; }
-                    payload = { e_title_no: eTitle };
-                    detailLog = `Issued individual E-Title: ${eTitle}`;
+                const results = await Promise.all(requests);
+                if (results[0].error) throw results[0].error;
+                if (results[1].error) throw results[1].error;
+                tags = results[0].data || [];
+                heirs = results[1].data || [];
+                if (arbProfile.mother_title_id) {
+                    if (results[2].error) throw results[2].error;
+                    motherTitle = results[2].data || null;
                 }
+            }
 
-                const { error } = await dbClient.from('arb_profiles').update(payload).eq('id', currentArbId);
-                if(!error) { await window.logAction('UPDATE_TITLE_STATUS', detailLog); window.closeModal('landModal'); window.loadProfile(currentArbId); } 
-                else alert(error.message);
-            };
+            activeArb = arb;
+            activeArbProfile = arbProfile;
+            activeMotherTitle = motherTitle;
+            renderProfile(container, arb, arbProfile, motherTitle, validations, tags, heirs);
+            bindForms();
+        } catch (err) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;"><p>❌ ${safeHtml(err.message)}</p><a href="arb.html" class="back-link">← Back to ARB List</a></div>`;
+            console.error(err);
+        }
+    }
 
-            window.saveTag = async function(e) {
-                e.preventDefault();
-                const payload = {
-                    arb_profile_id: currentArbId, tag_type: document.getElementById('tagType').value,
-                    status: document.getElementById('tagStatus').value, case_details: document.getElementById('tagDetails').value,
-                    tagged_by: window.currentProfile.full_name
-                };
+    function renderProfile(container, arb, arbProfile, motherTitle, validations, tags, heirs) {
+        const arboName = arb.arbo ? arb.arbo.name : '—';
+        const arboBarangay = arb.arbo ? arb.arbo.barangay : '—';
+        const arboMunicipality = arb.arbo ? arb.arbo.municipality : '—';
+        const validationStatus = arb.validation_status || 'Pending';
+        const lifeStatus = arbProfile && arbProfile.life_status ? arbProfile.life_status : (arb.life_status || 'Alive');
+        const subjectForTransfer = arbProfile && arbProfile.subject_for_transfer != null
+            ? arbProfile.subject_for_transfer
+            : Boolean(arb.subject_for_transfer);
+        const splitStatus = arbProfile && arbProfile.split_status ? arbProfile.split_status : 'PENDING VALIDATION';
+        const selectedHeir = heirs.find(heir => heir.is_selected);
+        const canEdit = canEditProfile();
+        const canTag = canTagLegal();
 
-                const { error } = await dbClient.from('arb_tags').insert([payload]);
-                if(!error) { await window.logAction('ADD_LEGAL_TAG', `Tag: ${payload.tag_type}, Status: ${payload.status}`); window.closeModal('tagModal'); window.loadTags(currentArbId); } 
-                else alert(error.message);
-            };
+        let html = `
+            <div id="profileNotice" class="notice"></div>
+            <div class="profile-header">
+                <h2>${safeHtml(fullName(arb))}</h2>
+                <div>
+                    <a href="arb.html" class="btn btn-primary" style="text-decoration:none; margin-right:8px;">← Back</a>
+                    ${(canEdit || canTag) ? '<button type="button" class="btn-edit" onclick="toggleEditPanel()">✏️ Edit ARB</button>' : ''}
+                </div>
+            </div>
 
-            window.saveValidation = async function(e) {
-                e.preventDefault();
-                const payload = {
-                    arb_id: currentArbId, validator_type: document.getElementById('valType').value,
-                    validator_name: document.getElementById('valName').value, position: document.getElementById('valPos').value,
-                    validator_barangay: document.getElementById('valBrgy').value, validator_town: document.getElementById('valTown').value,
-                    date_validated: getTodayString()
-                };
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <h3>👤 Personal Information</h3>
+                    <div class="field"><span class="label">ARB ID</span><span class="value">${safeHtml(arb.id)}</span></div>
+                    <div class="field"><span class="label">Full Name</span><span class="value">${safeHtml(fullName(arb))}</span></div>
+                    <div class="field"><span class="label">ARBO</span><span class="value">${safeHtml(arboName)}</span></div>
+                    <div class="field"><span class="label">Barangay</span><span class="value">${safeHtml(arboBarangay)}</span></div>
+                    <div class="field"><span class="label">Municipality/Town</span><span class="value">${safeHtml(arboMunicipality)}</span></div>
+                    <div class="field"><span class="label">District</span><span class="value">${showValue(arbProfile && arbProfile.district)}</span></div>
+                    <div class="field"><span class="label">Validation Status</span><span class="value">${statusBadge(validationStatus)}</span></div>
+                    <div class="field"><span class="label">Life Status</span><span class="value">${statusBadge(lifeStatus)}</span></div>
+                    <div class="field"><span class="label">SPLIT Classification</span><span class="value">${statusBadge(splitStatus)}</span></div>
+                    <div class="field"><span class="label">Subject for Transfer</span><span class="value">${subjectForTransfer ? badge('Yes', 'badge-warning') : badge('No', 'badge-success')}</span></div>
+                </div>
 
-                const { error } = await dbClient.from('arb_validations').insert([payload]);
-                if(!error) { await window.logAction('MANUAL_VALIDATION', `Validated by ${payload.validator_name}`); window.closeModal('valModal'); window.loadValidations(currentArbId); } 
-                else alert(error.message);
-            };
+                <div class="profile-card">
+                    <h3>📄 CCLOA and Individual Title</h3>
+                    <div class="field"><span class="label">Mother/Collective CLOA No.</span><span class="value">${showValue(motherTitle && motherTitle.mother_title_no)}</span></div>
+                    <div class="field"><span class="label">Landowner</span><span class="value">${showValue(motherTitle && motherTitle.landowner)}</span></div>
+                    <div class="field"><span class="label">Landholding Location</span><span class="value">${showValue(motherTitle && [motherTitle.barangay, motherTitle.municipality].filter(Boolean).join(', '))}</span></div>
+                    <div class="field"><span class="label">CCLOA Description</span><span class="value">${showValue(motherTitle && motherTitle.title_description)}</span></div>
+                    <div class="field"><span class="label">Landholding SPLIT Status</span><span class="value">${statusBadge(motherTitle && motherTitle.split_status ? motherTitle.split_status : 'PENDING VALIDATION')}</span></div>
+                    <div class="field"><span class="label">ARB Still Under CCLOA</span><span class="value">${statusBadge(arbProfile && arbProfile.ccloa_membership_status ? arbProfile.ccloa_membership_status : 'CURRENT')}</span></div>
+                    <div class="field"><span class="label">e-Title No.</span><span class="value">${showValue(arbProfile && arbProfile.e_title_no)}</span></div>
+                    <div class="field"><span class="label">CoCROM No.</span><span class="value">${showValue(arbProfile && arbProfile.cocrom_no)}</span></div>
+                </div>
+            </div>
 
-            window.searchCCLOA = async function() {
-                const term = document.getElementById('searchCcloaInput').value.trim();
-                const resEl = document.getElementById('ccloaResults');
-                if(!term) return;
-                resEl.style.display = 'block'; resEl.innerHTML = '<li>Searching...</li>';
-                try {
-                    const { data } = await dbClient.from('mother_titles').select('id, mother_title_no, municipality, split_status').ilike('mother_title_no', `%${term}%`).limit(5);
-                    if(!data || data.length===0) resEl.innerHTML = '<li>No Title Found</li>';
-                    else resEl.innerHTML = data.map(d => `<li style="display:flex; justify-content:space-between; align-items:center;"><span>${safeHtml(d.mother_title_no)} <small>(${safeHtml(d.municipality)})</small></span> <button type="button" class="btn btn-mini btn-primary" onclick="selectCcloa('${d.id}', '${safeHtml(d.mother_title_no)}')">Select</button></li>`).join('');
-                } catch(e) { resEl.innerHTML = '<li>Error searching database.</li>'; }
-            };
+            <div class="profile-grid">
+                <div class="profile-card">
+                    <h3>👪 Legal Heir</h3>
+                    ${renderHeirs(arb, heirs, selectedHeir, subjectForTransfer)}
+                </div>
+                <div class="profile-card">
+                    <h3>⚖️ Legal and ALI Tags</h3>
+                    ${renderTags(tags)}
+                </div>
+            </div>
 
-            window.selectCcloa = function(id, no) {
-                document.getElementById('selectedMotherId').value = id;
-                document.getElementById('ccloaResults').innerHTML = `<li style="color:#16a34a;">✅ Selected: ${no}</li>`;
-            };
+            <div class="profile-card" style="margin-top:10px;">
+                <h3>✅ Validators</h3>
+                <div class="validator-grid">
+                    ${renderValidators(validations)}
+                </div>
+            </div>
 
-            window.toggleHeirFields = function() { document.getElementById('heirFields').style.display = document.getElementById('editLifeStatus').value === 'Deceased' ? 'block' : 'none'; };
-            window.toggleLandFields = function() {
-                const action = document.getElementById('landAction').value;
-                document.getElementById('ccloaField').style.display = action === 'link_ccloa' ? 'block' : 'none';
-                document.getElementById('etitleField').style.display = action === 'issue_etitle' ? 'block' : 'none';
-            };
+            <div class="profile-card" style="margin-top:25px;">
+                <h3>🔎 Search Collective CLOA</h3>
+                <p class="section-note">Search a CCLOA to view its recorded ARBs. Keep the box checked to show only ARBs still recorded as current members of the CCLOA.</p>
+                <form id="ccloaSearchForm" class="search-row">
+                    <input type="text" id="ccloaSearchInput" placeholder="Enter CCLOA or mother title number" required>
+                    <label><input type="checkbox" id="currentMembersOnly" checked> Current CCLOA members only</label>
+                    <button type="submit" class="btn btn-primary">Search</button>
+                </form>
+                <div id="ccloaSearchResults"></div>
+            </div>
 
-            window.openModal = function(id) { document.getElementById(id).classList.add('active'); };
-            window.closeModal = function(id) { document.getElementById(id).classList.remove('active'); };
+            ${(canEdit || canTag) ? renderEditPanel(arb, arbProfile, motherTitle, canEdit, canTag) : ''}
+            <a href="arb.html" class="back-link">← Back to ARB List</a>
+        `;
 
-            // Page Initialization execution
-            const urlParams = new URLSearchParams(window.location.search);
-            currentArbId = urlParams.get('id') || 'dummy-uuid-for-testing'; // Ensure ID fallback exists for UI test
-            await window.loadProfile(currentArbId);
+        container.innerHTML = html;
+    }
 
-        } catch (fatalErr) {
-            // MATCHING ARBO: Critical Catch Fallback
-            const container = document.getElementById('profileContent');
-            if (fatalErr.message === "Supabase CDN script failed to load.") {
-                container.innerHTML = `
-                    <div style="background: white; border-top: 4px solid #dc2626; border-radius: 8px; padding: 40px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px;">
-                        <div style="font-size: 2.5rem; margin-bottom: 10px; color: #475569;">🔌</div>
-                        <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 600;">Connection Offline</h3>
-                        <p style="color: #64748b; font-size: 0.9rem; margin: 0;">The database driver could not load. This usually means a network filter or ad-blocker prevented the script from downloading.</p>
+    function renderHeirs(arb, heirs, selectedHeir, subjectForTransfer) {
+        if (!subjectForTransfer && !heirs.length) {
+            return '<p style="color:#64748b; font-style:italic;">No transfer action required.</p>';
+        }
+        if (!heirs.length) {
+            return `<div class="field"><span class="label">Transfer Designation</span><span class="value">HEIRS OF ${safeHtml(fullName(arb))}</span></div><p class="section-note">No individual heir has been recorded.</p>`;
+        }
+
+        let output = `<div class="field"><span class="label">Transfer Designation</span><span class="value">${selectedHeir ? safeHtml(selectedHeir.heir_name) : 'HEIRS OF ' + safeHtml(fullName(arb))}</span></div>`;
+        heirs.forEach(heir => {
+            output += `
+                <div style="padding:9px 0; border-bottom:1px solid #e2e8f0;">
+                    <strong>${safeHtml(heir.heir_name)}</strong> ${heir.is_selected ? badge('Selected Heir', 'badge-success') : ''}<br>
+                    <span class="section-note">${showValue(heir.heir_relation)}${heir.heir_address ? ' · ' + safeHtml(heir.heir_address) : ''}${heir.is_verified ? ' · Verified' : ' · For validation'}</span>
+                    ${canEditProfile() && !heir.is_selected ? `<div class="action-row"><button type="button" class="btn-edit" onclick="selectHeir('${safeHtml(heir.id)}')">Choose this heir</button></div>` : ''}
+                </div>
+            `;
+        });
+        if (canEditProfile() && selectedHeir) {
+            output += '<div class="action-row"><button type="button" class="btn-edit" onclick="useHeirsOf()">Use HEIRS OF instead</button></div>';
+        }
+        return output;
+    }
+
+    function renderTags(tags) {
+        if (!tags.length) {
+            return '<p style="color:#64748b; font-style:italic;">No AO8, transfer-action, or ALI tag recorded.</p>';
+        }
+        return tags.map(tag => `
+            <div style="padding:9px 0; border-bottom:1px solid #e2e8f0;">
+                <div>${badge(tag.tag_type, tag.tag_type.includes('ALI') ? 'badge-warning' : 'badge-success')}</div>
+                <div class="field"><span class="label">Status</span><span class="value">${showValue(tag.status)}</span></div>
+                <div class="field"><span class="label">Case/Reference No.</span><span class="value">${showValue(tag.case_reference_no)}</span></div>
+                <div class="field"><span class="label">Details</span><span class="value">${showValue(tag.case_details)}</span></div>
+                <div class="section-note">Tagged by ${showValue(tag.tagged_by)} on ${dateValue(tag.created_at)}</div>
+            </div>
+        `).join('');
+    }
+
+    function renderValidators(validations) {
+        return VALIDATOR_TYPES.map(type => {
+            const val = validations.find(item => String(item.validator_type).toLowerCase() === type.toLowerCase());
+            if (!val) {
+                return `
+                    <div class="validator-item" style="border-left-color:#94a3b8; opacity:0.7;">
+                        <div class="type-badge">${safeHtml(type)}</div>
+                        <div style="color:#64748b; font-style:italic;">Not yet validated</div>
                     </div>
                 `;
-            } else {
-                container.innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626;">❌ Critical Page Error: ${fatalErr.message}</div>`;
             }
+            return `
+                <div class="validator-item">
+                    <div class="type-badge">${safeHtml(type)}</div>
+                    <div class="name">${showValue(val.validator_name)}</div>
+                    <div class="detail">📌 ${showValue(val.position)}</div>
+                    <div class="detail">📍 ${showValue(val.validator_barangay)}${val.validator_town ? ', ' + safeHtml(val.validator_town) : ''}</div>
+                    <div class="detail">📅 ${dateValue(val.date_validated)}</div>
+                    ${val.validation_basis ? `<div class="detail">Basis: ${safeHtml(val.validation_basis)}</div>` : ''}
+                    ${val.recorded_by ? `<div class="detail">Recorded by: ${safeHtml(val.recorded_by)}</div>` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function options(values, selectedValue) {
+        return values.map(value => `<option value="${safeHtml(value)}" ${String(value) === String(selectedValue || '') ? 'selected' : ''}>${value ? safeHtml(value) : 'Not applicable'}</option>`).join('');
+    }
+
+    function renderEditPanel(arb, arbProfile, motherTitle, canEdit, canTag) {
+        const lifeStatus = arbProfile && arbProfile.life_status ? arbProfile.life_status : (arb.life_status || 'Alive');
+        const subjectForTransfer = arbProfile && arbProfile.subject_for_transfer != null
+            ? arbProfile.subject_for_transfer
+            : Boolean(arb.subject_for_transfer);
+
+        return `
+            <div id="editPanel" style="display:none; margin-top:25px;">
+                ${canEdit ? `
+                <details class="profile-card" open>
+                    <summary>ARB, CCLOA, SPLIT and Title Information</summary>
+                    <form id="profileUpdateForm" class="profile-form-grid">
+                        <div><label for="motherTitleNo">Mother/Collective CLOA No.</label><input id="motherTitleNo" name="mother_title_no" value="${safeHtml(motherTitle && motherTitle.mother_title_no)}"></div>
+                        <div><label for="landowner">Landowner</label><input id="landowner" name="landowner" value="${safeHtml(motherTitle && motherTitle.landowner)}"></div>
+                        <div><label for="motherBarangay">CCLOA Barangay</label><input id="motherBarangay" name="mother_barangay" value="${safeHtml(motherTitle && motherTitle.barangay)}"></div>
+                        <div><label for="motherMunicipality">CCLOA Municipality/Town</label><input id="motherMunicipality" name="mother_municipality" value="${safeHtml(motherTitle && motherTitle.municipality)}"></div>
+                        <div><label for="district">District</label><input id="district" name="district" value="${safeHtml(arbProfile && arbProfile.district)}"></div>
+                        <div><label for="landholdingSplitStatus">Landholding SPLIT Status</label><select id="landholdingSplitStatus" name="landholding_split_status">${options(['PENDING VALIDATION', 'SPLIT', 'NON-SPLIT'], motherTitle && motherTitle.split_status)}</select></div>
+                        <div class="full-row"><label for="titleDescription">CCLOA/Landholding Description</label><textarea id="titleDescription" name="title_description" rows="3">${safeHtml(motherTitle && motherTitle.title_description)}</textarea></div>
+                        <div><label for="arbSplitStatus">ARB SPLIT Classification</label><select id="arbSplitStatus" name="arb_split_status">${options(['PENDING VALIDATION', 'SPLIT', 'NON-SPLIT'], arbProfile && arbProfile.split_status)}</select></div>
+                        <div><label for="ccloaMembershipStatus">CCLOA Membership Status</label><select id="ccloaMembershipStatus" name="ccloa_membership_status">${options(['CURRENT', 'SEPARATED - E-TITLED', 'REMOVED AFTER VALIDATION'], arbProfile && arbProfile.ccloa_membership_status)}</select></div>
+                        <div><label for="eTitleNo">e-Title No.</label><input id="eTitleNo" name="e_title_no" value="${safeHtml(arbProfile && arbProfile.e_title_no)}"></div>
+                        <div><label for="cocromNo">CoCROM No.</label><input id="cocromNo" name="cocrom_no" value="${safeHtml(arbProfile && arbProfile.cocrom_no)}"></div>
+                        <div><label for="lifeStatus">Life Status</label><select id="lifeStatus" name="life_status">${options(['Alive', 'Reported Dead - For Validation', 'Dead - Validated'], lifeStatus)}</select></div>
+                        <div><label for="deathDocumentReference">Death Certificate/Supporting Document</label><input id="deathDocumentReference" name="death_document_reference" value="${safeHtml(arbProfile && arbProfile.death_document_reference)}" placeholder="Reference number or document note"></div>
+                        <div class="full-row"><label><input type="checkbox" name="subject_for_transfer" ${subjectForTransfer ? 'checked' : ''}> Subject for Transfer Action</label></div>
+                        <div class="full-row action-row"><button type="submit" class="btn btn-primary">Save Profile Update</button></div>
+                    </form>
+                </details>
+
+                <details class="profile-card" style="margin-top:15px;">
+                    <summary>Add Heir</summary>
+                    <form id="heirForm" class="profile-form-grid">
+                        <div><label for="heirName">Heir Name</label><input id="heirName" name="heir_name" required></div>
+                        <div><label for="heirRelation">Relation</label><input id="heirRelation" name="heir_relation"></div>
+                        <div><label for="heirAddress">Address</label><input id="heirAddress" name="heir_address"></div>
+                        <div><label for="heirContact">Contact</label><input id="heirContact" name="heir_contact"></div>
+                        <div><label for="heirEmail">Email</label><input id="heirEmail" name="heir_email" type="email"></div>
+                        <div><label for="heirDocument">Supporting Document</label><input id="heirDocument" name="supporting_document_reference"></div>
+                        <div><label><input type="checkbox" name="is_verified"> Verified heir</label></div>
+                        <div><label><input type="checkbox" name="is_selected"> Select as the specific heir</label></div>
+                        <div class="full-row action-row"><button type="submit" class="btn btn-primary">Add Heir</button></div>
+                    </form>
+                </details>
+
+                <details class="profile-card" style="margin-top:15px;">
+                    <summary>Add Validation</summary>
+                    <form id="validationForm" class="profile-form-grid">
+                        <div><label for="validatorType">Validator Type</label><select id="validatorType" name="validator_type">${options(VALIDATOR_TYPES, 'Barangay')}</select></div>
+                        <div><label for="validatorName">Employee/Barangay Official</label><input id="validatorName" name="validator_name" required></div>
+                        <div><label for="validatorPosition">Position</label><input id="validatorPosition" name="position"></div>
+                        <div><label for="validationDate">Date Validated</label><input id="validationDate" name="date_validated" type="date" required></div>
+                        <div><label for="validatorBarangay">Barangay</label><input id="validatorBarangay" name="validator_barangay"></div>
+                        <div><label for="validatorTown">Municipality/Town</label><input id="validatorTown" name="validator_town"></div>
+                        <div><label for="validationBasis">Validation Basis</label><input id="validationBasis" name="validation_basis" placeholder="Manual validation, interview, document, etc."></div>
+                        <div><label for="validationDocument">Supporting Document</label><input id="validationDocument" name="supporting_document_reference"></div>
+                        <div><label for="overallValidationStatus">Overall ARB Status</label><select id="overallValidationStatus" name="overall_validation_status">${options(['Pending', 'Validated', 'Rejected'], arb.validation_status)}</select></div>
+                        <div class="full-row action-row"><button type="submit" class="btn btn-primary">Save Validation</button></div>
+                    </form>
+                </details>
+                ` : ''}
+
+                ${canTag ? `
+                <details class="profile-card" style="margin-top:15px;">
+                    <summary>Add AO8, Transfer Action or ALI Tag</summary>
+                    <form id="legalTagForm" class="profile-form-grid">
+                        <div><label for="tagType">Tag Type</label><select id="tagType" name="tag_type">${options(TAG_TYPES, '')}</select></div>
+                        <div><label for="tagStatus">ALI/Case Status</label><select id="tagStatus" name="status">${options(ALI_STATUSES, '')}</select></div>
+                        <div><label for="caseReferenceNo">Case/Reference No.</label><input id="caseReferenceNo" name="case_reference_no"></div>
+                        <div class="full-row"><label for="caseDetails">Case Details/Remarks</label><textarea id="caseDetails" name="case_details" rows="3"></textarea></div>
+                        <div class="full-row action-row"><button type="submit" class="btn btn-primary">Save Legal Tag</button></div>
+                    </form>
+                </details>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    function bindForms() {
+        const searchForm = document.getElementById('ccloaSearchForm');
+        if (searchForm) searchForm.addEventListener('submit', searchCCLOA);
+
+        const profileForm = document.getElementById('profileUpdateForm');
+        if (profileForm) profileForm.addEventListener('submit', saveProfileUpdate);
+
+        const heirForm = document.getElementById('heirForm');
+        if (heirForm) heirForm.addEventListener('submit', addHeir);
+
+        const validationForm = document.getElementById('validationForm');
+        if (validationForm) validationForm.addEventListener('submit', addValidation);
+
+        const legalTagForm = document.getElementById('legalTagForm');
+        if (legalTagForm) legalTagForm.addEventListener('submit', addLegalTag);
+    }
+
+    function toggleEditPanel() {
+        const panel = document.getElementById('editPanel');
+        if (!panel) return;
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel.style.display === 'block') panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showNotice(message, isError) {
+        const notice = document.getElementById('profileNotice');
+        if (!notice) return;
+        notice.className = 'notice ' + (isError ? 'error' : 'success');
+        notice.textContent = message;
+        notice.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function formText(formData, name) {
+        return String(formData.get(name) || '').trim() || null;
+    }
+
+    async function findOrSaveMotherTitle(formData) {
+        const motherTitleNo = formText(formData, 'mother_title_no');
+        if (!motherTitleNo) return activeMotherTitle ? activeMotherTitle.id : null;
+
+        const payload = {
+            mother_title_no: motherTitleNo,
+            landowner: formText(formData, 'landowner'),
+            municipality: formText(formData, 'mother_municipality'),
+            barangay: formText(formData, 'mother_barangay'),
+            split_status: formText(formData, 'landholding_split_status') || 'PENDING VALIDATION',
+            title_description: formText(formData, 'title_description'),
+            updated_at: new Date().toISOString(),
+            updated_by: window.currentProfile.full_name
+        };
+
+        const { data: matches, error: findError } = await supabase
+            .from('mother_titles')
+            .select('*')
+            .ilike('mother_title_no', motherTitleNo)
+            .limit(1);
+        if (findError) throw findError;
+
+        if (matches && matches.length) {
+            const { data, error } = await supabase
+                .from('mother_titles')
+                .update(payload)
+                .eq('id', matches[0].id)
+                .select()
+                .single();
+            if (error) throw error;
+            activeMotherTitle = data;
+            return data.id;
         }
-    })();
+
+        const { data, error } = await supabase.from('mother_titles').insert(payload).select().single();
+        if (error) throw error;
+        activeMotherTitle = data;
+        return data.id;
+    }
+
+    async function saveProfileUpdate(event) {
+        event.preventDefault();
+        if (!canEditProfile()) return;
+        const submitButton = event.submitter;
+        if (submitButton) submitButton.disabled = true;
+
+        try {
+            const formData = new FormData(event.currentTarget);
+            const motherTitleId = await findOrSaveMotherTitle(formData);
+            const profilePayload = {
+                arb_id: String(activeArbId),
+                mother_title_id: motherTitleId,
+                district: formText(formData, 'district'),
+                split_status: formText(formData, 'arb_split_status') || 'PENDING VALIDATION',
+                ccloa_membership_status: formText(formData, 'ccloa_membership_status') || 'CURRENT',
+                e_title_no: formText(formData, 'e_title_no'),
+                cocrom_no: formText(formData, 'cocrom_no'),
+                life_status: formText(formData, 'life_status') || 'Alive',
+                death_document_reference: formText(formData, 'death_document_reference'),
+                subject_for_transfer: formData.get('subject_for_transfer') === 'on',
+                updated_at: new Date().toISOString(),
+                updated_by: window.currentProfile.full_name
+            };
+
+            let profileResult;
+            if (activeArbProfile) {
+                profileResult = await supabase.from('arb_profiles').update(profilePayload).eq('id', activeArbProfile.id).select().single();
+            } else {
+                profileResult = await supabase.from('arb_profiles').insert(profilePayload).select().single();
+            }
+            if (profileResult.error) throw profileResult.error;
+
+            const { error: arbUpdateError } = await supabase
+                .from('arb')
+                .update({
+                    life_status: profilePayload.life_status,
+                    subject_for_transfer: profilePayload.subject_for_transfer
+                })
+                .eq('id', activeArbId);
+            if (arbUpdateError) throw arbUpdateError;
+
+            showNotice('ARB profile, CCLOA, SPLIT and title information saved.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to save the ARB profile.', true);
+            console.error(error);
+        } finally {
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
+    async function requireProfile() {
+        if (activeArbProfile) return activeArbProfile;
+        const payload = {
+            arb_id: String(activeArbId),
+            life_status: activeArb.life_status || 'Alive',
+            split_status: 'PENDING VALIDATION',
+            ccloa_membership_status: 'CURRENT',
+            subject_for_transfer: Boolean(activeArb.subject_for_transfer),
+            updated_at: new Date().toISOString(),
+            updated_by: window.currentProfile.full_name
+        };
+        const { data, error } = await supabase.from('arb_profiles').insert(payload).select().single();
+        if (error) throw error;
+        activeArbProfile = data;
+        return data;
+    }
+
+    async function addHeir(event) {
+        event.preventDefault();
+        if (!canEditProfile()) return;
+        const submitButton = event.submitter;
+        if (submitButton) submitButton.disabled = true;
+        try {
+            const profile = await requireProfile();
+            const formData = new FormData(event.currentTarget);
+            const selectThisHeir = formData.get('is_selected') === 'on';
+
+            if (selectThisHeir) {
+                const { error: clearError } = await supabase.from('arb_heirs').update({ is_selected: false }).eq('arb_profile_id', profile.id);
+                if (clearError) throw clearError;
+            }
+
+            const payload = {
+                arb_profile_id: profile.id,
+                heir_name: formText(formData, 'heir_name'),
+                heir_relation: formText(formData, 'heir_relation'),
+                heir_address: formText(formData, 'heir_address'),
+                heir_contact: formText(formData, 'heir_contact'),
+                heir_email: formText(formData, 'heir_email'),
+                supporting_document_reference: formText(formData, 'supporting_document_reference'),
+                is_verified: formData.get('is_verified') === 'on',
+                is_selected: selectThisHeir,
+                created_by: window.currentProfile.full_name,
+                updated_by: window.currentProfile.full_name
+            };
+            const { error } = await supabase.from('arb_heirs').insert(payload);
+            if (error) throw error;
+
+            if (selectThisHeir) {
+                await synchronizeSelectedHeir(profile.id, payload);
+            }
+
+            showNotice('Heir information saved.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to add the heir.', true);
+            console.error(error);
+        } finally {
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
+    async function synchronizeSelectedHeir(profileId, heir) {
+        const profileUpdate = await supabase
+            .from('arb_profiles')
+            .update({ heir_name: heir.heir_name, heir_relation: heir.heir_relation, updated_at: new Date().toISOString(), updated_by: window.currentProfile.full_name })
+            .eq('id', profileId);
+        if (profileUpdate.error) throw profileUpdate.error;
+
+        const arbUpdate = await supabase
+            .from('arb')
+            .update({
+                heir_name: heir.heir_name,
+                heir_relation: heir.heir_relation,
+                heir_address: heir.heir_address,
+                heir_contact: heir.heir_contact,
+                heir_email: heir.heir_email
+            })
+            .eq('id', activeArbId);
+        if (arbUpdate.error) throw arbUpdate.error;
+    }
+
+    async function selectHeir(heirId) {
+        if (!canEditProfile() || !activeArbProfile) return;
+        try {
+            const { error: clearError } = await supabase.from('arb_heirs').update({ is_selected: false }).eq('arb_profile_id', activeArbProfile.id);
+            if (clearError) throw clearError;
+            const { data: heir, error } = await supabase.from('arb_heirs').update({ is_selected: true, updated_at: new Date().toISOString(), updated_by: window.currentProfile.full_name }).eq('id', heirId).select().single();
+            if (error) throw error;
+            await synchronizeSelectedHeir(activeArbProfile.id, heir);
+            showNotice('The specific heir has been selected.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to select the heir.', true);
+            console.error(error);
+        }
+    }
+
+    async function useHeirsOf() {
+        if (!canEditProfile() || !activeArbProfile) return;
+        try {
+            const { error: heirError } = await supabase.from('arb_heirs').update({ is_selected: false, updated_at: new Date().toISOString(), updated_by: window.currentProfile.full_name }).eq('arb_profile_id', activeArbProfile.id);
+            if (heirError) throw heirError;
+            const { error: profileError } = await supabase.from('arb_profiles').update({ heir_name: null, heir_relation: null, updated_at: new Date().toISOString(), updated_by: window.currentProfile.full_name }).eq('id', activeArbProfile.id);
+            if (profileError) throw profileError;
+            const { error: arbError } = await supabase.from('arb').update({ heir_name: null, heir_relation: null, heir_address: null, heir_contact: null, heir_email: null }).eq('id', activeArbId);
+            if (arbError) throw arbError;
+            showNotice('Transfer designation changed to HEIRS OF.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to update the heir designation.', true);
+            console.error(error);
+        }
+    }
+
+    async function addValidation(event) {
+        event.preventDefault();
+        if (!canEditProfile()) return;
+        const submitButton = event.submitter;
+        if (submitButton) submitButton.disabled = true;
+        try {
+            const formData = new FormData(event.currentTarget);
+            const payload = {
+                arb_id: activeArbId,
+                validator_type: formText(formData, 'validator_type'),
+                validator_name: formText(formData, 'validator_name'),
+                validator_barangay: formText(formData, 'validator_barangay'),
+                validator_town: formText(formData, 'validator_town'),
+                position: formText(formData, 'position'),
+                date_validated: formText(formData, 'date_validated'),
+                validation_basis: formText(formData, 'validation_basis'),
+                supporting_document_reference: formText(formData, 'supporting_document_reference'),
+                recorded_by: window.currentProfile.full_name,
+                recorded_by_user_id: authenticatedUserId,
+                updated_at: new Date().toISOString()
+            };
+            const { error } = await supabase.from('arb_validations').insert(payload);
+            if (error) throw error;
+
+            const overallStatus = formText(formData, 'overall_validation_status') || 'Pending';
+            const { error: statusError } = await supabase.from('arb').update({ validation_status: overallStatus }).eq('id', activeArbId);
+            if (statusError) throw statusError;
+
+            showNotice('Validation saved. The account that recorded it was logged automatically.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to save the validation.', true);
+            console.error(error);
+        } finally {
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
+    async function addLegalTag(event) {
+        event.preventDefault();
+        if (!canTagLegal()) return;
+        const submitButton = event.submitter;
+        if (submitButton) submitButton.disabled = true;
+        try {
+            const profile = await requireProfile();
+            const formData = new FormData(event.currentTarget);
+            const payload = {
+                arb_profile_id: profile.id,
+                tag_type: formText(formData, 'tag_type'),
+                status: formText(formData, 'status'),
+                case_reference_no: formText(formData, 'case_reference_no'),
+                case_details: formText(formData, 'case_details'),
+                tagged_by: window.currentProfile.full_name,
+                tagged_by_user_id: authenticatedUserId,
+                updated_at: new Date().toISOString()
+            };
+            const { error } = await supabase.from('arb_tags').insert(payload);
+            if (error) throw error;
+
+            if (payload.tag_type === 'SUBJECT FOR TRANSFER ACTION' || payload.tag_type === 'WITH TRANSFER ACTION CASE') {
+                const profileUpdate = await supabase.from('arb_profiles').update({ subject_for_transfer: true, updated_at: new Date().toISOString(), updated_by: window.currentProfile.full_name }).eq('id', profile.id);
+                if (profileUpdate.error) throw profileUpdate.error;
+                const arbUpdate = await supabase.from('arb').update({ subject_for_transfer: true }).eq('id', activeArbId);
+                if (arbUpdate.error) throw arbUpdate.error;
+            }
+
+            showNotice('Legal/ALI tag saved.', false);
+            await loadProfile(activeArbId);
+        } catch (error) {
+            showNotice(error.message || 'Unable to save the legal tag.', true);
+            console.error(error);
+        } finally {
+            if (submitButton) submitButton.disabled = false;
+        }
+    }
+
+    async function searchCCLOA(event) {
+        event.preventDefault();
+        const query = document.getElementById('ccloaSearchInput').value.trim();
+        const currentOnly = document.getElementById('currentMembersOnly').checked;
+        const output = document.getElementById('ccloaSearchResults');
+        if (!query) return;
+        output.innerHTML = '<p class="section-note">Searching...</p>';
+
+        try {
+            const { data: titles, error: titleError } = await supabase
+                .from('mother_titles')
+                .select('*')
+                .ilike('mother_title_no', `%${query}%`)
+                .order('mother_title_no')
+                .limit(25);
+            if (titleError) throw titleError;
+            if (!titles || !titles.length) {
+                output.innerHTML = '<p class="section-note">No matching CCLOA was found.</p>';
+                return;
+            }
+
+            const titleIds = titles.map(title => title.id);
+            let profileQuery = supabase.from('arb_profiles').select('*').in('mother_title_id', titleIds);
+            if (currentOnly) profileQuery = profileQuery.eq('ccloa_membership_status', 'CURRENT');
+            const { data: profiles, error: profileError } = await profileQuery;
+            if (profileError) throw profileError;
+            if (!profiles || !profiles.length) {
+                output.innerHTML = '<p class="section-note">The CCLOA exists, but no matching ARB profile is recorded under the selected membership filter.</p>';
+                return;
+            }
+
+            const arbIds = [...new Set(profiles.map(profile => profile.arb_id).filter(Boolean))];
+            const { data: arbs, error: arbError } = await supabase
+                .from('arb')
+                .select(`*, arbo:arbo_id ( id, name, barangay, municipality )`)
+                .in('id', arbIds);
+            if (arbError) throw arbError;
+
+            const arbMap = new Map((arbs || []).map(arb => [String(arb.id), arb]));
+            const titleMap = new Map(titles.map(title => [String(title.id), title]));
+            const rows = profiles.map(profile => {
+                const arb = arbMap.get(String(profile.arb_id));
+                const title = titleMap.get(String(profile.mother_title_id));
+                return `
+                    <tr>
+                        <td>${showValue(title && title.mother_title_no)}</td>
+                        <td>${arb ? safeHtml(fullName(arb)) : 'ARB ID ' + safeHtml(profile.arb_id)}</td>
+                        <td>${showValue(arb && arb.arbo && arb.arbo.name)}</td>
+                        <td>${showValue(arb && arb.arbo && arb.arbo.municipality)}</td>
+                        <td>${showValue(profile.life_status)}</td>
+                        <td>${showValue(profile.split_status)}</td>
+                        <td>${showValue(profile.ccloa_membership_status)}</td>
+                        <td>${arb ? `<a href="arb-profile.html?id=${encodeURIComponent(arb.id)}">View</a>` : '—'}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            output.innerHTML = `
+                <div class="table-responsive">
+                    <table class="profile-table">
+                        <thead><tr><th>CCLOA</th><th>ARB</th><th>ARBO</th><th>Town</th><th>Life Status</th><th>SPLIT</th><th>CCLOA Membership</th><th></th></tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            `;
+        } catch (error) {
+            output.innerHTML = `<p style="color:#dc2626;">${safeHtml(error.message || 'Unable to search the CCLOA.')}</p>`;
+            console.error(error);
+        }
+    }
 </script>
 </body>
 </html>
