@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBO Management</title>
+    <!-- Unified Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Supabase CDN & Global Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
@@ -115,15 +117,16 @@
                 <h3><span>🚜 Machinery Inventory</span> <button class="add-mini-btn" onclick="openQuickAdd('machinery')">+ Add</button></h3>
                 <ul class="profile-list" id="profMachinery"><li>⏳ Loading...</li></ul>
             </div>
+            <!-- Updated Members Section to support assigning multiple ARBs -->
             <div class="profile-section" style="grid-column: 1 / -1;">
-                <h3><span>👥 Registered ARBs (Members)</span> <span style="font-size: 0.75rem; color:#64748b; font-weight:normal;">Assign via ARB Management</span></h3>
+                <h3><span>👥 Registered ARBs (Members)</span> <button class="add-mini-btn" onclick="openQuickAdd('member')">+ Add Member</button></h3>
                 <ul class="profile-list" id="profMembers" style="max-height: 120px;"><li>⏳ Loading...</li></ul>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Scalable Quick Add Modal -->
+<!-- Scalable Quick Add Modal (Async Search) -->
 <div id="quickAddModal" class="modal" style="z-index: 2000;">
     <div class="modal-content" style="max-width: 550px;">
         <button class="modal-close" onclick="closeModal('quickAddModal')">&times;</button>
@@ -256,7 +259,7 @@
                             <td>${safeHtml(a.municipality) || '-'}</td>
                             <td>${safeHtml(a.contact_number) || '-'}</td>
                             <td class="actions">
-                                <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name)}')" title="View Profile">👁️</button>
+                                <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name.replace(/'/g, "\\'"))}')" title="View Profile">👁️</button>
                                 ${['admin', 'staff'].includes(window.currentProfile.role) ? `
                                     <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
                                     <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
@@ -317,12 +320,12 @@
                     else mList.innerHTML = data.map(mac => `<li><span>⚙️ <strong>${safeHtml(mac.equipment_name)}</strong></span> <span style="color: #16a34a; font-size:0.75rem;">[${safeHtml(mac.status)}]</span></li>`).join('');
                 } catch(e) { mList.innerHTML = '<li>📭 No records found.</li>'; }
 
-                // 5. Fetch Assigned Members
+                // 5. Fetch Assigned ARB Members (Using new arbo_members table)
                 try {
-                    const { data } = await dbClient.from('arb').select('first_name, last_name').eq('arbo_id', id).order('last_name', { ascending: true });
+                    const { data } = await dbClient.from('arbo_members').select('arb_id, arb_name').eq('arbo_id', id).order('assigned_at', { ascending: false });
                     if (!data || data.length === 0) memList.innerHTML = '<li>📭 No ARBs are currently assigned to this ARBO.</li>';
-                    else memList.innerHTML = data.map(arb => `<li style="display:inline-block; margin-right:15px; border:none; padding:2px;">👤 ${safeHtml(arb.last_name)}, ${safeHtml(arb.first_name)}</li>`).join('');
-                } catch(e) { memList.innerHTML = '<li>📭 Feature requires arb.arbo_id column.</li>'; }
+                    else memList.innerHTML = data.map(mem => `<li style="display:inline-block; margin-right:15px; border:none; padding:2px;">👤 ${safeHtml(mem.arb_name)}</li>`).join('');
+                } catch(e) { memList.innerHTML = '<li>📭 Ensure arbo_members table is created.</li>'; }
             };
 
             // --- SCALABLE QUICK ADD (ASYNC SEARCH) ---
@@ -339,10 +342,10 @@
 
                 if (type === 'validator') {
                     qaTitle.textContent = '➕ Assign System Validator';
-                    submitBtn.style.display = 'none'; // We use the Select button instead
+                    submitBtn.style.display = 'none'; // Uses Select button
                     qaBody.innerHTML = `
                         <div style="margin-bottom:10px;">
-                            <label>Search User (Name or Email) *</label>
+                            <label>Search User Database (Name or Email) *</label>
                             <div style="display: flex; gap: 10px; margin-top:5px;">
                                 <input type="text" id="userSearchInput" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchUsers();}" />
                                 <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchUsers()">🔍 Find</button>
@@ -352,6 +355,22 @@
                         <ul id="userSearchResults" class="profile-list" style="margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; display: none;"></ul>
                     `;
                 } 
+                else if (type === 'member') {
+                    qaTitle.textContent = '➕ Assign ARB Member';
+                    submitBtn.style.display = 'none'; // Uses Select button
+                    qaBody.innerHTML = `
+                        <div style="margin-bottom:10px;">
+                            <label>Search ARB Database (First or Last Name) *</label>
+                            <div style="display: flex; gap: 10px; margin-top:5px;">
+                                <input type="text" id="arbSearchInput" placeholder="Type ARB name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchArbs();}" />
+                                <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchArbs()">🔍 Find</button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="qaInput1" required /> <!-- For ID -->
+                        <input type="hidden" id="qaInput2" /> <!-- For Name -->
+                        <ul id="arbSearchResults" class="profile-list" style="margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; display: none;"></ul>
+                    `;
+                }
                 else if (type === 'activity') {
                     qaTitle.textContent = '➕ Add Activity/Training';
                     qaBody.innerHTML = `<div><label>Activity/Training Title *</label><input type="text" id="qaInput1" required placeholder="e.g. Agrarian Seminar 2026" /></div>`;
@@ -375,44 +394,60 @@
             window.searchUsers = async function() {
                 const term = document.getElementById('userSearchInput').value.trim();
                 const resEl = document.getElementById('userSearchResults');
-                
                 if (!term) { alert('Please enter a name or email to search.'); return; }
 
                 resEl.style.display = 'block';
                 resEl.innerHTML = '<li>⏳ Searching Database...</li>';
-
                 try {
-                    const { data, error } = await dbClient.from('profiles')
-                        .select('full_name, email, role')
-                        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
-                        .limit(15); // Safely caps at top 15 results
-                    
+                    const { data, error } = await dbClient.from('profiles').select('full_name, email, role').or(`full_name.ilike.%${term}%,email.ilike.%${term}%`).limit(15);
                     if (error) throw error;
-                    
-                    if (!data || data.length === 0) {
-                        resEl.innerHTML = '<li>📭 No matching users found.</li>';
-                        return;
-                    }
+                    if (!data || data.length === 0) { resEl.innerHTML = '<li>📭 No matching users found.</li>'; return; }
 
                     resEl.innerHTML = data.map(u => {
                         const name = u.full_name && u.full_name.trim() !== '' ? u.full_name : u.email;
                         return `
                             <li style="display:flex; justify-content:space-between; align-items:center;">
                                 <span>👤 ${safeHtml(name)} <small style="color:#64748b;">(${safeHtml(u.role)})</small></span>
-                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white; padding: 6px 12px;" onclick="finalizeValidatorAssignment('${safeHtml(name)}')">Select</button>
+                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white; padding: 6px 12px;" onclick="finalizeAssignment('validator', '${safeHtml(name.replace(/'/g, "\\'"))}')">Select</button>
                             </li>`;
                     }).join('');
-                } catch (e) {
-                    resEl.innerHTML = `<li>❌ Error: ${e.message}</li>`;
-                }
+                } catch (e) { resEl.innerHTML = `<li>❌ Error: ${e.message}</li>`; }
             }
 
-            // Immediately fires submission when a user is selected
-            window.finalizeValidatorAssignment = async function(name) {
-                document.getElementById('qaInput1').value = name;
-                document.getElementById('userSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${name}...</li>`;
-                
-                // Programmatically submit the hidden form
+            // Database Search Function for ARB Members
+            window.searchArbs = async function() {
+                const term = document.getElementById('arbSearchInput').value.trim();
+                const resEl = document.getElementById('arbSearchResults');
+                if (!term) { alert('Please enter a name to search.'); return; }
+
+                resEl.style.display = 'block';
+                resEl.innerHTML = '<li>⏳ Searching ARB Database...</li>';
+                try {
+                    const { data, error } = await dbClient.from('arb').select('id, first_name, last_name').or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`).limit(15);
+                    if (error) throw error;
+                    if (!data || data.length === 0) { resEl.innerHTML = '<li>📭 No matching ARBs found.</li>'; return; }
+
+                    resEl.innerHTML = data.map(a => {
+                        const fullName = `${a.last_name}, ${a.first_name}`;
+                        return `
+                            <li style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>👤 ${safeHtml(fullName)} <small style="color:#64748b;">(ID: ${a.id.toString().substring(0,8)})</small></span>
+                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white; padding: 6px 12px;" onclick="finalizeAssignment('member', '${a.id}', '${safeHtml(fullName.replace(/'/g, "\\'"))}')">Select</button>
+                            </li>`;
+                    }).join('');
+                } catch (e) { resEl.innerHTML = `<li>❌ Error: ${e.message}</li>`; }
+            }
+
+            // Centralized Finalize Function
+            window.finalizeAssignment = async function(type, val1, val2) {
+                if (type === 'validator') {
+                    document.getElementById('qaInput1').value = val1;
+                    document.getElementById('userSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${val1}...</li>`;
+                } else if (type === 'member') {
+                    document.getElementById('qaInput1').value = val1; // ID
+                    document.getElementById('qaInput2').value = val2; // Name
+                    document.getElementById('arbSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${val2}...</li>`;
+                }
                 document.getElementById('qaForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
             }
 
@@ -427,6 +462,9 @@
                 if (type === 'validator') {
                     table = 'arbo_validators'; 
                     payload = { arbo_id: arboId, validator_name: document.getElementById('qaInput1').value };
+                } else if (type === 'member') {
+                    table = 'arbo_members'; 
+                    payload = { arbo_id: arboId, arb_id: document.getElementById('qaInput1').value, arb_name: document.getElementById('qaInput2').value };
                 } else if (type === 'activity') {
                     table = 'arbo_activities'; 
                     payload = { arbo_id: arboId, activity_name: document.getElementById('qaInput1').value.trim() };
