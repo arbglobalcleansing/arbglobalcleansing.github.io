@@ -4,15 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBO Management</title>
-    <!-- Unified Stylesheet -->
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase CDN & Global Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
 
     <style>
-        /* Graphical Chart Styles */
         .charts-container { display: flex; flex-wrap: wrap; justify-content: space-evenly; gap: 20px; background: white; padding: 40px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); margin-bottom: 30px; }
         .chart-item { display: flex; flex-direction: column; align-items: center; width: 160px; }
         .chart-item svg { width: 110px; height: 110px; margin-bottom: 12px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.05)); }
@@ -23,7 +20,6 @@
         .circle-chart { fill: none; stroke-width: 3.5; stroke-linecap: round; animation: fillAnimation 1s ease-out forwards; }
         @keyframes fillAnimation { from { stroke-dasharray: 0, 100; } }
 
-        /* ARBO Profile Specific Styles */
         .btn-info { background: #0ea5e9; color: white; }
         .btn-info:hover { background: #0284c7; }
         .add-mini-btn { background: #e2e8f0; color: #0a3d62; border: none; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
@@ -33,7 +29,7 @@
         .profile-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
         .profile-section h3 { color: #0a3d62; font-size: 1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
         .profile-list { list-style: none; font-size: 0.85rem; color: #475569; max-height: 180px; overflow-y: auto; padding-right: 5px; }
-        .profile-list li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; display: flex; justify-content: space-between; }
+        .profile-list li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
         .profile-list li:last-child { border-bottom: none; }
         
         @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
@@ -45,7 +41,6 @@
     
     <nav class="nav" id="mainNav"></nav>
 
-    <!-- Graphical Presentation -->
     <div id="chartsContainer" class="charts-container" style="display: none;"></div>
 
     <div class="section">
@@ -94,7 +89,7 @@
     </div>
 </div>
 
-<!-- Profile View Modal (With Execution Buttons) -->
+<!-- Profile View Modal -->
 <div id="profileModal" class="modal">
     <div class="modal-content wide">
         <button class="modal-close" onclick="closeModal('profileModal')">&times;</button>
@@ -105,19 +100,19 @@
         
         <div class="profile-grid">
             <div class="profile-section">
-                <h3><span>✅ Validators</span> <button class="add-mini-btn" onclick="quickAdd('validator')">+ Add</button></h3>
+                <h3><span>✅ Validators</span> <button class="add-mini-btn" onclick="openQuickAdd('validator')">+ Add</button></h3>
                 <ul class="profile-list" id="profValidators"><li>⏳ Loading...</li></ul>
             </div>
             <div class="profile-section">
-                <h3><span>📅 Activities & Trainings</span> <button class="add-mini-btn" onclick="quickAdd('activity')">+ Add</button></h3>
+                <h3><span>📅 Activities & Trainings</span> <button class="add-mini-btn" onclick="openQuickAdd('activity')">+ Add</button></h3>
                 <ul class="profile-list" id="profActivities"><li>⏳ Loading...</li></ul>
             </div>
             <div class="profile-section">
-                <h3><span>💰 Income Monitoring</span> <button class="add-mini-btn" onclick="quickAdd('income')">+ Add</button></h3>
+                <h3><span>💰 Income Monitoring</span> <button class="add-mini-btn" onclick="openQuickAdd('income')">+ Add</button></h3>
                 <ul class="profile-list" id="profIncome"><li>⏳ Loading...</li></ul>
             </div>
             <div class="profile-section">
-                <h3><span>🚜 Machinery Inventory</span> <button class="add-mini-btn" onclick="quickAdd('machinery')">+ Add</button></h3>
+                <h3><span>🚜 Machinery Inventory</span> <button class="add-mini-btn" onclick="openQuickAdd('machinery')">+ Add</button></h3>
                 <ul class="profile-list" id="profMachinery"><li>⏳ Loading...</li></ul>
             </div>
             <div class="profile-section" style="grid-column: 1 / -1;">
@@ -128,12 +123,28 @@
     </div>
 </div>
 
+<!-- Scalable Quick Add Modal -->
+<div id="quickAddModal" class="modal" style="z-index: 2000;">
+    <div class="modal-content" style="max-width: 550px;">
+        <button class="modal-close" onclick="closeModal('quickAddModal')">&times;</button>
+        <h2 id="qaTitle">➕ Add Record</h2>
+        <form id="qaForm" onsubmit="submitQuickAdd(event)">
+            <input type="hidden" id="qaType" />
+            <div id="qaBody" class="form-grid full">
+                <!-- Dynamically injected UI -->
+            </div>
+            <div class="form-actions" id="qaActions">
+                <button type="button" class="btn btn-danger" onclick="closeModal('quickAddModal')">Cancel</button>
+                <button type="submit" class="btn btn-success" id="qaSubmitBtn">💾 Save Entry</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     (async function() {
         window.onerror = function(msg, url, line) {
             console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
-            const tbody = document.getElementById('arboTableBody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Script Crash: ${msg}</td></tr>`;
             return false;
         };
 
@@ -168,9 +179,9 @@
             const { data: authData, error: authErr } = await dbClient.auth.getUser();
             if (authErr || !authData || !authData.user) { window.location.href = 'dashboard.html'; return; }
 
-            const { data: profile, error: profErr } = await dbClient.from('profiles').select('*').eq('id', authData.user.id).single();
-            if (profErr || !profile || (profile.role !== 'admin' && profile.role !== 'staff')) { window.location.href = 'dashboard.html'; return; }
-            window.currentProfile = profile;
+            const { data: profile } = await dbClient.from('profiles').select('*').eq('id', authData.user.id).single();
+            if (!profile) { window.location.href = 'dashboard.html'; return; }
+            window.currentProfile = profile; 
             
             // NAVBAR BUILDER
             async function buildNavbar(userProfile, authData) {
@@ -246,8 +257,10 @@
                             <td>${safeHtml(a.contact_number) || '-'}</td>
                             <td class="actions">
                                 <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name)}')" title="View Profile">👁️</button>
-                                <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
+                                ${['admin', 'staff'].includes(window.currentProfile.role) ? `
+                                    <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
+                                ` : ''}
                             </td>
                         </tr>
                     `).join('');
@@ -278,74 +291,161 @@
 
                 // 1. Fetch Validators
                 try {
-                    const { data, error } = await dbClient.from('arbo_validators').select('*').eq('arbo_id', id);
-                    if (error || !data || data.length === 0) vList.innerHTML = '<li>📭 No validators assigned.</li>';
+                    const { data } = await dbClient.from('arbo_validators').select('*').eq('arbo_id', id);
+                    if (!data || data.length === 0) vList.innerHTML = '<li>📭 No validators assigned.</li>';
                     else vList.innerHTML = data.map(v => `<li><span>👤 ${safeHtml(v.validator_name)}</span></li>`).join('');
                 } catch(e) { vList.innerHTML = '<li>📭 No records found.</li>'; }
 
                 // 2. Fetch Activities
                 try {
-                    const { data, error } = await dbClient.from('arbo_activities').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
-                    if (error || !data || data.length === 0) aList.innerHTML = '<li>📭 No activities or trainings logged.</li>';
+                    const { data } = await dbClient.from('arbo_activities').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
+                    if (!data || data.length === 0) aList.innerHTML = '<li>📭 No activities logged.</li>';
                     else aList.innerHTML = data.map(act => `<li><span>📅 <strong>${safeHtml(act.activity_name)}</strong></span></li>`).join('');
                 } catch(e) { aList.innerHTML = '<li>📭 No records found.</li>'; }
 
                 // 3. Fetch Income
                 try {
-                    const { data, error } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
-                    if (error || !data || data.length === 0) iList.innerHTML = '<li>📭 No income monitoring data.</li>';
+                    const { data } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('created_at', { ascending: false });
+                    if (!data || data.length === 0) iList.innerHTML = '<li>📭 No income data.</li>';
                     else iList.innerHTML = data.map(inc => `<li><span>💵 <strong>₱${Number(inc.amount).toLocaleString()}</strong></span> <span>${safeHtml(inc.source)}</span></li>`).join('');
                 } catch(e) { iList.innerHTML = '<li>📭 No records found.</li>'; }
 
                 // 4. Fetch Machinery
                 try {
-                    const { data, error } = await dbClient.from('arbo_machinery').select('*').eq('arbo_id', id);
-                    if (error || !data || data.length === 0) mList.innerHTML = '<li>📭 No machinery inventory listed.</li>';
+                    const { data } = await dbClient.from('arbo_machinery').select('*').eq('arbo_id', id);
+                    if (!data || data.length === 0) mList.innerHTML = '<li>📭 No machinery listed.</li>';
                     else mList.innerHTML = data.map(mac => `<li><span>⚙️ <strong>${safeHtml(mac.equipment_name)}</strong></span> <span style="color: #16a34a; font-size:0.75rem;">[${safeHtml(mac.status)}]</span></li>`).join('');
                 } catch(e) { mList.innerHTML = '<li>📭 No records found.</li>'; }
 
-                // 5. Fetch Assigned ARBs (Members)
+                // 5. Fetch Assigned Members
                 try {
-                    const { data, error } = await dbClient.from('arb').select('first_name, last_name').eq('arbo_id', id).order('last_name', { ascending: true });
-                    if (error || !data || data.length === 0) memList.innerHTML = '<li>📭 No ARBs are currently assigned to this ARBO.</li>';
+                    const { data } = await dbClient.from('arb').select('first_name, last_name').eq('arbo_id', id).order('last_name', { ascending: true });
+                    if (!data || data.length === 0) memList.innerHTML = '<li>📭 No ARBs are currently assigned to this ARBO.</li>';
                     else memList.innerHTML = data.map(arb => `<li style="display:inline-block; margin-right:15px; border:none; padding:2px;">👤 ${safeHtml(arb.last_name)}, ${safeHtml(arb.first_name)}</li>`).join('');
                 } catch(e) { memList.innerHTML = '<li>📭 Feature requires arb.arbo_id column.</li>'; }
             };
 
-            // --- EXECUTION LOGIC (QUICK ADD) ---
-            window.quickAdd = async function(type) {
+            // --- SCALABLE QUICK ADD (ASYNC SEARCH) ---
+            window.openQuickAdd = function(type) {
                 const arboId = document.getElementById('currentProfileId').value;
-                const arboName = document.getElementById('currentProfileName').value;
                 if (!arboId) return;
 
-                let table, payload;
+                document.getElementById('qaType').value = type;
+                const qaBody = document.getElementById('qaBody');
+                const qaTitle = document.getElementById('qaTitle');
+                const submitBtn = document.getElementById('qaSubmitBtn');
+                
+                submitBtn.style.display = 'inline-flex'; // Reset button visibility
+
                 if (type === 'validator') {
-                    const valName = prompt("Enter the Validator's Full Name:");
-                    if (!valName) return;
-                    table = 'arbo_validators'; payload = { arbo_id: arboId, validator_name: valName };
+                    qaTitle.textContent = '➕ Assign System Validator';
+                    submitBtn.style.display = 'none'; // We use the Select button instead
+                    qaBody.innerHTML = `
+                        <div style="margin-bottom:10px;">
+                            <label>Search User (Name or Email) *</label>
+                            <div style="display: flex; gap: 10px; margin-top:5px;">
+                                <input type="text" id="userSearchInput" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchUsers();}" />
+                                <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchUsers()">🔍 Find</button>
+                            </div>
+                        </div>
+                        <input type="hidden" id="qaInput1" required />
+                        <ul id="userSearchResults" class="profile-list" style="margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; display: none;"></ul>
+                    `;
                 } 
                 else if (type === 'activity') {
-                    const actName = prompt("Enter Activity/Training Title:");
-                    if (!actName) return;
-                    table = 'arbo_activities'; payload = { arbo_id: arboId, activity_name: actName };
+                    qaTitle.textContent = '➕ Add Activity/Training';
+                    qaBody.innerHTML = `<div><label>Activity/Training Title *</label><input type="text" id="qaInput1" required placeholder="e.g. Agrarian Seminar 2026" /></div>`;
                 }
                 else if (type === 'income') {
-                    const amt = prompt("Enter Income Amount (Numbers only):");
-                    if (!amt || isNaN(amt)) { alert("Invalid amount."); return; }
-                    const src = prompt("Enter Income Source/Description:");
-                    if (!src) return;
-                    table = 'arbo_income'; payload = { arbo_id: arboId, amount: parseFloat(amt), source: src };
+                    qaTitle.textContent = '➕ Add Income Record';
+                    qaBody.innerHTML = `
+                        <div style="margin-bottom: 10px;"><label>Amount (₱) *</label><input type="number" step="0.01" id="qaInput1" required placeholder="0.00" /></div>
+                        <div><label>Source/Description *</label><input type="text" id="qaInput2" required placeholder="e.g. Harvest Sales" /></div>
+                    `;
                 }
                 else if (type === 'machinery') {
-                    const eqName = prompt("Enter Machinery/Equipment Name:");
-                    if (!eqName) return;
-                    table = 'arbo_machinery'; payload = { arbo_id: arboId, equipment_name: eqName, status: 'Operational' };
+                    qaTitle.textContent = '➕ Add Machinery';
+                    qaBody.innerHTML = `<div><label>Equipment Name *</label><input type="text" id="qaInput1" required placeholder="e.g. Tractor Model X" /></div>`;
+                }
+                
+                document.getElementById('quickAddModal').classList.add('active');
+            };
+
+            // Database Search Function for Validators
+            window.searchUsers = async function() {
+                const term = document.getElementById('userSearchInput').value.trim();
+                const resEl = document.getElementById('userSearchResults');
+                
+                if (!term) { alert('Please enter a name or email to search.'); return; }
+
+                resEl.style.display = 'block';
+                resEl.innerHTML = '<li>⏳ Searching Database...</li>';
+
+                try {
+                    const { data, error } = await dbClient.from('profiles')
+                        .select('full_name, email, role')
+                        .or(`full_name.ilike.%${term}%,email.ilike.%${term}%`)
+                        .limit(15); // Safely caps at top 15 results
+                    
+                    if (error) throw error;
+                    
+                    if (!data || data.length === 0) {
+                        resEl.innerHTML = '<li>📭 No matching users found.</li>';
+                        return;
+                    }
+
+                    resEl.innerHTML = data.map(u => {
+                        const name = u.full_name && u.full_name.trim() !== '' ? u.full_name : u.email;
+                        return `
+                            <li style="display:flex; justify-content:space-between; align-items:center;">
+                                <span>👤 ${safeHtml(name)} <small style="color:#64748b;">(${safeHtml(u.role)})</small></span>
+                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white; padding: 6px 12px;" onclick="finalizeValidatorAssignment('${safeHtml(name)}')">Select</button>
+                            </li>`;
+                    }).join('');
+                } catch (e) {
+                    resEl.innerHTML = `<li>❌ Error: ${e.message}</li>`;
+                }
+            }
+
+            // Immediately fires submission when a user is selected
+            window.finalizeValidatorAssignment = async function(name) {
+                document.getElementById('qaInput1').value = name;
+                document.getElementById('userSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${name}...</li>`;
+                
+                // Programmatically submit the hidden form
+                document.getElementById('qaForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+            }
+
+            window.submitQuickAdd = async function(e) {
+                e.preventDefault();
+                const type = document.getElementById('qaType').value;
+                const arboId = document.getElementById('currentProfileId').value;
+                const arboName = document.getElementById('currentProfileName').value;
+                
+                let table, payload;
+
+                if (type === 'validator') {
+                    table = 'arbo_validators'; 
+                    payload = { arbo_id: arboId, validator_name: document.getElementById('qaInput1').value };
+                } else if (type === 'activity') {
+                    table = 'arbo_activities'; 
+                    payload = { arbo_id: arboId, activity_name: document.getElementById('qaInput1').value.trim() };
+                } else if (type === 'income') {
+                    table = 'arbo_income'; 
+                    payload = { arbo_id: arboId, amount: parseFloat(document.getElementById('qaInput1').value), source: document.getElementById('qaInput2').value.trim() };
+                } else if (type === 'machinery') {
+                    table = 'arbo_machinery'; 
+                    payload = { arbo_id: arboId, equipment_name: document.getElementById('qaInput1').value.trim(), status: 'Operational' };
                 }
 
                 if (table && payload) {
                     const { error } = await dbClient.from(table).insert([payload]);
-                    if (error) alert("Error adding record: " + error.message);
-                    else window.viewArboProfile(arboId, arboName); // Refresh the modal to show new data
+                    if (error) {
+                        alert("Error adding record: " + error.message);
+                    } else {
+                        closeModal('quickAddModal');
+                        window.viewArboProfile(arboId, arboName); 
+                    }
                 }
             };
 
