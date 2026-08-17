@@ -4,8 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARB Global Cleansing – Dashboard</title>
-    
-    <!-- Unified Stylesheet & Dependencies -->
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
@@ -39,18 +37,13 @@
     <!-- Toast -->
     <div id="toast"></div>
 
-    <!-- MAIN DASHBOARD SCRIPT (ISOLATED) -->
     <script>
-        // Wrapping everything in an anonymous async function prevents variables from leaking
-        // and colliding with other files in your project like nav.js or config.js
         (async function() {
             
-            // --- Helper: Console-Only Debugging ---
             function logDebug(msg, type = 'info') {
                 console.log(`[DBG] ${msg}`);
             }
 
-            // --- Helper: Toast ---
             let toastTimer;
             function popToast(msg, type = 'info') {
                 const el = document.getElementById('toast');
@@ -64,9 +57,6 @@
                 toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
             }
 
-            logDebug('Starting secure dashboard isolation environment...', 'info');
-
-            // --- Setup Database Connection safely ---
             let secureDbClient = null;
             try {
                 if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
@@ -74,21 +64,20 @@
                         'https://xnwttnpfzcjbszwxsgox.supabase.co', 
                         'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI'
                     );
-                    logDebug('Secure database link established', 'ok');
-                } else {
-                    logDebug('Database CDN missing or blocked', 'warn');
                 }
             } catch (err) {
                 logDebug(`Setup Exception: ${err.message}`, 'err');
             }
 
             // --- Navigation Renderer ---
-            async function buildNavbar(user) {
+            async function buildNavbar(userProfile, authData) {
                 const navEl = document.getElementById('mainNav');
                 if (!navEl) return;
                 
                 const curPath = window.location.pathname;
-                const links = [
+                const { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', { ascending: true });
+                
+                let links = navItems && navItems.length > 0 ? navItems : [
                     { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
                     { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
                     { label: 'ARB Management', url: '/arb.html', icon: '👤' },
@@ -96,29 +85,41 @@
                     { label: 'Reports', url: '/reports.html', icon: '📈' }
                 ];
 
-                let html = links.map(l => {
-                    const active = curPath.includes(l.url.replace('/','')) || (l.url === '/dashboard.html' && curPath === '/') ? 'active' : '';
-                    return `<a href="${l.url}" class="${active}">${l.icon} ${l.label}</a>`;
+                // STRICT MENU DEDUPLICATION
+                const uniqueLinks = [];
+                const seenLabels = new Set();
+                for (const item of links) {
+                    if (!seenLabels.has(item.label)) {
+                        seenLabels.add(item.label);
+                        uniqueLinks.push(item);
+                    }
+                }
+
+                let html = uniqueLinks.map(l => {
+                    const linkTarget = (l.url || '').replace('/', '');
+                    const isActive = curPath.includes(linkTarget) && linkTarget !== '' ? 'active' : '';
+                    return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
                 }).join('');
 
-                if (user) {
-                    html += `<span class="user-badge">👤 ${user.email}</span>`;
-                    html += `<span class="logout-link" id="navLogoutBtn">🚪 Logout</span>`;
+                // STRICT NAME DISPLAY
+                if (userProfile && authData) {
+                    const displayName = userProfile.full_name && userProfile.full_name.trim() !== '' 
+                        ? userProfile.full_name 
+                        : authData.user.email;
+                        
+                    html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${displayName} (${userProfile.role})</span>`;
+                    html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
                 } else {
-                    html += `<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>`;
-                    html += `<span class="logout-link" style="color:#0a3d62" onclick="window.location.href='login.html'">🔑 Login</span>`;
+                    html += `<span class="user-badge" style="margin-left: auto; color:#b91c1c;">⚠️ Not Logged In</span>`;
+                    html += `<span class="logout-link" style="color:#0a3d62; margin-left: 10px; cursor: pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
                 }
                 
                 navEl.innerHTML = html;
 
-                // Safely bind logout click
-                const logoutBtn = document.getElementById('navLogoutBtn');
-                if (logoutBtn) {
-                    logoutBtn.addEventListener('click', async () => {
-                        if (secureDbClient) await secureDbClient.auth.signOut();
-                        window.location.href = 'login.html';
-                    });
-                }
+                document.getElementById('navLogoutBtn')?.addEventListener('click', async () => {
+                    if (secureDbClient) await secureDbClient.auth.signOut();
+                    window.location.href = 'login.html';
+                });
             }
 
             // --- Modal Functions ---
@@ -127,7 +128,6 @@
             const modalBodyEl = document.getElementById('modalBody');
             
             function hideModal() { if (modalEl) modalEl.classList.remove('active'); }
-            
             document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
             modalEl?.addEventListener('click', (e) => { if (e.target === modalEl) hideModal(); });
 
@@ -176,50 +176,38 @@
             try {
                 const gridEl = document.getElementById('statsGrid');
                 
-                // 1. If database failed to load globally
                 if (!secureDbClient) {
-                    logDebug('Halting execution: Offline Mode', 'warn');
-                    await buildNavbar(null);
+                    await buildNavbar(null, null);
                     if (gridEl) {
                         gridEl.innerHTML = `
                             <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
                                 <div class="number">🔌</div>
                                 <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">System Offline</div>
-                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">The database engine could not be reached. Ensure you are connected to the internet.</p>
+                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">The database engine could not be reached.</p>
                             </div>`;
                     }
                     return;
                 }
 
-                // 2. Database available, Verify Auth State
-                logDebug('Verifying security clearance...', 'info');
-                const { data: authObj, error: authErr } = await secureDbClient.auth.getUser();
-                const sessionUser = authObj ? authObj.user : null;
-
-                // 3. Reject Unauthenticated
-                if (!sessionUser) {
-                    logDebug('Access denied. User lacks valid session token.', 'err');
-                    popToast('Secure Login Required', 'warn');
-                    await buildNavbar(null);
-                    
+                const { data: authData, error: authErr } = await secureDbClient.auth.getUser();
+                if (!authData || !authData.user) {
+                    await buildNavbar(null, null);
                     if (gridEl) {
                         gridEl.innerHTML = `
                             <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
                                 <div class="number">🔒</div>
                                 <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Security Lockout</div>
-                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Database rules require an active session to query global statistics.</p>
+                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Database rules require an active session.</p>
                                 <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Proceed to Login</button>
                             </div>`;
                     }
                     return;
                 }
 
-                // 4. Authenticated -> Build Safe UI
-                logDebug(`Active Session Verified: ${sessionUser.email}`, 'ok');
-                await buildNavbar(sessionUser);
+                const { data: profile } = await secureDbClient.from('profiles').select('*').eq('id', authData.user.id).single();
 
-                // 5. Query Real Data concurrently
-                logDebug('Downloading statistical matrix...', 'info');
+                await buildNavbar(profile, authData);
+
                 const qrs = await Promise.all([
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }),
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
@@ -229,7 +217,6 @@
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true)
                 ]);
 
-                // Check for RLS rejections
                 if (qrs[0].error) throw new Error(qrs[0].error.message);
 
                 const c = qrs.map(r => r.count || 0);
@@ -250,18 +237,14 @@
                         div.className = 'stat-card';
                         div.style.borderLeftColor = st.color;
                         div.innerHTML = `<div class="number">${st.count}</div><div class="label">${st.label}</div>`;
-                        
-                        // Safely bind click event
                         div.addEventListener('click', () => displayModal(st.label, st.fField, st.fVal));
                         gridEl.appendChild(div);
                     });
                 }
                 
-                logDebug('Realtime statistics rendered', 'ok');
                 popToast('Dashboard Sync Complete', 'ok');
 
             } catch (fatalObj) {
-                logDebug(`CRITICAL FAILURE: ${fatalObj.message}`, 'err');
                 const gEl = document.getElementById('statsGrid');
                 if (gEl) {
                     gEl.innerHTML = `
