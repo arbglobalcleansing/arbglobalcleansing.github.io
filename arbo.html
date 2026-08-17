@@ -4,27 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ARBO Management</title>
+    <!-- Unified Stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Supabase CDN & Global Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
 </head>
 <body>
 <div class="container">
-    <h1>ARBO Management</h1>
+    <!-- Exact Dashboard Header -->
+    <h1>🏛️ ARB Global Cleansing <small>ARBO Management</small></h1>
     
     <!-- Unified Navigation Container -->
     <nav class="nav" id="mainNav"></nav>
 
     <div class="section">
         <div class="toolbar">
-            <input type="text" id="searchArbo" placeholder="🔍 Search ARBO..." oninput="loadArbos()" />
-            <button class="btn btn-primary" id="addArboBtn" onclick="openArboModal()">➕ Add ARBO</button>
+            <input type="text" id="searchArbo" placeholder="🔍 Search ARBO Name or Municipality..." oninput="loadArbos()" />
+            <button class="btn btn-primary" id="addArboBtn" onclick="openArboModal()">➕ Add New ARBO</button>
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr><th>ID</th><th>ARBO Name</th><th>Barangay</th><th>Municipality</th><th>Contact</th><th>Actions</th></tr></thead>
-                <tbody id="arboTableBody"><tr><td colspan="6" style="text-align: center;">Loading...</td></tr></tbody>
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">ID</th>
+                        <th>ARBO Name</th>
+                        <th>Barangay</th>
+                        <th>Municipality</th>
+                        <th>Contact</th>
+                        <th style="width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="arboTableBody"><tr><td colspan="6" class="empty-msg">⏳ Loading records...</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -33,19 +45,22 @@
 <!-- Modal -->
 <div id="arboModal" class="modal">
     <div class="modal-content">
-        <button class="modal-close" id="closeModalBtn" style="float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
-        <h2 id="arboModalTitle">Add ARBO</h2>
+        <!-- Inline styles removed, styles.css handles .modal-close automatically -->
+        <button class="modal-close" id="closeModalBtn">&times;</button>
+        <h2 id="arboModalTitle">➕ Add New ARBO</h2>
         <form id="arboForm" onsubmit="saveArbo(event)">
             <input type="hidden" id="arboId" />
-            <div class="form-grid">
-                <div><label>ARBO Name *</label><input id="arboName" required /></div>
-                <div><label>Barangay</label><input id="arboBarangay" /></div>
-                <div><label>Municipality</label><input id="arboMunicipality" /></div>
-                <div><label>Contact Number</label><input id="arboContact" /></div>
+            <div class="form-grid full">
+                <div><label>ARBO Name *</label><input id="arboName" required placeholder="Enter official ARBO name" /></div>
             </div>
-            <div class="form-actions" style="margin-top: 20px;">
+            <div class="form-grid">
+                <div><label>Barangay</label><input id="arboBarangay" placeholder="e.g. San Jose" /></div>
+                <div><label>Municipality</label><input id="arboMunicipality" placeholder="e.g. Quezon City" /></div>
+                <div><label>Contact Number</label><input id="arboContact" placeholder="09XX-XXX-XXXX" /></div>
+            </div>
+            <div class="form-actions">
                 <button type="button" class="btn btn-danger" onclick="closeModal('arboModal')">Cancel</button>
-                <button type="submit" class="btn btn-success">💾 Save</button>
+                <button type="submit" class="btn btn-success">💾 Save ARBO</button>
             </div>
         </form>
     </div>
@@ -57,9 +72,17 @@
         window.onerror = function(msg, url, line) {
             console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
             const tbody = document.getElementById('arboTableBody');
-            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Script Crash: ${msg}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Script Crash: ${msg}</td></tr>`;
             return false;
         };
+
+        // Escaper to prevent layout breaking from weird characters
+        function safeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/[&<>'"]/g, match => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[match]));
+        }
 
         try {
             if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
@@ -97,11 +120,9 @@
                 const navEl = document.getElementById('mainNav');
                 if (!navEl) return;
                 
-                // Fetch menu items from system_navigation table
                 const { data: navItems } = await dbClient.from('system_navigation').select('*').order('id', { ascending: true });
                 const curPath = window.location.pathname;
                 
-                // Fallback links if the database is empty
                 const links = navItems && navItems.length > 0 ? navItems : [
                     { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
                     { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
@@ -111,16 +132,14 @@
                 ];
 
                 let html = links.map(l => {
-                    // Check if current URL matches the link to highlight it
                     const linkTarget = (l.url || '').replace('/', '');
                     const isActive = curPath.includes(linkTarget) && linkTarget !== '' ? 'active' : '';
                     return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
                 }).join('');
 
-                // Add User profile and Logout button
                 if (userProfile) {
-                    html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${userProfile.full_name || authData.user.email} (${userProfile.role})</span>`;
-                    html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
+                    html += `<span class="user-badge">👤 ${userProfile.full_name || authData.user.email} (${userProfile.role})</span>`;
+                    html += `<span class="logout-link" id="navLogoutBtn">🚪 Logout</span>`;
                 }
                 
                 navEl.innerHTML = html;
@@ -131,7 +150,6 @@
                 });
             }
 
-            // Build the navbar immediately
             await buildNavbar(profile);
 
             // ====================================================================
@@ -150,17 +168,18 @@
                     const tbody = document.getElementById('arboTableBody');
                     
                     if (!data || data.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #64748b;">📭 No ARBO records found.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">📭 No ARBO records found.</td></tr>`;
                         return;
                     }
 
+                    // Render table with unified dashboard styles
                     tbody.innerHTML = data.map(a => `
                         <tr>
-                            <td>${(a.id || '-').toString().substring(0,8)}</td>
-                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.name) : a.name}</td>
-                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.barangay) : a.barangay}</td>
-                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.municipality) : a.municipality}</td>
-                            <td>${typeof escapeHtml === 'function' ? escapeHtml(a.contact_number) : a.contact_number}</td>
+                            <td style="font-family: monospace; color: #64748b;">${(a.id || '-').toString().substring(0,6)}</td>
+                            <td style="font-weight: 600; color: #0a3d62;">${safeHtml(a.name)}</td>
+                            <td>${safeHtml(a.barangay) || '-'}</td>
+                            <td>${safeHtml(a.municipality) || '-'}</td>
+                            <td>${safeHtml(a.contact_number) || '-'}</td>
                             <td class="actions">
                                 <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
                                 <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
@@ -168,14 +187,14 @@
                         </tr>
                     `).join('');
                 } catch (err) {
-                    document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Error loading data: ${err.message}</td></tr>`;
+                    document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Error loading data: ${err.message}</td></tr>`;
                 }
             };
 
             window.openArboModal = function() {
                 document.getElementById('arboId').value = '';
                 document.getElementById('arboForm').reset();
-                document.getElementById('arboModalTitle').textContent = 'Add ARBO';
+                document.getElementById('arboModalTitle').textContent = '➕ Add New ARBO';
                 const m = document.getElementById('arboModal');
                 if (m) m.classList.add('active');
             };
@@ -200,7 +219,7 @@
                     document.getElementById('arboBarangay').value = data.barangay || '';
                     document.getElementById('arboMunicipality').value = data.municipality || '';
                     document.getElementById('arboContact').value = data.contact_number || '';
-                    document.getElementById('arboModalTitle').textContent = 'Edit ARBO';
+                    document.getElementById('arboModalTitle').textContent = '✏️ Edit ARBO';
                     
                     const m = document.getElementById('arboModal');
                     if (m) m.classList.add('active');
@@ -254,7 +273,7 @@
 
         } catch (fatalErr) {
             console.error("Fatal Page Error:", fatalErr);
-            document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Critical Page Error: ${fatalErr.message}</td></tr>`;
+            document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Critical Page Error: ${fatalErr.message}</td></tr>`;
         }
     })();
 </script>
