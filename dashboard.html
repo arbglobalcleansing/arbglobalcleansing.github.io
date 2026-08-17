@@ -57,11 +57,6 @@
         #toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; color: #e2e8f0; padding: 14px 24px; border-radius: 10px; font-size: 0.9rem; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); display: none; z-index: 2000; max-width: 400px; border-left: 5px solid #e8a317; }
         #toast.show { display: block; animation: slideUp 0.3s ease; }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        @media (max-width: 600px) {
-            .stats-grid { grid-template-columns: repeat(3, 1fr); }
-            #debugPanel { font-size: 0.65rem; max-height: 120px; }
-        }
     </style>
 </head>
 <body>
@@ -70,7 +65,7 @@
 
         <!-- ===== DEBUG PANEL ===== -->
         <div id="debugPanel">
-            <div class="dbg-row"><span class="dbg-label">🔍 DEBUG LOG</span></div>
+            <div class="dbg-row" id="debugTitleRow"><span class="dbg-label">🔍 DEBUG LOG</span></div>
             <div id="debugLog"></div>
         </div>
 
@@ -98,69 +93,72 @@
     <!-- Toast -->
     <div id="toast"></div>
 
+    <!-- SCRIPT 1: FAILSAFE ERROR CATCHER -->
+    <!-- This is isolated so that if the main script has a typo, this will STILL run and tell you why. -->
     <script>
-        // ================================================================
-        //  DEBUG HELPER & GLOBAL ERROR CATCHERS
-        // ================================================================
-        const debugLog = document.getElementById('debugLog');
-        function dbg(msg, type = 'info') {
-            const ts = new Date().toLocaleTimeString();
-            const entry = `[${ts}] ${msg}`;
-            if (debugLog) {
-                const cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
-                const div = document.createElement('div');
-                div.className = 'dbg-row';
-                div.innerHTML = `<span class="${cls}">${entry}</span>`;
-                debugLog.appendChild(div);
-                while (debugLog.children.length > 50) { debugLog.removeChild(debugLog.firstChild); }
-                debugLog.scrollTop = debugLog.scrollHeight;
+        window.onerror = function(msg, url, line) {
+            var dbgLog = document.getElementById('debugLog');
+            var errorMsg = '[CRITICAL CRASH] Line ' + line + ': ' + msg;
+            console.error(errorMsg);
+            if (dbgLog) {
+                dbgLog.innerHTML += '<div style="color:#f87171; padding: 4px 0; border-bottom: 1px solid #334155;">' + errorMsg + '</div>';
+            } else {
+                alert("FATAL ERROR:\n" + errorMsg);
             }
-            console.log('[DBG]', msg);
-        }
-
-        // Catch silent script crashes and print them to the panel
-        window.onerror = function(message, source, lineno, colno, error) {
-            dbg(`CRASH: ${message}`, 'err');
             return false;
         };
-        window.onunhandledrejection = function(event) {
-            dbg(`PROMISE REJECTED: ${event.reason}`, 'err');
-        };
+    </script>
+
+    <!-- SCRIPT 2: MAIN LOGIC -->
+    <script>
+        // ================================================================
+        //  DEBUG HELPER
+        // ================================================================
+        function dbg(msg, type) {
+            type = type || 'info';
+            var ts = new Date().toLocaleTimeString();
+            var entry = '[' + ts + '] ' + msg;
+            var debugLog = document.getElementById('debugLog');
+            
+            if (debugLog) {
+                var cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
+                var div = document.createElement('div');
+                div.className = 'dbg-row';
+                div.innerHTML = '<span class="' + cls + '">' + entry + '</span>';
+                debugLog.appendChild(div);
+                
+                while (debugLog.children.length > 50) { 
+                    debugLog.removeChild(debugLog.firstChild); 
+                }
+                debugLog.scrollTop = debugLog.scrollHeight;
+            }
+            console.log('[DBG] ' + msg);
+        }
 
         // ================================================================
         //  TOAST
         // ================================================================
-        let toastTimer;
-        function showToast(msg, type = 'info') {
-            const el = document.getElementById('toast');
-            const colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
+        var toastTimer;
+        function showToast(msg, type) {
+            type = type || 'info';
+            var el = document.getElementById('toast');
+            var colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
             el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
             el.style.background = colors[type] || '#1e293b';
             el.textContent = msg;
             el.classList.add('show');
             clearTimeout(toastTimer);
-            toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
+            toastTimer = setTimeout(function() { el.classList.remove('show'); }, 5000);
         }
 
         // ================================================================
         //  SUPABASE CONFIG
         // ================================================================
-        const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-        const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-        let supabase = null;
+        var SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+        var SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+        var supabase = null;
 
-        try {
-            if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                dbg('✅ Supabase client generated', 'ok');
-            } else {
-                dbg('⚠️ Supabase CDN script failed to load — operating in fallback mode', 'warn');
-            }
-        } catch (e) {
-            dbg(`❌ Supabase generation error: ${e.message}`, 'err');
-        }
-
-        const FALLBACK_NAV = [
+        var FALLBACK_NAV = [
             { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
             { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
             { label: 'ARB Management', url: '/arb.html', icon: '👤' },
@@ -172,52 +170,60 @@
         //  RENDER NAVIGATION 
         // ================================================================
         async function renderNavigation(user) {
-            const container = document.getElementById('mainNav');
-            let navItems = FALLBACK_NAV;
+            var container = document.getElementById('mainNav');
+            var navItems = FALLBACK_NAV;
 
             if (supabase && user) {
                 try {
-                    const { data, error } = await supabase.from('system_navigation').select('*').order('sort_order', { ascending: true });
-                    if (!error && data && data.length > 0) {
-                        navItems = data;
-                        dbg(`✅ Loaded ${data.length} nav items from DB`, 'ok');
+                    var result = await supabase.from('system_navigation').select('*').order('sort_order', { ascending: true });
+                    if (!result.error && result.data && result.data.length > 0) {
+                        navItems = result.data;
+                        dbg('✅ Loaded ' + result.data.length + ' nav items from DB', 'ok');
                     }
                 } catch (err) {
-                    dbg(`⚠️ Nav error (using fallback): ${err.message}`, 'warn');
+                    dbg('⚠️ Nav error (using fallback): ' + err.message, 'warn');
                 }
             }
 
             // Auth badge handling
-            let userHtml = `<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>`;
+            var userHtml = '<span class="user-badge" style="color:#b91c1c;">⚠️ Not Logged In</span>';
             if (user) {
                 try {
-                    const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single();
-                    if (profile && profile.full_name) {
-                        userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
+                    var profResult = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single();
+                    if (profResult.data && profResult.data.full_name) {
+                        userHtml = '<span class="user-badge">👤 ' + profResult.data.full_name + ' (' + profResult.data.role + ')</span>';
                     } else {
-                        userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
+                        userHtml = '<span class="user-badge">👤 ' + user.email + '</span>';
                     }
                 } catch (e) {
-                    userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
+                    userHtml = '<span class="user-badge">👤 ' + user.email + '</span>';
                 }
             }
 
-            const currentPath = window.location.pathname;
-            let html = navItems.map(item => {
-                const urlStr = item.url || '';
-                const isActive = currentPath.includes(urlStr.replace('/', '')) || (urlStr === '/dashboard.html' && currentPath === '/');
-                return `<a href="${urlStr}" class="${isActive ? 'active' : ''}">${item.icon || ''} ${item.label || 'Link'}</a>`;
-            }).join('');
+            var currentPath = window.location.pathname;
+            var html = '';
+            
+            navItems.forEach(function(item) {
+                var urlStr = item.url || '';
+                var isActive = currentPath.includes(urlStr.replace('/', '')) || (urlStr === '/dashboard.html' && currentPath === '/');
+                var activeClass = isActive ? 'active' : '';
+                var icon = item.icon || '';
+                var label = item.label || 'Link';
+                html += '<a href="' + urlStr + '" class="' + activeClass + '">' + icon + ' ' + label + '</a>';
+            });
 
             html += userHtml;
-            if (user) html += `<span class="logout-link" onclick="logout()">🚪 Logout</span>`;
-            else html += `<span class="logout-link" style="color:#0a3d62" onclick="window.location.href='login.html'">🔑 Login</span>`;
+            if (user) {
+                html += '<span class="logout-link" onclick="logout()">🚪 Logout</span>';
+            } else {
+                html += '<span class="logout-link" style="color:#0a3d62" onclick="window.location.href=\'login.html\'">🔑 Login</span>';
+            }
             
             container.innerHTML = html;
         }
 
         // ================================================================
-        //  LOGOUT
+        //  LOGOUT & MODALS
         // ================================================================
         window.logout = async function() {
             if (supabase) await supabase.auth.signOut();
@@ -225,66 +231,106 @@
             window.location.href = 'login.html'; 
         };
 
-        // ================================================================
-        //  MODAL
-        // ================================================================
         window.openModal = async function(title, filter) {
-            const modal = document.getElementById('modal');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
+            var modal = document.getElementById('modal');
+            var modalTitle = document.getElementById('modalTitle');
+            var modalBody = document.getElementById('modalBody');
 
             modalTitle.textContent = title + ' – ARB List';
             modalBody.innerHTML = '<p class="empty-msg">⏳ Loading…</p>';
             modal.classList.add('active');
 
-            if (!supabase) return modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available.</p>';
+            if (!supabase) {
+                modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available.</p>';
+                return;
+            }
 
             try {
-                let query = supabase.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
-                if (filter) query = query.eq(filter.field, filter.value);
+                var query = supabase.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
+                if (filter && filter.field) {
+                    query = query.eq(filter.field, filter.value);
+                }
                 
-                const { data, error } = await query.order('last_name', { ascending: true });
-                if (error) throw new Error(error.message);
-                if (!data || data.length === 0) return modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found.</p>';
+                var result = await query.order('last_name', { ascending: true });
+                if (result.error) throw new Error(result.error.message);
+                
+                var data = result.data;
+                if (!data || data.length === 0) {
+                    modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found.</p>';
+                    return;
+                }
 
-                let tableHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
-                data.forEach(r => {
-                    const statusColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
-                    tableHtml += `<tr>
-                        <td>${(r.id || '-').toString().substring(0,8)}</td>
-                        <td>${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
-                        <td><span class="badge ${statusColor}">${r.validation_status || 'Pending'}</span></td>
-                        <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
-                        <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
-                    </tr>`;
+                var tableHtml = '<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>';
+                
+                data.forEach(function(r) {
+                    var statusColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
+                    var shortId = r.id ? r.id.toString().substring(0,8) : '-';
+                    var fullName = (r.last_name || '') + ', ' + (r.first_name || '');
+                    
+                    tableHtml += '<tr>';
+                    tableHtml += '<td>' + shortId + '</td>';
+                    tableHtml += '<td>' + fullName + '</td>';
+                    tableHtml += '<td><span class="badge ' + statusColor + '">' + (r.validation_status || 'Pending') + '</span></td>';
+                    tableHtml += '<td>' + (r.ao8 ? '✅' : '❌') + '</td>';
+                    tableHtml += '<td>' + (r.for_ta ? '✅' : '❌') + '</td>';
+                    tableHtml += '<td>' + (r.with_ta ? '✅' : '❌') + '</td>';
+                    tableHtml += '<td>' + (r.for_removal ? '✅' : '❌') + '</td>';
+                    tableHtml += '</tr>';
                 });
-                modalBody.innerHTML = tableHtml + '</tbody></table>';
+                tableHtml += '</tbody></table>';
+                modalBody.innerHTML = tableHtml;
             } catch (err) {
-                modalBody.innerHTML = `<p class="empty-msg">❌ Error: ${err.message}</p>`;
+                modalBody.innerHTML = '<p class="empty-msg">❌ Error: ' + err.message + '</p>';
             }
         };
 
-        window.closeModal = () => document.getElementById('modal').classList.remove('active');
-        document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+        window.closeModal = function() {
+            document.getElementById('modal').classList.remove('active');
+        };
+
+        document.getElementById('modal').addEventListener('click', function(e) { 
+            if (e.target === this) closeModal(); 
+        });
 
         // ================================================================
-        //  LOAD STATS
+        //  LOAD STATS (Built Safely via DOM nodes to prevent string errors)
         // ================================================================
         async function loadStats() {
-            const grid = document.getElementById('statsGrid');
+            var grid = document.getElementById('statsGrid');
             
             function renderStats(cards) {
-                grid.innerHTML = cards.map(c => `
-                    <div class="stat-card" style="border-left-color:${c.color || '#94a3b8'}" 
-                         onclick="${c.filter && c.count !== '🔒' && c.count !== '⚠️' ? `openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})` : ''}">
-                        <div class="number">${c.count ?? '?'}</div>
-                        <div class="label">${c.label}</div>
-                        ${c.note ? `<div class="status-badge">${c.note}</div>` : ''}
-                    </div>`).join('');
+                grid.innerHTML = ''; // clear loading state
+                
+                cards.forEach(function(c) {
+                    var cardDiv = document.createElement('div');
+                    cardDiv.className = 'stat-card';
+                    cardDiv.style.borderLeftColor = c.color || '#94a3b8';
+                    
+                    var displayCount = (c.count !== undefined && c.count !== null) ? c.count : '?';
+                    
+                    var inner = '<div class="number">' + displayCount + '</div>';
+                    inner += '<div class="label">' + c.label + '</div>';
+                    if (c.note) {
+                        inner += '<div class="status-badge">' + c.note + '</div>';
+                    }
+                    cardDiv.innerHTML = inner;
+
+                    // Attach click listener cleanly (NO inline string manipulation)
+                    if (c.filter && c.count !== '🔒' && c.count !== '⚠️') {
+                        cardDiv.style.cursor = 'pointer';
+                        cardDiv.addEventListener('click', function() {
+                            openModal(c.label, c.filter);
+                        });
+                    } else {
+                        cardDiv.style.cursor = 'default';
+                    }
+                    
+                    grid.appendChild(cardDiv);
+                });
             }
 
             try {
-                const queries = [
+                var queries = [
                     supabase.from('arb').select('*', { count: 'exact', head: true }),
                     supabase.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
                     supabase.from('arb').select('*', { count: 'exact', head: true }).eq('ao8', true),
@@ -293,11 +339,11 @@
                     supabase.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true)
                 ];
 
-                const results = await Promise.all(queries);
+                var results = await Promise.all(queries);
                 
                 if (results[0].error) throw new Error(results[0].error.message || "Failed to query the arb table.");
 
-                const counts = results.map(r => r.count ?? 0);
+                var counts = results.map(function(r) { return r.count || 0; });
                 
                 renderStats([
                     { label: 'GLOBAL ARBs', count: counts[0], color: '#0a3d62', filter: null },
@@ -307,10 +353,10 @@
                     { label: 'With TA', count: counts[4], color: '#3b82f6', filter: { field: 'with_ta', value: true } },
                     { label: 'For Removal', count: counts[5], color: '#b91c1c', filter: { field: 'for_removal', value: true } }
                 ]);
-                dbg(`✅ Database stats loaded successfully`, 'ok');
+                dbg('✅ Database stats loaded successfully', 'ok');
 
             } catch (err) {
-                dbg(`❌ loadStats exception: ${err.message}`, 'err');
+                dbg('❌ loadStats exception: ' + err.message, 'err');
                 renderStats([
                     { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
                     { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'Data blocked' },
@@ -320,11 +366,22 @@
         }
 
         // ================================================================
-        //  INIT PIPELINE (100% Robust Execution)
+        //  INIT PIPELINE
         // ================================================================
         async function init() {
             try {
                 dbg('🔄 Initializing interface and verifying Auth state...', 'info');
+
+                try {
+                    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+                        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                        dbg('✅ Supabase client generated', 'ok');
+                    } else {
+                        dbg('⚠️ Supabase CDN script failed to load — operating in fallback mode', 'warn');
+                    }
+                } catch (e) {
+                    dbg('❌ Supabase generation error: ' + e.message, 'err');
+                }
 
                 if (!supabase) {
                     dbg('⚠️ Supabase missing entirely, rendering disconnected fallback UI', 'warn');
@@ -332,51 +389,49 @@
                     return;
                 }
 
-                // Safely check auth (This is what caused the silent crash in the previous version)
-                const { data, error } = await supabase.auth.getUser();
-                const user = data ? data.user : null;
+                var authResponse = await supabase.auth.getUser();
+                var user = authResponse.data ? authResponse.data.user : null;
                 
-                if (error) {
-                    dbg(`ℹ️ Note: Unauthenticated visitor (${error.message})`, 'info');
+                if (authResponse.error) {
+                    dbg('ℹ️ Note: Unauthenticated visitor (' + authResponse.error.message + ')', 'info');
                 }
 
-                // If no active session is found, RLS prevents reading data. Show Login wall.
                 if (!user) {
                     dbg('🛑 User not authenticated. Generating locked view.', 'err');
                     showToast('Authentication Required', 'warn');
                     
                     await renderNavigation(null);
                     
-                    document.getElementById('statsGrid').innerHTML = `
-                        <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                            <div class="number">🔒</div>
-                            <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Login Required</div>
-                            <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your Row Level Security (RLS) policies require an active session to view this dashboard data.</p>
-                            <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Here</button>
-                        </div>`;
+                    document.getElementById('statsGrid').innerHTML = 
+                        '<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">' +
+                            '<div class="number">🔒</div>' +
+                            '<div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Login Required</div>' +
+                            '<p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your Row Level Security (RLS) policies require an active session to view this dashboard data.</p>' +
+                            '<button onclick="window.location.href=\'login.html\'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Here</button>' +
+                        '</div>';
                     return; 
                 }
 
-                // Authorized state -> Load system
-                dbg(`👤 Found active session for ${user.email}`, 'ok');
+                dbg('👤 Found active session for ' + user.email, 'ok');
                 await renderNavigation(user);
                 await loadStats();
                 showToast('✅ Dashboard connection synced', 'ok');
 
             } catch (criticalErr) {
-                // Failsafe catch block ensures the UI never visually "freezes" again without context
-                dbg(`CRITICAL SYSTEM ERROR: ${criticalErr.message}`, 'err');
-                document.getElementById('statsGrid').innerHTML = `
-                    <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                        <div class="number">❌</div>
-                        <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>
-                        <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">${criticalErr.message}</p>
-                    </div>`;
+                dbg('CRITICAL SYSTEM ERROR: ' + criticalErr.message, 'err');
+                document.getElementById('statsGrid').innerHTML = 
+                    '<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">' +
+                        '<div class="number">❌</div>' +
+                        '<div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>' +
+                        '<p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">' + criticalErr.message + '</p>' +
+                    '</div>';
             }
         }
 
-        // Initialize when the script is loaded
-        init();
+        // Delay execution safely until HTML fully constructs
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+        });
     </script>
 </body>
 </html>
