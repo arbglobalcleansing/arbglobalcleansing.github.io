@@ -14,31 +14,31 @@
         .nav { background: white; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
         .nav a { text-decoration: none; color: #475569; font-weight: 600; padding: 8px 12px; border-radius: 6px; }
         .nav a.active, .nav a:hover { background: #e2e8f0; color: #0a3d62; }
-        
+
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #cbd5e1; }
         .profile-header h2 { margin: 0; color: #0a3d62; font-size: 1.8rem; }
         .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
         .profile-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .profile-card h3 { color: #0a3d62; font-size: 1.1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; margin-top: 0; display: flex; justify-content: space-between; }
-        
+
         .field { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #e2e8f0; }
         .field:last-child { border-bottom: none; }
         .label { font-weight: 600; color: #64748b; font-size: 0.85rem; }
         .value { font-weight: 600; color: #0f172a; font-size: 0.9rem; text-align: right; }
-        
+
         .btn { padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
         .btn-primary { background: #0a3d62; color: white; }
         .btn-success { background: #16a34a; color: white; }
         .btn-danger { background: #dc2626; color: white; }
         .btn-warning { background: #f59e0b; color: white; }
         .btn-mini { padding: 2px 8px; font-size: 0.7rem; }
-        
+
         .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; color: white; }
         .bg-alive { background: #16a34a; }
         .bg-dead { background: #dc2626; }
         .bg-split { background: #4f46e5; }
         .bg-pending { background: #f59e0b; }
-        
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
         .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; position: relative; }
@@ -46,11 +46,11 @@
         .form-group { margin-bottom: 15px; }
         .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-        
+
         .tag-list, .val-list { list-style: none; padding: 0; margin: 0; }
         .tag-list li, .val-list li { background: #f8fafc; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 8px; }
         .tag-list li strong { color: #dc2626; }
-        
+
         @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -103,7 +103,7 @@
                     <option value="issue_etitle">Issue Individual E-Title (Project SPLIT)</option>
                 </select>
             </div>
-            
+
             <div id="ccloaField">
                 <div class="form-group">
                     <label>Search Mother Title No.</label>
@@ -122,7 +122,7 @@
                     <input type="text" id="inputEtitle" placeholder="Enter uniquely generated E-Title No." />
                 </div>
             </div>
-            
+
             <button type="submit" class="btn btn-success" style="width:100%; margin-top: 15px;">💾 Update Title</button>
         </form>
     </div>
@@ -178,14 +178,24 @@
     let currentArbId = null;
 
     (async function() {
-        if (typeof window.supabase === 'undefined') { alert("Supabase failed to load."); return; }
+        if (typeof window.supabase === 'undefined') { 
+            document.getElementById('profileContent').innerHTML = `
+                <div style="background: white; border-top: 4px solid #dc2626; border-radius: 8px; padding: 40px 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 10px; color: #475569;">🔌</div>
+                    <h3 style="color: #dc2626; margin: 0 0 10px 0; font-size: 1.25rem; font-weight: 600;">Connection Offline</h3>
+                    <p style="color: #64748b; font-size: 0.9rem; margin: 0;">The database driver could not load. This usually means a network filter or ad-blocker prevented the script from downloading.</p>
+                </div>
+            `;
+            return; 
+        }
+
         const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
         window.dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // Dummy auth for UI testing (Replace with actual auth verification)
         window.currentProfile = { id: 'admin-uuid', role: 'admin', full_name: 'Admin User' }; 
-        
+
         const urlParams = new URLSearchParams(window.location.search);
         currentArbId = urlParams.get('id') || 'dummy-uuid-for-testing'; // In prod, require valid ID
 
@@ -214,7 +224,7 @@
                 .select(`*, mother_titles(mother_title_no, municipality, barangay, split_status)`)
                 .eq('id', id)
                 .single();
-            
+
             // Note: Using dummy rendering fallback if table is empty for testing UI
             const data = arb || {
                 fb_name: 'Juan Dela Cruz', fb_gender: 'Male', sequence_no: '001', life_status: 'Alive', e_title_no: null,
@@ -232,7 +242,7 @@
                     </div>
                 </div>
                 <div class="profile-grid">
-                    
+
                     <!-- Basic Info & Status -->
                     <div class="profile-card">
                         <h3>👤 ARB Personal Details</h3>
@@ -274,7 +284,7 @@
                 </div>
             `;
             container.innerHTML = html;
-            
+
             // Prefill edit modal
             document.getElementById('editLifeStatus').value = data.life_status || 'Alive';
             if(data.life_status === 'Deceased') {
@@ -316,9 +326,9 @@
         e.preventDefault();
         const life = document.getElementById('editLifeStatus').value;
         const payload = { life_status: life };
-        
+
         let detailLog = `Status updated to ${life}.`;
-        
+
         if (life === 'Deceased') {
             payload.heir_name = document.getElementById('editHeirName').value;
             payload.heir_relation = document.getElementById('editHeirRel').value;
