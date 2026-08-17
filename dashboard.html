@@ -4,287 +4,63 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ARB Global Cleansing – Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-        }
-        body {
-            background: #f0f4f8;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        h1 {
-            color: #0a3d62;
-            border-bottom: 4px solid #e8a317;
-            padding-bottom: 12px;
-            margin-bottom: 25px;
-        }
-        h1 small {
-            font-size: 0.6rem;
-            color: #64748b;
-            font-weight: normal;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        body { background: #f0f4f8; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #0a3d62; border-bottom: 4px solid #e8a317; padding-bottom: 12px; margin-bottom: 25px; }
+        h1 small { font-size: 0.6rem; color: #64748b; font-weight: normal; }
 
-        /* ===== DEBUG PANEL (always visible) ===== */
-        #debugPanel {
-            background: #1e293b;
-            color: #e2e8f0;
-            border-radius: 8px;
-            padding: 12px 18px;
-            margin-bottom: 20px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-            max-height: 160px;
-            overflow-y: auto;
-            border-left: 6px solid #e8a317;
-            display: block;
-        }
-        #debugPanel .dbg-label {
-            color: #94a3b8;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-        #debugPanel .dbg-ok {
-            color: #4ade80;
-        }
-        #debugPanel .dbg-warn {
-            color: #facc15;
-        }
-        #debugPanel .dbg-err {
-            color: #f87171;
-        }
-        #debugPanel .dbg-info {
-            color: #60a5fa;
-        }
-        #debugPanel .dbg-row {
-            padding: 2px 0;
-            border-bottom: 1px solid #334155;
-        }
-        #debugPanel .dbg-row:last-child {
-            border-bottom: none;
-        }
+        /* ===== DEBUG PANEL ===== */
+        #debugPanel { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; font-family: 'Courier New', monospace; font-size: 0.8rem; max-height: 160px; overflow-y: auto; border-left: 6px solid #e8a317; display: block; }
+        #debugPanel .dbg-label { color: #94a3b8; font-weight: 600; letter-spacing: 0.5px; }
+        #debugPanel .dbg-ok { color: #4ade80; }
+        #debugPanel .dbg-warn { color: #facc15; }
+        #debugPanel .dbg-err { color: #f87171; }
+        #debugPanel .dbg-info { color: #60a5fa; }
+        #debugPanel .dbg-row { padding: 2px 0; border-bottom: 1px solid #334155; }
+        #debugPanel .dbg-row:last-child { border-bottom: none; }
 
-        .nav {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            background: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 6px rgba(10, 61, 98, 0.08);
-            margin-bottom: 25px;
-            border-left: 5px solid #e8a317;
-            align-items: center;
-            min-height: 60px;
-        }
-        .nav a {
-            padding: 10px 20px;
-            text-decoration: none;
-            font-weight: 600;
-            color: #334155;
-            border-radius: 6px;
-            transition: 0.2s;
-        }
-        .nav a:hover {
-            background: #e2e8f0;
-        }
-        .nav a.active {
-            background: #0a3d62;
-            color: white;
-        }
-        .nav .user-badge {
-            margin-left: auto;
-            color: #0a3d62;
-            font-weight: 600;
-        }
-        .nav .logout-link {
-            color: #b91c1c;
-            font-weight: 600;
-            margin-left: 10px;
-            cursor: pointer;
-            padding: 6px 12px;
-            border-radius: 6px;
-        }
-        .nav .logout-link:hover {
-            background: #fee2e2;
-        }
+        .nav { display: flex; flex-wrap: wrap; gap: 5px; background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 6px rgba(10, 61, 98, 0.08); margin-bottom: 25px; border-left: 5px solid #e8a317; align-items: center; min-height: 60px; }
+        .nav a { padding: 10px 20px; text-decoration: none; font-weight: 600; color: #334155; border-radius: 6px; transition: 0.2s; }
+        .nav a:hover { background: #e2e8f0; }
+        .nav a.active { background: #0a3d62; color: white; }
+        .nav .user-badge { margin-left: auto; color: #0a3d62; font-weight: 600; }
+        .nav .logout-link { color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer; padding: 6px 12px; border-radius: 6px; }
+        .nav .logout-link:hover { background: #fee2e2; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        .stat-card {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-            border-left: 4px solid #0a3d62;
-            cursor: pointer;
-            transition: 0.2s;
-            text-align: center;
-        }
-        .stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-        }
-        .stat-card .number {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: #0a3d62;
-        }
-        .stat-card .label {
-            color: #64748b;
-            font-size: 0.9rem;
-            margin-top: 4px;
-        }
-        .stat-card .status-badge {
-            font-size: 0.65rem;
-            display: inline-block;
-            margin-top: 4px;
-            padding: 2px 10px;
-            border-radius: 12px;
-            background: #e2e8f0;
-            color: #475569;
-        }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); border-left: 4px solid #0a3d62; cursor: pointer; transition: 0.2s; text-align: center; }
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
+        .stat-card .number { font-size: 2.2rem; font-weight: 700; color: #0a3d62; }
+        .stat-card .label { color: #64748b; font-size: 0.9rem; margin-top: 4px; }
+        .stat-card .status-badge { font-size: 0.65rem; display: inline-block; margin-top: 4px; padding: 2px 10px; border-radius: 12px; background: #e2e8f0; color: #475569; }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal.active {
-            display: flex;
-        }
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 900px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-        .modal-content h2 {
-            color: #0a3d62;
-            border-bottom: 2px solid #e8a317;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-        }
-        .modal-close {
-            float: right;
-            background: transparent;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #64748b;
-        }
-        .modal-close:hover {
-            color: #b91c1c;
-        }
-        .modal-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.9rem;
-        }
-        .modal-table th {
-            background: #0a3d62;
-            color: white;
-            padding: 10px;
-            text-align: left;
-        }
-        .modal-table td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .modal-table tr:hover {
-            background: #f8fafc;
-        }
-        .empty-msg {
-            text-align: center;
-            color: #64748b;
-            padding: 20px;
-        }
-        .badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
-        }
-        .badge-warning {
-            background: #fff3cd;
-            color: #856404;
-        }
-        .badge-danger {
-            background: #f8d7da;
-            color: #721c24;
-        }
-        .badge-info {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 90%; max-width: 900px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+        .modal-content h2 { color: #0a3d62; border-bottom: 2px solid #e8a317; padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-close { float: right; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b; }
+        .modal-close:hover { color: #b91c1c; }
+        .modal-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .modal-table th { background: #0a3d62; color: white; padding: 10px; text-align: left; }
+        .modal-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; }
+        .modal-table tr:hover { background: #f8fafc; }
+        .empty-msg { text-align: center; color: #64748b; padding: 20px; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
 
         /* toast notification */
-        #toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #1e293b;
-            color: #e2e8f0;
-            padding: 14px 24px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-            display: none;
-            z-index: 2000;
-            max-width: 400px;
-            border-left: 5px solid #e8a317;
-        }
-        #toast.show {
-            display: block;
-            animation: slideUp 0.3s ease;
-        }
-        @keyframes slideUp {
-            from {
-                transform: translateY(20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
+        #toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; color: #e2e8f0; padding: 14px 24px; border-radius: 10px; font-size: 0.9rem; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3); display: none; z-index: 2000; max-width: 400px; border-left: 5px solid #e8a317; }
+        #toast.show { display: block; animation: slideUp 0.3s ease; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
         @media (max-width: 600px) {
-            .stats-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-            #debugPanel {
-                font-size: 0.65rem;
-                max-height: 120px;
-            }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            #debugPanel { font-size: 0.65rem; max-height: 120px; }
         }
     </style>
 </head>
@@ -292,7 +68,7 @@
     <div class="container">
         <h1>🏛️ ARB Global Cleansing <small>Activity Monitoring</small></h1>
 
-        <!-- ===== DEBUG PANEL (always visible) ===== -->
+        <!-- ===== DEBUG PANEL ===== -->
         <div id="debugPanel">
             <div class="dbg-row"><span class="dbg-label">🔍 DEBUG LOG</span></div>
             <div id="debugLog"></div>
@@ -327,24 +103,16 @@
         //  DEBUG HELPER
         // ================================================================
         const debugLog = document.getElementById('debugLog');
-        const debugEntries = [];
-
         function dbg(msg, type = 'info') {
             const ts = new Date().toLocaleTimeString();
             const entry = `[${ts}] ${msg}`;
-            debugEntries.push(entry);
             if (debugLog) {
-                const cls = type === 'ok' ? 'dbg-ok' :
-                    type === 'warn' ? 'dbg-warn' :
-                    type === 'err' ? 'dbg-err' : 'dbg-info';
+                const cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
                 const div = document.createElement('div');
                 div.className = 'dbg-row';
                 div.innerHTML = `<span class="${cls}">${entry}</span>`;
                 debugLog.appendChild(div);
-                // Keep log manageable
-                while (debugLog.children.length > 50) {
-                    debugLog.removeChild(debugLog.firstChild);
-                }
+                while (debugLog.children.length > 50) { debugLog.removeChild(debugLog.firstChild); }
                 debugLog.scrollTop = debugLog.scrollHeight;
             }
             console.log('[DBG]', msg);
@@ -354,18 +122,10 @@
         //  TOAST
         // ================================================================
         let toastTimer;
-
         function showToast(msg, type = 'info') {
             const el = document.getElementById('toast');
-            const colors = {
-                info: '#1e293b',
-                ok: '#14532d',
-                warn: '#78350f',
-                err: '#7f1d1d'
-            };
-            el.style.borderLeftColor = type === 'ok' ? '#4ade80' :
-                type === 'warn' ? '#facc15' :
-                type === 'err' ? '#f87171' : '#e8a317';
+            const colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
+            el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
             el.style.background = colors[type] || '#1e293b';
             el.textContent = msg;
             el.classList.add('show');
@@ -386,16 +146,11 @@
                 dbg('✅ Supabase client created', 'ok');
             } else {
                 dbg('⚠️ Supabase global not found — using fallback mode', 'warn');
-                supabase = null;
             }
         } catch (e) {
             dbg(`❌ Supabase init error: ${e.message}`, 'err');
-            supabase = null;
         }
 
-        // ================================================================
-        //  FALLBACK NAV (hardcoded, always works)
-        // ================================================================
         const FALLBACK_NAV = [
             { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
             { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
@@ -405,138 +160,61 @@
         ];
 
         // ================================================================
-        //  RENDER NAVIGATION  (with fallback + debug)
+        //  RENDER NAVIGATION 
         // ================================================================
-        async function renderNavigation() {
+        async function renderNavigation(user) {
             const container = document.getElementById('mainNav');
-            if (!container) {
-                dbg('❌ #mainNav not found!', 'err');
-                return;
-            }
-
             let navItems = FALLBACK_NAV;
-            let usingFallback = true;
-            let dbgDetail = 'Using hardcoded fallback';
 
-            // If Supabase is available, try to load from DB
-            if (supabase) {
+            if (supabase && user) {
                 try {
-                    dbg('📋 Fetching system_navigation...', 'info');
-                    const { data, error } = await supabase
-                        .from('system_navigation')
-                        .select('*')
-                        .order('sort_order', { ascending: true });
-
-                    if (error) {
-                        dbg(`⚠️ Nav DB error: ${error.message}`, 'warn');
-                        dbgDetail = `DB error: ${error.message}`;
-                    } else if (data && data.length > 0) {
+                    const { data, error } = await supabase.from('system_navigation').select('*').order('sort_order', { ascending: true });
+                    if (!error && data && data.length > 0) {
                         navItems = data;
-                        usingFallback = false;
                         dbg(`✅ Loaded ${data.length} nav items from DB`, 'ok');
-                        dbgDetail = `✅ ${data.length} items from DB`;
                     } else {
-                        dbg('⚠️ system_navigation table empty → using fallback', 'warn');
-                        dbgDetail = 'Table empty → fallback';
+                        dbg('⚠️ Nav DB error or empty, using fallback', 'warn');
                     }
                 } catch (err) {
                     dbg(`⚠️ Nav exception: ${err.message}`, 'err');
-                    dbgDetail = `Exception: ${err.message}`;
                 }
-            } else {
-                dbg('ℹ️ Supabase unavailable — using fallback nav', 'info');
             }
 
-            // ---- Auth check ----
-            let userHtml = '';
-            let authStatus = 'Not logged in';
-            if (supabase) {
+            // Auth badge handling
+            let userHtml = `<span class="user-badge">⚠️ Not Logged In</span>`;
+            if (user) {
                 try {
-                    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-                    if (authErr) {
-                        dbg(`⚠️ Auth getUser error: ${authErr.message}`, 'warn');
-                        authStatus = `Auth error: ${authErr.message}`;
-                    } else if (user) {
-                        authStatus = `Logged in: ${user.email}`;
-                        dbg(`👤 User: ${user.email}`, 'ok');
-                        try {
-                            const { data: profile, error: profErr } = await supabase
-                                .from('profiles')
-                                .select('full_name, role')
-                                .eq('id', user.id)
-                                .single();
-                            if (profErr) {
-                                dbg(`⚠️ Profile fetch error: ${profErr.message}`, 'warn');
-                                userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
-                            } else if (profile) {
-                                userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
-                                dbg(`✅ Profile: ${profile.full_name} (${profile.role})`, 'ok');
-                            }
-                        } catch (e) {
-                            dbg(`⚠️ Profile exception: ${e.message}`, 'err');
-                            userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
-                        }
+                    const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single();
+                    if (profile) {
+                        userHtml = `<span class="user-badge">👤 ${profile.full_name} (${profile.role})</span>`;
                     } else {
-                        dbg('🔓 No user session', 'warn');
-                        authStatus = 'Not logged in';
+                        userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
                     }
                 } catch (e) {
-                    dbg(`⚠️ Auth exception: ${e.message}`, 'err');
-                    authStatus = `Auth exception: ${e.message}`;
+                    userHtml = `<span class="user-badge">👤 ${user.email}</span>`;
                 }
-            } else {
-                dbg('ℹ️ Supabase unavailable — skipping auth', 'info');
-                authStatus = 'Supabase unavailable';
             }
 
-            // ---- Build HTML ----
             const currentPath = window.location.pathname;
-            let html = '';
-            navItems.forEach(item => {
-                const isActive = currentPath === item.url ||
-                    currentPath.includes(item.url.replace('/', '')) ||
-                    (item.url === '/dashboard.html' && currentPath === '/');
-                const activeClass = isActive ? 'active' : '';
-                const icon = item.icon || '';
-                html += `<a href="${item.url}" class="${activeClass}">${icon} ${item.label}</a>`;
-            });
+            let html = navItems.map(item => {
+                const isActive = currentPath.includes(item.url.replace('/', '')) || (item.url === '/dashboard.html' && currentPath === '/');
+                return `<a href="${item.url}" class="${isActive ? 'active' : ''}">${item.icon || ''} ${item.label}</a>`;
+            }).join('');
 
             html += userHtml;
-            html += `<span class="logout-link" onclick="logout()">🚪 Logout</span>`;
+            if (user) html += `<span class="logout-link" onclick="logout()">🚪 Logout</span>`;
+            else html += `<span class="logout-link" style="color:#0a3d62" onclick="window.location.href='login.html'">🔑 Login</span>`;
+            
             container.innerHTML = html;
-
-            // ---- Debug summary ----
-            const navSource = usingFallback ? '⚠️ FALLBACK (hardcoded)' : '✅ DATABASE';
-            dbg(`📋 Navigation: ${navSource} — ${navItems.length} items`, usingFallback ? 'warn' : 'ok');
-            dbg(`👤 Auth: ${authStatus}`, authStatus.includes('Logged in') || authStatus.includes('unavailable') ? 'ok' :
-                'warn');
-
-            // Also show a toast for visual feedback
-            if (usingFallback) {
-                showToast(`⚠️ Using fallback menu — ${dbgDetail}`, 'warn');
-            } else {
-                showToast(`✅ Navigation loaded from database (${navItems.length} items)`, 'ok');
-            }
-
-            // Update debug panel summary line
-            const summaryLine = document.querySelector('#debugPanel .dbg-row:first-child');
-            if (summaryLine) {
-                const status = usingFallback ? '⚠️ FALLBACK MODE' : '✅ DB MODE';
-                summaryLine.innerHTML =
-                    `<span class="dbg-label">🔍 DEBUG LOG</span> <span style="float:right;font-weight:600;color:${usingFallback ? '#facc15' : '#4ade80'}">${status}</span>`;
-            }
         }
 
         // ================================================================
         //  LOGOUT
         // ================================================================
         window.logout = async function() {
-            dbg('🚪 Logging out...', 'info');
-            if (supabase) {
-                await supabase.auth.signOut();
-            }
+            if (supabase) await supabase.auth.signOut();
             showToast('Logged out', 'info');
-            window.location.href = 'login.html';
+            window.location.href = 'login.html'; // Adjust to your actual login page
         };
 
         // ================================================================
@@ -550,253 +228,128 @@
             modalTitle.textContent = title + ' – ARB List';
             modalBody.innerHTML = '<p class="empty-msg">⏳ Loading…</p>';
             modal.classList.add('active');
-            dbg(`🔍 Opening modal: ${title}`, 'info');
 
-            // If Supabase is not available, show error
-            if (!supabase) {
-                modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available. Please check your connection.</p>';
-                return;
-            }
+            if (!supabase) return modalBody.innerHTML = '<p class="empty-msg">❌ Supabase not available.</p>';
 
             try {
                 let query = supabase.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
-                if (filter && filter.field !== undefined && filter.value !== undefined) {
-                    query = query.eq(filter.field, filter.value);
-                    dbg(`   filter: ${filter.field} = ${filter.value}`, 'info');
-                }
+                if (filter) query = query.eq(filter.field, filter.value);
+                
                 const { data, error } = await query.order('last_name', { ascending: true });
-                if (error) {
-                    dbg(`❌ Modal query error: ${error.message}`, 'err');
-                    modalBody.innerHTML = `<p class="empty-msg">❌ Error: ${error.message}</p>`;
-                    return;
-                }
+                if (error) throw error;
+                if (!data || data.length === 0) return modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found.</p>';
 
-                if (!data || data.length === 0) {
-                    dbg(`   No ARBs found for "${title}"`, 'warn');
-                    modalBody.innerHTML = '<p class="empty-msg">📭 No ARBs found for this category.</p>';
-                    return;
-                }
-
-                dbg(`   Found ${data.length} ARBs`, 'ok');
-                let tableHtml = `
-                        <table class="modal-table">
-                            <thead><tr>
-                                <th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th>
-                            </tr></thead><tbody>
-                    `;
+                let tableHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
                 data.forEach(r => {
-                    const name = (r.last_name || '') + ', ' + (r.first_name || '');
-                    const statusColor = r.validation_status === 'Validated' ? 'badge-success' :
-                        r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
-                    tableHtml += `
-                            <tr>
-                                <td>${r.id || '-'}</td>
-                                <td>${name || '—'}</td>
-                                <td><span class="badge ${statusColor}">${r.validation_status || 'Pending'}</span></td>
-                                <td>${r.ao8 ? '✅' : '❌'}</td>
-                                <td>${r.for_ta ? '✅' : '❌'}</td>
-                                <td>${r.with_ta ? '✅' : '❌'}</td>
-                                <td>${r.for_removal ? '✅' : '❌'}</td>
-                            </tr>
-                        `;
+                    const statusColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
+                    tableHtml += `<tr>
+                        <td>${r.id.substring(0,8) || '-'}</td>
+                        <td>${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
+                        <td><span class="badge ${statusColor}">${r.validation_status || 'Pending'}</span></td>
+                        <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
+                        <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
+                    </tr>`;
                 });
-                tableHtml += '</tbody></table>';
-                modalBody.innerHTML = tableHtml;
-
+                modalBody.innerHTML = tableHtml + '</tbody></table>';
             } catch (err) {
-                dbg(`❌ Modal exception: ${err.message}`, 'err');
                 modalBody.innerHTML = `<p class="empty-msg">❌ Error: ${err.message}</p>`;
             }
         };
 
-        window.closeModal = function() {
-            document.getElementById('modal').classList.remove('active');
-            dbg('🔒 Modal closed', 'info');
-        };
-
-        document.getElementById('modal').addEventListener('click', function(e) {
-            if (e.target === this) closeModal();
-        });
+        window.closeModal = () => document.getElementById('modal').classList.remove('active');
+        document.getElementById('modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
         // ================================================================
-        //  LOAD STATS  (with debug + fallback display)
+        //  LOAD STATS
         // ================================================================
         async function loadStats() {
             const grid = document.getElementById('statsGrid');
-            dbg('📊 Loading stats...', 'info');
-
-            // Helper to show stats even if queries fail
+            
             function renderStats(cards) {
                 grid.innerHTML = cards.map(c => `
-                        <div class="stat-card" style="border-left-color:${c.color || '#94a3b8'}" 
-                             onclick="${c.filter ? `openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})` : ''}"
-                             title="${c.filter ? 'Click to view list' : ''}">
-                            <div class="number">${c.count ?? '?'}</div>
-                            <div class="label">${c.label}</div>
-                            ${c.note ? `<div class="status-badge">${c.note}</div>` : ''}
-                        </div>
-                    `).join('');
-            }
-
-            // If Supabase is not available, show fallback
-            if (!supabase) {
-                dbg('⚠️ Supabase unavailable — showing fallback stats', 'warn');
-                const fallbackCards = [
-                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'offline' },
-                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'offline' },
-                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'offline' },
-                    { label: 'For TA', count: '⚠️', color: '#94a3b8', note: 'offline' },
-                    { label: 'With TA', count: '⚠️', color: '#94a3b8', note: 'offline' },
-                    { label: 'For Removal', count: '⚠️', color: '#94a3b8', note: 'offline' }
-                ];
-                renderStats(fallbackCards);
-                showToast('⚠️ Supabase unavailable — stats offline', 'warn');
-                return;
+                    <div class="stat-card" style="border-left-color:${c.color || '#94a3b8'}" 
+                         onclick="${c.filter && c.count !== '🔒' ? `openModal('${c.label}', ${JSON.stringify(c.filter).replace(/"/g,'&quot;')})` : ''}">
+                        <div class="number">${c.count ?? '?'}</div>
+                        <div class="label">${c.label}</div>
+                        ${c.note ? `<div class="status-badge">${c.note}</div>` : ''}
+                    </div>`).join('');
             }
 
             try {
-                const counts = {};
-
-                // total
-                const { count: total, error: e1 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true });
-                if (e1) {
-                    dbg(`⚠️ total count error: ${e1.message}`, 'warn');
-                    counts.total = '?';
-                } else {
-                    counts.total = total ?? 0;
-                    dbg(`   total: ${counts.total}`, 'ok');
-                }
-
-                // validated
-                const { count: validated, error: e2 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('validation_status', 'Validated');
-                if (e2) {
-                    dbg(`⚠️ validated count error: ${e2.message}`, 'warn');
-                    counts.validated = '?';
-                } else {
-                    counts.validated = validated ?? 0;
-                }
-
-                // ao8
-                const { count: ao8, error: e3 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('ao8', true);
-                if (e3) {
-                    dbg(`⚠️ ao8 count error: ${e3.message}`, 'warn');
-                    counts.ao8 = '?';
-                } else {
-                    counts.ao8 = ao8 ?? 0;
-                }
-
-                // for_ta
-                const { count: forTa, error: e4 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('for_ta', true);
-                if (e4) {
-                    dbg(`⚠️ for_ta count error: ${e4.message}`, 'warn');
-                    counts.forTa = '?';
-                } else {
-                    counts.forTa = forTa ?? 0;
-                }
-
-                // with_ta
-                const { count: withTa, error: e5 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('with_ta', true);
-                if (e5) {
-                    dbg(`⚠️ with_ta count error: ${e5.message}`, 'warn');
-                    counts.withTa = '?';
-                } else {
-                    counts.withTa = withTa ?? 0;
-                }
-
-                // for_removal
-                const { count: forRemoval, error: e6 } = await supabase
-                    .from('arb')
-                    .select('*', { count: 'exact', head: true })
-                    .eq('for_removal', true);
-                if (e6) {
-                    dbg(`⚠️ for_removal count error: ${e6.message}`, 'warn');
-                    counts.forRemoval = '?';
-                } else {
-                    counts.forRemoval = forRemoval ?? 0;
-                }
-
-                // ---- Build cards ----
-                const cards = [
-                    { label: 'GLOBAL ARBs', count: counts.total, color: '#0a3d62', filter: null },
-                    { label: 'VALIDATED', count: counts.validated, color: '#2e7d32',
-                        filter: { field: 'validation_status', value: 'Validated' } },
-                    { label: 'AO 8', count: counts.ao8, color: '#e8a317', filter: { field: 'ao8', value: true } },
-                    { label: 'For TA', count: counts.forTa, color: '#f59e0b', filter: { field: 'for_ta', value: true } },
-                    { label: 'With TA', count: counts.withTa, color: '#3b82f6', filter: { field: 'with_ta',
-                            value: true } },
-                    { label: 'For Removal', count: counts.forRemoval, color: '#b91c1c',
-                        filter: { field: 'for_removal', value: true } }
+                const queries = [
+                    supabase.from('arb').select('*', { count: 'exact', head: true }),
+                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
+                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('ao8', true),
+                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('for_ta', true),
+                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('with_ta', true),
+                    supabase.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true)
                 ];
 
-                // Check for any '?' values and add note
-                const hasErrors = Object.values(counts).some(v => v === '?');
-                if (hasErrors) {
-                    cards.forEach(c => {
-                        if (c.count === '?') c.note = '⚠️ error';
-                    });
-                    showToast('⚠️ Some stats failed to load — check debug panel', 'warn');
-                } else {
-                    showToast(`✅ Stats loaded: ${counts.total} total ARBs`, 'ok');
-                }
+                const results = await Promise.all(queries);
+                
+                // If the first query has an error, RLS likely rejected it
+                if (results[0].error) throw results[0].error;
 
-                renderStats(cards);
-                dbg(`✅ Stats rendered (${cards.length} cards)`, 'ok');
+                const counts = results.map(r => r.count ?? 0);
+                
+                renderStats([
+                    { label: 'GLOBAL ARBs', count: counts[0], color: '#0a3d62', filter: null },
+                    { label: 'VALIDATED', count: counts[1], color: '#2e7d32', filter: { field: 'validation_status', value: 'Validated' } },
+                    { label: 'AO 8', count: counts[2], color: '#e8a317', filter: { field: 'ao8', value: true } },
+                    { label: 'For TA', count: counts[3], color: '#f59e0b', filter: { field: 'for_ta', value: true } },
+                    { label: 'With TA', count: counts[4], color: '#3b82f6', filter: { field: 'with_ta', value: true } },
+                    { label: 'For Removal', count: counts[5], color: '#b91c1c', filter: { field: 'for_removal', value: true } }
+                ]);
+                dbg(`✅ Stats loaded successfully`, 'ok');
 
             } catch (err) {
                 dbg(`❌ loadStats exception: ${err.message}`, 'err');
-                const fallbackCards = [
-                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'error' },
-                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'error' },
-                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'error' },
-                    { label: 'For TA', count: '⚠️', color: '#94a3b8', note: 'error' },
-                    { label: 'With TA', count: '⚠️', color: '#94a3b8', note: 'error' },
-                    { label: 'For Removal', count: '⚠️', color: '#94a3b8', note: 'error' }
-                ];
-                renderStats(fallbackCards);
-                showToast('❌ Stats error — see debug panel', 'err');
+                renderStats([
+                    { label: 'GLOBAL ARBs', count: '⚠️', color: '#94a3b8', note: 'Error loading' },
+                    { label: 'VALIDATED', count: '⚠️', color: '#94a3b8', note: 'Error loading' },
+                    { label: 'AO 8', count: '⚠️', color: '#94a3b8', note: 'Error loading' }
+                ]);
             }
         }
 
         // ================================================================
-        //  INIT
+        //  INIT PIPELINE
         // ================================================================
         async function init() {
             dbg('🔄 Initializing...', 'info');
-            dbg(`📡 Supabase URL: ${SUPABASE_URL}`, 'info');
-            dbg(`🔑 Supabase key: ${SUPABASE_KEY.substring(0, 10)}...`, 'info');
 
-            // Render nav first (always works with fallback)
-            await renderNavigation();
+            if (!supabase) {
+                dbg('⚠️ Supabase missing, rendering fallback', 'warn');
+                await renderNavigation(null);
+                return;
+            }
 
-            // Then load stats
+            // 1. Force Authentication Check due to strict RLS policies
+            const { data: { user } } = await supabase.auth.getUser();
+            
+            if (!user) {
+                dbg('🛑 User not authenticated. RLS will block data retrieval.', 'err');
+                showToast('Please log in to view data', 'warn');
+                
+                // Render locked UI
+                await renderNavigation(null);
+                document.getElementById('statsGrid').innerHTML = `
+                    <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                        <div class="number">🔒</div>
+                        <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Authentication Required</div>
+                        <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Your database security (RLS) requires an active session to view this data.</p>
+                        <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Log In Now</button>
+                    </div>`;
+                return; 
+            }
+
+            // 2. Load safe authenticated data
+            await renderNavigation(user);
             await loadStats();
-
-            dbg('✅ Dashboard ready', 'ok');
-            showToast('✅ Dashboard ready', 'ok');
+            showToast('✅ Dashboard synced', 'ok');
         }
 
-        // Run it
         init();
-
-        // Also re-run stats every 60s (optional)
-        setInterval(() => {
-            dbg('🔄 Auto-refresh stats...', 'info');
-            loadStats();
-        }, 60000);
     </script>
 </body>
 </html>
