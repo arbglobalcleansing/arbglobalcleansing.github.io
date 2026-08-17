@@ -13,16 +13,6 @@
         h1 { color: #0a3d62; border-bottom: 4px solid #e8a317; padding-bottom: 12px; margin-bottom: 25px; }
         h1 small { font-size: 0.6rem; color: #64748b; font-weight: normal; }
 
-        /* ===== DEBUG PANEL ===== */
-        #debugPanel { background: #1e293b; color: #e2e8f0; border-radius: 8px; padding: 12px 18px; margin-bottom: 20px; font-family: 'Courier New', monospace; font-size: 0.8rem; max-height: 160px; overflow-y: auto; border-left: 6px solid #e8a317; display: block; }
-        #debugPanel .dbg-label { color: #94a3b8; font-weight: 600; letter-spacing: 0.5px; }
-        #debugPanel .dbg-ok { color: #4ade80; }
-        #debugPanel .dbg-warn { color: #facc15; }
-        #debugPanel .dbg-err { color: #f87171; }
-        #debugPanel .dbg-info { color: #60a5fa; }
-        #debugPanel .dbg-row { padding: 2px 0; border-bottom: 1px solid #334155; }
-        #debugPanel .dbg-row:last-child { border-bottom: none; }
-
         .nav { display: flex; flex-wrap: wrap; gap: 5px; background: white; padding: 10px 15px; border-radius: 8px; box-shadow: 0 2px 6px rgba(10, 61, 98, 0.08); margin-bottom: 25px; border-left: 5px solid #e8a317; align-items: center; min-height: 60px; }
         .nav a { padding: 10px 20px; text-decoration: none; font-weight: 600; color: #334155; border-radius: 6px; transition: 0.2s; }
         .nav a:hover { background: #e2e8f0; }
@@ -64,12 +54,6 @@
     <div class="container">
         <h1>🏛️ ARB Global Cleansing <small>Activity Monitoring</small></h1>
 
-        <!-- ===== DEBUG PANEL ===== -->
-        <div id="debugPanel">
-            <div class="dbg-row"><span class="dbg-label">🔍 DEBUG LOG</span></div>
-            <div id="debugLog"></div>
-        </div>
-
         <!-- Navigation -->
         <nav class="nav" id="mainNav"></nav>
 
@@ -100,21 +84,9 @@
         // and colliding with other files in your project like nav.js or config.js
         (async function() {
             
-            // --- Helper: Debugging ---
+            // --- Helper: Console-Only Debugging ---
             function logDebug(msg, type = 'info') {
-                const ts = new Date().toLocaleTimeString();
-                const entry = `[${ts}] ${msg}`;
-                const dbgLog = document.getElementById('debugLog');
-                if (dbgLog) {
-                    const cls = type === 'ok' ? 'dbg-ok' : type === 'warn' ? 'dbg-warn' : type === 'err' ? 'dbg-err' : 'dbg-info';
-                    const div = document.createElement('div');
-                    div.className = 'dbg-row';
-                    div.innerHTML = `<span class="${cls}">${entry}</span>`;
-                    dbgLog.appendChild(div);
-                    while (dbgLog.children.length > 50) dbgLog.removeChild(dbgLog.firstChild);
-                    dbgLog.scrollTop = dbgLog.scrollHeight;
-                }
-                console.log('[DBG] ' + msg);
+                console.log(`[DBG] ${msg}`);
             }
 
             // --- Helper: Toast ---
@@ -136,18 +108,17 @@
             // --- Setup Database Connection safely ---
             let secureDbClient = null;
             try {
-                // We check the raw window object without triggering prototype getters
                 if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
                     secureDbClient = window.supabase.createClient(
                         'https://xnwttnpfzcjbszwxsgox.supabase.co', 
                         'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI'
                     );
-                    logDebug('✅ Secure database link established', 'ok');
+                    logDebug('Secure database link established', 'ok');
                 } else {
-                    logDebug('⚠️ Database CDN missing or blocked', 'warn');
+                    logDebug('Database CDN missing or blocked', 'warn');
                 }
             } catch (err) {
-                logDebug(`❌ Setup Exception: ${err.message}`, 'err');
+                logDebug(`Setup Exception: ${err.message}`, 'err');
             }
 
             // --- Navigation Renderer ---
@@ -244,9 +215,9 @@
             try {
                 const gridEl = document.getElementById('statsGrid');
                 
-                // 1. If database failed to load globally (Adblocker/Network)
+                // 1. If database failed to load globally
                 if (!secureDbClient) {
-                    logDebug('🚫 Halting execution: Offline Mode', 'warn');
+                    logDebug('Halting execution: Offline Mode', 'warn');
                     await buildNavbar(null);
                     if (gridEl) {
                         gridEl.innerHTML = `
@@ -260,13 +231,13 @@
                 }
 
                 // 2. Database available, Verify Auth State
-                logDebug('🔒 Verifying security clearance...', 'info');
+                logDebug('Verifying security clearance...', 'info');
                 const { data: authObj, error: authErr } = await secureDbClient.auth.getUser();
                 const sessionUser = authObj ? authObj.user : null;
 
-                // 3. Reject Unauthenticated (RLS triggers null responses without this)
+                // 3. Reject Unauthenticated
                 if (!sessionUser) {
-                    logDebug('🛑 Access denied. User lacks valid session token.', 'err');
+                    logDebug('Access denied. User lacks valid session token.', 'err');
                     popToast('Secure Login Required', 'warn');
                     await buildNavbar(null);
                     
@@ -283,11 +254,11 @@
                 }
 
                 // 4. Authenticated -> Build Safe UI
-                logDebug(`👤 Active Session Verified: ${sessionUser.email}`, 'ok');
+                logDebug(`Active Session Verified: ${sessionUser.email}`, 'ok');
                 await buildNavbar(sessionUser);
 
                 // 5. Query Real Data concurrently
-                logDebug('📊 Downloading statistical matrix...', 'info');
+                logDebug('Downloading statistical matrix...', 'info');
                 const qrs = await Promise.all([
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }),
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
@@ -325,11 +296,11 @@
                     });
                 }
                 
-                logDebug('✅ Realtime statistics rendered', 'ok');
+                logDebug('Realtime statistics rendered', 'ok');
                 popToast('Dashboard Sync Complete', 'ok');
 
             } catch (fatalObj) {
-                logDebug(`💥 CRITICAL FAILURE: ${fatalObj.message}`, 'err');
+                logDebug(`CRITICAL FAILURE: ${fatalObj.message}`, 'err');
                 const gEl = document.getElementById('statsGrid');
                 if (gEl) {
                     gEl.innerHTML = `
@@ -341,7 +312,7 @@
                 }
             }
 
-        })(); // End of protected sandbox
+        })();
     </script>
 </body>
 </html>
