@@ -8,6 +8,59 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
+
+    <style>
+        /* Graphical Chart Styles */
+        .charts-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-evenly;
+            gap: 20px;
+            background: white;
+            padding: 40px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        .chart-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 140px;
+        }
+        .chart-item svg {
+            width: 110px;
+            height: 110px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.05));
+        }
+        .chart-item .chart-label {
+            font-size: 0.9rem;
+            color: #334155;
+            font-weight: 700;
+            text-align: center;
+        }
+        .donut-text {
+            font-size: 0.45rem;
+            font-weight: bold;
+            fill: #0a3d62;
+            text-anchor: middle;
+        }
+        .circle-bg {
+            fill: none;
+            stroke: #f1f5f9;
+            stroke-width: 3.5;
+        }
+        .circle-chart {
+            fill: none;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            animation: fillAnimation 1s ease-out forwards;
+        }
+        @keyframes fillAnimation {
+            from { stroke-dasharray: 0, 100; }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -15,6 +68,9 @@
 
         <!-- Navigation -->
         <nav class="nav" id="mainNav"></nav>
+
+        <!-- Graphical Presentation (Donut Charts) -->
+        <div id="chartsContainer" class="charts-container" style="display: none;"></div>
 
         <!-- Stats Cards -->
         <div class="stats-grid" id="statsGrid">
@@ -26,7 +82,7 @@
 
         <!-- Modal -->
         <div id="modal" class="modal">
-            <div class="modal-content">
+            <div class="modal-content wide">
                 <button class="modal-close" id="closeModalBtn">&times;</button>
                 <h2 id="modalTitle">ARB List</h2>
                 <div id="modalBody"><p class="empty-msg">Loading…</p></div>
@@ -70,7 +126,7 @@
             }
 
             // --- Navigation Renderer ---
-            async function buildNavbar(userProfile, authData) {
+            async function buildNavbar(userProfile) {
                 const navEl = document.getElementById('mainNav');
                 if (!navEl) return;
                 
@@ -101,11 +157,11 @@
                     return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
                 }).join('');
 
-                // STRICT NAME DISPLAY
-                if (userProfile && authData) {
-                    const displayName = userProfile.full_name && userProfile.full_name.trim() !== '' 
+                // STRICT NAME DISPLAY - Guaranteed to use Profile Name
+                if (userProfile) {
+                    const displayName = (userProfile.full_name && userProfile.full_name.trim() !== '') 
                         ? userProfile.full_name 
-                        : authData.user.email;
+                        : 'System Admin'; // Absolute fallback just in case
                         
                     html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${displayName} (${userProfile.role})</span>`;
                     html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
@@ -159,8 +215,8 @@
                     data.forEach(r => {
                         const sColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
                         tHtml += `<tr>
-                            <td>${(r.id || '-').toString().substring(0,8)}</td>
-                            <td>${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
+                            <td style="font-family: monospace; color:#64748b">${(r.id || '-').toString().substring(0,6)}</td>
+                            <td style="font-weight:600; color:#0a3d62">${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
                             <td><span class="badge ${sColor}">${r.validation_status || 'Pending'}</span></td>
                             <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
                             <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
@@ -172,41 +228,48 @@
                 }
             }
 
+            // --- Helper: Donut Chart Generator ---
+            function createDonutHTML(value, total, color, label) {
+                // Calculate percentage for the SVG stroke (max 100)
+                const percentage = total === 0 ? 0 : Math.round((value / total) * 100);
+                
+                // SVG logic: Circumference of r=15.9155 is exactly 100
+                return `
+                    <div class="chart-item">
+                        <svg viewBox="0 0 36 36">
+                            <path class="circle-bg"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="circle-chart" stroke="${color}"
+                                stroke-dasharray="${percentage}, 100"
+                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" class="donut-text">${value}</text>
+                        </svg>
+                        <div class="chart-label">${label}</div>
+                    </div>
+                `;
+            }
+
             // --- Execution Pipeline ---
             try {
                 const gridEl = document.getElementById('statsGrid');
+                const chartsEl = document.getElementById('chartsContainer');
                 
                 if (!secureDbClient) {
-                    await buildNavbar(null, null);
-                    if (gridEl) {
-                        gridEl.innerHTML = `
-                            <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                                <div class="number">🔌</div>
-                                <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">System Offline</div>
-                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">The database engine could not be reached.</p>
-                            </div>`;
-                    }
+                    await buildNavbar(null);
+                    if (gridEl) gridEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">🔌</div><div class="label" style="color:#b91c1c;">System Offline</div></div>`;
                     return;
                 }
 
                 const { data: authData, error: authErr } = await secureDbClient.auth.getUser();
                 if (!authData || !authData.user) {
-                    await buildNavbar(null, null);
-                    if (gridEl) {
-                        gridEl.innerHTML = `
-                            <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                                <div class="number">🔒</div>
-                                <div class="label" style="font-size: 1.1rem; color:#334155; margin-top: 10px;">Security Lockout</div>
-                                <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">Database rules require an active session.</p>
-                                <button onclick="window.location.href='login.html'" style="margin-top: 15px; padding: 8px 16px; background: #0a3d62; color: white; border: none; border-radius: 6px; cursor: pointer;">Proceed to Login</button>
-                            </div>`;
-                    }
+                    await buildNavbar(null);
+                    if (gridEl) gridEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">🔒</div><div class="label">Security Lockout</div><button onclick="window.location.href='login.html'" class="btn btn-primary" style="margin-top:15px;">Login</button></div>`;
                     return;
                 }
 
                 const { data: profile } = await secureDbClient.from('profiles').select('*').eq('id', authData.user.id).single();
 
-                await buildNavbar(profile, authData);
+                await buildNavbar(profile);
 
                 const qrs = await Promise.all([
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }),
@@ -220,6 +283,7 @@
                 if (qrs[0].error) throw new Error(qrs[0].error.message);
 
                 const c = qrs.map(r => r.count || 0);
+                const totalArbs = c[0] || 0;
                 
                 const stats = [
                     { label: 'GLOBAL ARBs', count: c[0], color: '#0a3d62', fField: null, fVal: null },
@@ -230,6 +294,17 @@
                     { label: 'For Removal', count: c[5], color: '#b91c1c', fField: 'for_removal', fVal: true }
                 ];
 
+                // 1. Build Graphical Charts
+                if (chartsEl) {
+                    let chartsHTML = '';
+                    stats.forEach(st => {
+                        chartsHTML += createDonutHTML(st.count, totalArbs, st.color, st.label);
+                    });
+                    chartsEl.innerHTML = chartsHTML;
+                    chartsEl.style.display = 'flex'; // reveal container
+                }
+
+                // 2. Build Interactive Detail Cards
                 if (gridEl) {
                     gridEl.innerHTML = '';
                     stats.forEach(st => {
@@ -246,14 +321,7 @@
 
             } catch (fatalObj) {
                 const gEl = document.getElementById('statsGrid');
-                if (gEl) {
-                    gEl.innerHTML = `
-                        <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                            <div class="number">❌</div>
-                            <div class="label" style="font-size: 1.1rem; color:#b91c1c; margin-top: 10px;">Execution Failed</div>
-                            <p style="font-size: 0.85rem; color:#64748b; margin-top: 5px;">${fatalObj.message}</p>
-                        </div>`;
-                }
+                if (gEl) gEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">❌</div><div class="label" style="color:#b91c1c;">Execution Failed</div><p>${fatalObj.message}</p></div>`;
             }
 
         })();
