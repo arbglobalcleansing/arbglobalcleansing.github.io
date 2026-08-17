@@ -329,6 +329,9 @@
             let currentMotherTitle = null;
             let currentValidations = [];
             let currentTags = [];
+            let currentHeirs = [];
+            let currentLandholdings = [];
+            let currentLegacyLandholdings = [];
 
             const modalEl = document.getElementById('modal');
             const modalTitleEl = document.getElementById('modalTitle');
@@ -388,6 +391,227 @@
                 return value
                     ? badge('Yes', 'warning')
                     : badge('No', 'success');
+            }
+
+            function numberValue(value) {
+                if (
+                    value === null ||
+                    value === undefined ||
+                    String(value).trim() === ''
+                ) {
+                    return '—';
+                }
+
+                const number = Number(value);
+
+                return Number.isFinite(number)
+                    ? number.toLocaleString('en-PH', {
+                        maximumFractionDigits: 8
+                    })
+                    : safe(value);
+            }
+
+            function renderHeirsTable() {
+                if (currentHeirs.length === 0) {
+                    return `
+                        <p class="empty-card">
+                            No separate heir record has been encoded.
+                        </p>
+                    `;
+                }
+
+                return `
+                    <table class="tag-list">
+                        <thead>
+                            <tr>
+                                <th>Heir</th>
+                                <th>Relation</th>
+                                <th>Contact</th>
+                                <th>Supporting Document</th>
+                                <th>Verified</th>
+                                <th>Selected</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentHeirs.map(function (heir) {
+                                return `
+                                    <tr>
+                                        <td>
+                                            <strong>${displayValue(heir.heir_name)}</strong><br>
+                                            <span class="section-note">
+                                                ${displayValue(heir.heir_address)}
+                                            </span>
+                                        </td>
+                                        <td>${displayValue(heir.heir_relation)}</td>
+                                        <td>
+                                            ${displayValue(heir.heir_contact)}<br>
+                                            <span class="section-note">
+                                                ${displayValue(heir.heir_email)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            ${displayValue(
+                                                heir.supporting_document_reference
+                                            )}
+                                        </td>
+                                        <td>${boolBadge(heir.is_verified)}</td>
+                                        <td>${boolBadge(heir.is_selected)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            function renderLandholdingsTable() {
+                if (currentLandholdings.length === 0) {
+                    return `
+                        <p class="empty-card">
+                            No EPCLOAIS landholding record is linked to this ARB profile.
+                        </p>
+                    `;
+                }
+
+                return `
+                    <table class="tag-list">
+                        <thead>
+                            <tr>
+                                <th>Source Row</th>
+                                <th>Claim / LHID</th>
+                                <th>Survey / ASP / Lot</th>
+                                <th>Location</th>
+                                <th>Areas</th>
+                                <th>Title</th>
+                                <th>CoCROM</th>
+                                <th>Dates</th>
+                                ${canEdit() ? '<th>Action</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentLandholdings.map(function (holding) {
+                                return `
+                                    <tr>
+                                        <td>
+                                            ${displayValue(holding.source_file)}<br>
+                                            <span class="section-note">
+                                                ${displayValue(holding.source_sheet)} · Row
+                                                ${displayValue(holding.source_row_no)}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            Claim: ${displayValue(holding.claim_no)}<br>
+                                            LHID: ${displayValue(holding.lhid)}
+                                        </td>
+                                        <td>
+                                            Survey: ${displayValue(holding.survey_no)}<br>
+                                            ASP: ${displayValue(holding.asp_no)}<br>
+                                            Lot: ${displayValue(holding.lot_no)}
+                                        </td>
+                                        <td>
+                                            ${displayValue(holding.barangay)},
+                                            ${displayValue(holding.municipality)}
+                                        </td>
+                                        <td>
+                                            Landholding: ${numberValue(holding.landholding_area)}<br>
+                                            ARB Share: ${numberValue(holding.arb_share_area)}<br>
+                                            CCLOA: ${numberValue(holding.ccloa_area)}
+                                        </td>
+                                        <td>
+                                            ${displayValue(holding.title_type)}<br>
+                                            No.: ${displayValue(holding.title_no)}<br>
+                                            Serial: ${displayValue(holding.ep_cloa_serial_no)}
+                                        </td>
+                                        <td>
+                                            Certificate: ${displayValue(
+                                                holding.cocrom_certificate_no
+                                            )}<br>
+                                            Serial: ${displayValue(holding.cocrom_serial_no)}
+                                        </td>
+                                        <td>
+                                            Generated: ${formatDateValue(holding.date_generated)}<br>
+                                            Registered: ${formatDateValue(holding.date_registered)}<br>
+                                            Distributed: ${formatDateValue(holding.date_distributed)}
+                                        </td>
+                                        ${
+                                            canEdit()
+                                                ? `
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-primary edit-asp-btn"
+                                                            data-landholding-id="${safe(holding.id)}"
+                                                        >
+                                                            Update ASP
+                                                        </button>
+                                                    </td>
+                                                `
+                                                : ''
+                                        }
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            function renderLegacyLandholdingsTable() {
+                if (currentLegacyLandholdings.length === 0) {
+                    return `
+                        <p class="empty-card">
+                            No legacy land_holding record is linked to this ARB profile.
+                        </p>
+                    `;
+                }
+
+                return `
+                    <table class="tag-list">
+                        <thead>
+                            <tr>
+                                <th>Claim</th>
+                                <th>Source / LHID</th>
+                                <th>Survey / Lot</th>
+                                <th>Area / Share</th>
+                                <th>Title</th>
+                                <th>Milestone Dates</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${currentLegacyLandholdings.map(function (holding) {
+                                return `
+                                    <tr>
+                                        <td>${displayValue(holding.claim_no)}</td>
+                                        <td>
+                                            ${displayValue(holding.source)}<br>
+                                            LHID: ${displayValue(holding.lhid)}
+                                        </td>
+                                        <td>
+                                            Survey: ${displayValue(holding.survey_no)}<br>
+                                            Lot: ${displayValue(holding.lot_no)}
+                                        </td>
+                                        <td>
+                                            Area: ${numberValue(holding.area)}<br>
+                                            Estimated Share: ${displayValue(
+                                                holding.estimate_share
+                                            )}
+                                        </td>
+                                        <td>
+                                            ${displayValue(holding.type_of_title)}<br>
+                                            ${displayValue(holding.title_number)}
+                                        </td>
+                                        <td>
+                                            Generated: ${formatDateValue(holding.date_generated)}<br>
+                                            Registered: ${formatDateValue(holding.date_registered)}<br>
+                                            Released: ${formatDateValue(holding.date_released)}<br>
+                                            Distributed: ${formatDateValue(holding.date_distributed)}
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
             }
 
             function fullName(arb) {
@@ -707,25 +931,61 @@
                     }
 
                     let tags = [];
+                    let heirs = [];
+                    let landholdings = [];
+                    let legacyLandholdings = [];
 
                     if (arbProfile?.id) {
-                        const {
-                            data,
-                            error
-                        } = await secureDbClient
-                            .from('arb_tags')
-                            .select('*')
-                            .eq(
-                                'arb_profile_id',
-                                arbProfile.id
-                            )
-                            .order('created_at', {
-                                ascending: false
-                            });
+                        const [
+                            tagResult,
+                            heirResult,
+                            landholdingResult,
+                            legacyLandholdingResult
+                        ] = await Promise.all([
+                            secureDbClient
+                                .from('arb_tags')
+                                .select('*')
+                                .eq('arb_profile_id', arbProfile.id)
+                                .order('created_at', {
+                                    ascending: false
+                                }),
+                            secureDbClient
+                                .from('arb_heirs')
+                                .select('*')
+                                .eq('arb_profile_id', arbProfile.id)
+                                .order('created_at', {
+                                    ascending: true
+                                }),
+                            secureDbClient
+                                .from('arb_landholdings')
+                                .select('*')
+                                .eq('arb_profile_id', arbProfile.id)
+                                .order('source_row_no', {
+                                    ascending: true
+                                }),
+                            secureDbClient
+                                .from('land_holdings')
+                                .select('*')
+                                .eq('arb_profile_id', arbProfile.id)
+                                .order('created_at', {
+                                    ascending: true
+                                })
+                        ]);
 
-                        if (error) throw error;
+                        if (tagResult.error) throw tagResult.error;
+                        if (heirResult.error) throw heirResult.error;
+                        if (landholdingResult.error) {
+                            throw landholdingResult.error;
+                        }
+                        if (legacyLandholdingResult.error) {
+                            throw legacyLandholdingResult.error;
+                        }
 
-                        tags = data || [];
+                        tags = tagResult.data || [];
+                        heirs = heirResult.data || [];
+                        landholdings = landholdingResult.data || [];
+                        legacyLandholdings =
+                            legacyLandholdingResult.data || [];
                     }
 
                     currentArb = arb;
@@ -733,6 +993,9 @@
                     currentMotherTitle = motherTitle;
                     currentValidations = validations || [];
                     currentTags = tags;
+                    currentHeirs = heirs;
+                    currentLandholdings = landholdings;
+                    currentLegacyLandholdings = legacyLandholdings;
 
                     renderProfile();
                 } catch (err) {
@@ -795,6 +1058,7 @@
                                 <tr>
                                     <th>Tag</th>
                                     <th>Status</th>
+                                    <th>Case Reference</th>
                                     <th>Case Details</th>
                                     <th>Tagged By</th>
                                     <th>Date</th>
@@ -819,6 +1083,12 @@
 
                                 <td>
                                     ${displayValue(tag.status)}
+                                </td>
+
+                                <td>
+                                    ${displayValue(
+                                        tag.case_reference_no
+                                    )}
                                 </td>
 
                                 <td>
@@ -922,6 +1192,24 @@
                                             val.date_validated
                                         )}
                                     </div>
+
+                                    <div class="detail">
+                                        Basis: ${displayValue(
+                                            val.validation_basis
+                                        )}
+                                    </div>
+
+                                    <div class="detail">
+                                        Document: ${displayValue(
+                                            val.supporting_document_reference
+                                        )}
+                                    </div>
+
+                                    <div class="detail">
+                                        Recorded by: ${displayValue(
+                                            val.recorded_by
+                                        )}
+                                    </div>
                                 </div>
                             `;
                         } else {
@@ -973,6 +1261,20 @@
                                             id="editProfileBtn"
                                         >
                                             ✏️ Update ARB Profile
+                                        </button>
+                                    `
+                                    : ''
+                            }
+
+                            ${
+                                canEdit() && profile?.id
+                                    ? `
+                                        <button
+                                            type="button"
+                                            class="btn btn-primary"
+                                            id="addHeirBtn"
+                                        >
+                                            👪 Add Heir
                                         </button>
                                     `
                                     : ''
@@ -1170,12 +1472,19 @@
 
                             <div class="field">
                                 <span class="label">
-                                    CCLOA Description / Remarks
+                                    CCLOA Description
                                 </span>
                                 <span class="value">
                                     ${displayValue(
-                                        mother?.remarks
+                                        mother?.title_description
                                     )}
+                                </span>
+                            </div>
+
+                            <div class="field">
+                                <span class="label">CCLOA Remarks</span>
+                                <span class="value">
+                                    ${displayValue(mother?.remarks)}
                                 </span>
                             </div>
 
@@ -1337,7 +1646,70 @@
                                     ${boolBadge(arb.with_ta)}
                                 </span>
                             </div>
+
+                            <div class="field">
+                                <span class="label">
+                                    Death Certificate Submitted
+                                </span>
+                                <span class="value">
+                                    ${boolBadge(
+                                        profile?.death_cert_submitted
+                                    )}
+                                </span>
+                            </div>
+
+                            <div class="field">
+                                <span class="label">
+                                    Subject for Transfer
+                                </span>
+                                <span class="value">
+                                    ${boolBadge(
+                                        profile?.subject_for_transfer ||
+                                        arb.subject_for_transfer
+                                    )}
+                                </span>
+                            </div>
+
+                            <div class="field">
+                                <span class="label">For Removal</span>
+                                <span class="value">
+                                    ${boolBadge(arb.for_removal)}
+                                </span>
+                            </div>
                         </div>
+                    </div>
+
+                    <div
+                        class="profile-card"
+                        style="margin-top:10px; overflow-x:auto;"
+                    >
+                        <h3>🌾 EPCLOAIS Landholding Records</h3>
+                        <p class="section-note">
+                            Repeatable parcel/title rows from arb_landholdings.
+                            ASP Number is maintained here and is never inferred
+                            from Survey No.
+                        </p>
+                        ${renderLandholdingsTable()}
+                    </div>
+
+                    <div
+                        class="profile-card"
+                        style="margin-top:25px; overflow-x:auto;"
+                    >
+                        <h3>🗂️ Legacy Land Holding Records</h3>
+                        <p class="section-note">
+                            Existing rows from land_holdings are shown separately
+                            because this is a different live table.
+                        </p>
+                        ${renderLegacyLandholdingsTable()}
+                    </div>
+
+                    <div
+                        class="profile-card"
+                        style="margin-top:25px; overflow-x:auto;"
+                    >
+                        <h3>👪 Heir Records</h3>
+                        ${renderHeirsTable()}
                     </div>
 
                     <div
@@ -1391,6 +1763,23 @@
                     );
 
                 document
+                    .getElementById('addHeirBtn')
+                    ?.addEventListener('click', openHeirForm);
+
+                document
+                    .querySelectorAll('.edit-asp-btn')
+                    .forEach(function (button) {
+                        button.addEventListener(
+                            'click',
+                            function () {
+                                openAspForm(
+                                    button.dataset.landholdingId
+                                );
+                            }
+                        );
+                    });
+
+                document
                     .querySelectorAll('.edit-tag-btn')
                     .forEach(function (button) {
                         button.addEventListener(
@@ -1402,6 +1791,346 @@
                             }
                         );
                     });
+            }
+
+            function openAspForm(landholdingId) {
+                if (!canEdit()) return;
+
+                const holding = currentLandholdings.find(
+                    function (item) {
+                        return String(item.id) ===
+                            String(landholdingId);
+                    }
+                );
+
+                if (!holding) {
+                    popToast('Landholding record not found.', 'err');
+                    return;
+                }
+
+                showModal(
+                    'Update ASP Number',
+                    `
+                        <form id="aspForm">
+                            <p class="section-note">
+                                This updates only arb_landholdings.asp_no.
+                                It is not copied from Survey No. or any other field.
+                            </p>
+
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Survey No.</label>
+                                    <input value="${safe(
+                                        holding.survey_no || ''
+                                    )}" disabled>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Lot No.</label>
+                                    <input value="${safe(
+                                        holding.lot_no || ''
+                                    )}" disabled>
+                                </div>
+
+                                <div class="form-group full">
+                                    <label for="aspNo">ASP Number</label>
+                                    <input
+                                        id="aspNo"
+                                        name="asp_no"
+                                        value="${safe(holding.asp_no || '')}"
+                                    >
+                                </div>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-primary"
+                                    id="cancelAspBtn"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-primary"
+                                >
+                                    Save ASP Number
+                                </button>
+                            </div>
+                        </form>
+                    `
+                );
+
+                document
+                    .getElementById('cancelAspBtn')
+                    ?.addEventListener('click', hideModal);
+
+                document
+                    .getElementById('aspForm')
+                    ?.addEventListener(
+                        'submit',
+                        async function (event) {
+                            event.preventDefault();
+
+                            const form = new FormData(
+                                event.currentTarget
+                            );
+
+                            const userName =
+                                currentUserProfile?.full_name ||
+                                currentUser?.email ||
+                                currentUser?.id ||
+                                null;
+
+                            try {
+                                const { error } =
+                                    await secureDbClient
+                                        .from('arb_landholdings')
+                                        .update({
+                                            asp_no: emptyToNull(
+                                                form.get('asp_no')
+                                            ),
+                                            updated_at:
+                                                new Date().toISOString(),
+                                            updated_by: userName
+                                        })
+                                        .eq('id', holding.id);
+
+                                if (error) throw error;
+
+                                hideModal();
+                                popToast(
+                                    'ASP Number updated.',
+                                    'ok'
+                                );
+                                await loadProfile(currentArb.id);
+                            } catch (err) {
+                                popToast(err.message, 'err');
+                            }
+                        }
+                    );
+            }
+
+            function openHeirForm() {
+                if (!canEdit() || !currentArbProfile?.id) return;
+
+                showModal(
+                    'Add Heir Record',
+                    `
+                        <form id="heirForm">
+                            <div class="form-grid">
+                                <div class="form-group full">
+                                    <label for="newHeirName">Heir Name</label>
+                                    <input
+                                        id="newHeirName"
+                                        name="heir_name"
+                                        required
+                                    >
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newHeirRelation">Relation</label>
+                                    <input
+                                        id="newHeirRelation"
+                                        name="heir_relation"
+                                    >
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newHeirContact">Contact</label>
+                                    <input
+                                        id="newHeirContact"
+                                        name="heir_contact"
+                                    >
+                                </div>
+
+                                <div class="form-group full">
+                                    <label for="newHeirAddress">Address</label>
+                                    <input
+                                        id="newHeirAddress"
+                                        name="heir_address"
+                                    >
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newHeirEmail">Email</label>
+                                    <input
+                                        id="newHeirEmail"
+                                        name="heir_email"
+                                        type="email"
+                                    >
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="newHeirDocument">
+                                        Supporting Document Reference
+                                    </label>
+                                    <input
+                                        id="newHeirDocument"
+                                        name="supporting_document_reference"
+                                    >
+                                </div>
+
+                                <div class="form-group full">
+                                    <div class="checkbox-row">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="is_verified"
+                                            >
+                                            Verified
+                                        </label>
+
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="is_selected"
+                                            >
+                                            Selected heir
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="modal-actions">
+                                <button
+                                    type="button"
+                                    class="btn btn-primary"
+                                    id="cancelHeirBtn"
+                                >
+                                    Cancel
+                                </button>
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-primary"
+                                >
+                                    Save Heir
+                                </button>
+                            </div>
+                        </form>
+                    `
+                );
+
+                document
+                    .getElementById('cancelHeirBtn')
+                    ?.addEventListener('click', hideModal);
+
+                document
+                    .getElementById('heirForm')
+                    ?.addEventListener('submit', saveHeir);
+            }
+
+            async function saveHeir(event) {
+                event.preventDefault();
+
+                const form = new FormData(event.currentTarget);
+                const isSelected =
+                    form.get('is_selected') === 'on';
+                const userName =
+                    currentUserProfile?.full_name ||
+                    currentUser?.email ||
+                    currentUser?.id ||
+                    null;
+
+                const payload = {
+                    arb_profile_id: currentArbProfile.id,
+                    heir_name: emptyToNull(form.get('heir_name')),
+                    heir_relation: emptyToNull(
+                        form.get('heir_relation')
+                    ),
+                    heir_address: emptyToNull(
+                        form.get('heir_address')
+                    ),
+                    heir_contact: emptyToNull(
+                        form.get('heir_contact')
+                    ),
+                    heir_email: emptyToNull(form.get('heir_email')),
+                    supporting_document_reference: emptyToNull(
+                        form.get('supporting_document_reference')
+                    ),
+                    is_verified:
+                        form.get('is_verified') === 'on',
+                    is_selected: isSelected,
+                    created_by: userName,
+                    updated_by: userName,
+                    updated_at: new Date().toISOString()
+                };
+
+                try {
+                    if (isSelected) {
+                        const { error: clearError } =
+                            await secureDbClient
+                                .from('arb_heirs')
+                                .update({
+                                    is_selected: false,
+                                    updated_at:
+                                        new Date().toISOString(),
+                                    updated_by: userName
+                                })
+                                .eq(
+                                    'arb_profile_id',
+                                    currentArbProfile.id
+                                );
+
+                        if (clearError) throw clearError;
+                    }
+
+                    const { error: heirError } =
+                        await secureDbClient
+                            .from('arb_heirs')
+                            .insert(payload);
+
+                    if (heirError) throw heirError;
+
+                    if (isSelected) {
+                        const profileResult =
+                            await secureDbClient
+                                .from('arb_profiles')
+                                .update({
+                                    heir_type: 'SPECIFIC HEIR',
+                                    heir_name: payload.heir_name,
+                                    heir_relation:
+                                        payload.heir_relation,
+                                    updated_at:
+                                        new Date().toISOString(),
+                                    updated_by: userName
+                                })
+                                .eq('id', currentArbProfile.id);
+
+                        if (profileResult.error) {
+                            throw profileResult.error;
+                        }
+
+                        const arbResult =
+                            await secureDbClient
+                                .from('arb')
+                                .update({
+                                    heir_name: payload.heir_name,
+                                    heir_relation:
+                                        payload.heir_relation,
+                                    heir_address:
+                                        payload.heir_address,
+                                    heir_contact:
+                                        payload.heir_contact,
+                                    heir_email: payload.heir_email,
+                                    updated_at:
+                                        new Date().toISOString()
+                                })
+                                .eq('id', currentArb.id);
+
+                        if (arbResult.error) {
+                            throw arbResult.error;
+                        }
+                    }
+
+                    hideModal();
+                    popToast('Heir record saved.', 'ok');
+                    await loadProfile(currentArb.id);
+                } catch (err) {
+                    popToast(err.message, 'err');
+                }
             }
 
             function selectOptions(options, selected) {
@@ -1747,6 +2476,21 @@
                                     >
                                 </div>
 
+                                <div class="form-group dead-field full">
+                                    <label>
+                                        <input
+                                            type="checkbox"
+                                            name="death_cert_submitted"
+                                            ${
+                                                profile.death_cert_submitted
+                                                    ? 'checked'
+                                                    : ''
+                                            }
+                                        >
+                                        Death certificate submitted
+                                    </label>
+                                </div>
+
                                 <div
                                     class="
                                         form-group
@@ -1855,6 +2599,19 @@
                                             >
                                             With Transfer
                                             Action Case
+                                        </label>
+
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="for_removal"
+                                                ${
+                                                    currentArb.for_removal
+                                                        ? 'checked'
+                                                        : ''
+                                                }
+                                            >
+                                            For Removal
                                         </label>
                                     </div>
                                 </div>
@@ -2089,6 +2846,10 @@
                                 )
                                 : null,
 
+                        death_cert_submitted:
+                            lifeStatus === 'Dead' &&
+                            form.get('death_cert_submitted') === 'on',
+
                         heir_type:
                             lifeStatus === 'Dead'
                                 ? emptyToNull(
@@ -2110,8 +2871,17 @@
                                 )
                                 : null,
 
+                        subject_for_transfer:
+                            form.get('for_ta') === 'on',
+
                         updated_at:
-                            new Date().toISOString()
+                            new Date().toISOString(),
+
+                        updated_by:
+                            currentUserProfile?.full_name ||
+                            currentUser?.email ||
+                            currentUser?.id ||
+                            null
                     };
 
                     let profileError = null;
@@ -2147,7 +2917,18 @@
                                 form.get('for_ta') === 'on',
 
                             with_ta:
-                                form.get('with_ta') === 'on'
+                                form.get('with_ta') === 'on',
+
+                            subject_for_transfer:
+                                form.get('for_ta') === 'on',
+
+                            for_removal:
+                                form.get('for_removal') === 'on',
+
+                            life_status: lifeStatus,
+
+                            updated_at:
+                                new Date().toISOString()
                         })
                         .eq('id', currentArb.id);
 
@@ -2308,6 +3089,28 @@
                                         )}"
                                     >
                                 </div>
+
+                                <div class="form-group full">
+                                    <label for="validationBasis">
+                                        Validation Basis
+                                    </label>
+
+                                    <input
+                                        id="validationBasis"
+                                        name="validation_basis"
+                                    >
+                                </div>
+
+                                <div class="form-group full">
+                                    <label for="validationDocument">
+                                        Supporting Document Reference
+                                    </label>
+
+                                    <input
+                                        id="validationDocument"
+                                        name="supporting_document_reference"
+                                    >
+                                </div>
                             </div>
 
                             <div class="modal-actions">
@@ -2375,7 +3178,30 @@
                             ),
 
                             date_validated:
-                                form.get('date_validated')
+                                form.get('date_validated'),
+
+                            validation_basis: emptyToNull(
+                                form.get('validation_basis')
+                            ),
+
+                            supporting_document_reference:
+                                emptyToNull(
+                                    form.get(
+                                        'supporting_document_reference'
+                                    )
+                                ),
+
+                            recorded_by:
+                                currentUserProfile?.full_name ||
+                                currentUser?.email ||
+                                currentUser?.id ||
+                                null,
+
+                            recorded_by_user_id:
+                                currentUser?.id || null,
+
+                            updated_at:
+                                new Date().toISOString()
                         });
 
                     if (error) throw error;
@@ -2491,6 +3317,20 @@
                                 </div>
 
                                 <div class="form-group full">
+                                    <label for="caseReferenceNo">
+                                        Case Reference No.
+                                    </label>
+
+                                    <input
+                                        id="caseReferenceNo"
+                                        name="case_reference_no"
+                                        value="${safe(
+                                            tag?.case_reference_no || ''
+                                        )}"
+                                    >
+                                </div>
+
+                                <div class="form-group full">
                                     <label for="caseDetails">
                                         Case Details
                                     </label>
@@ -2563,6 +3403,10 @@
                         status:
                             form.get('status'),
 
+                        case_reference_no: emptyToNull(
+                            form.get('case_reference_no')
+                        ),
+
                         case_details: emptyToNull(
                             form.get('case_details')
                         )
@@ -2583,7 +3427,11 @@
                         error = result.error;
                     } else {
                         payload.tagged_by = userName;
+                        payload.tagged_by_user_id =
+                            currentUser?.id || null;
                         payload.updated_by = userName;
+                        payload.updated_at =
+                            new Date().toISOString();
 
                         const result = await secureDbClient
                             .from('arb_tags')
@@ -2605,6 +3453,7 @@
                         'SUBJECT FOR TRANSFER ACTION'
                     ) {
                         arbFlagUpdate.for_ta = true;
+                        arbFlagUpdate.subject_for_transfer = true;
                     }
 
                     if (
@@ -2612,6 +3461,7 @@
                         'WITH TRANSFER ACTION CASE'
                     ) {
                         arbFlagUpdate.with_ta = true;
+                        arbFlagUpdate.subject_for_transfer = true;
                     }
 
                     if (
