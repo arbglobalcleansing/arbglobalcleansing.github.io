@@ -3,48 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARBO Management</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>ARBO Management System</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="common.js"></script>
-
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; margin: 0; padding: 20px; color: #334155; }
+        :root { --primary: #0a3d62; --secondary: #16a34a; --danger: #dc2626; --bg: #f1f5f9; --text: #334155; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--text); }
         .container { max-width: 1200px; margin: auto; }
-        h1 { color: #0a3d62; }
+        h1 { color: var(--primary); }
         h1 small { font-size: 0.5em; color: #64748b; }
-        .nav { background: white; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .nav a { text-decoration: none; color: #475569; font-weight: 600; padding: 8px 12px; border-radius: 6px; }
-        .nav a.active, .nav a:hover { background: #e2e8f0; color: #0a3d62; }
         
-        .charts-container { display: flex; flex-wrap: wrap; justify-content: space-evenly; gap: 20px; background: white; padding: 40px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); margin-bottom: 30px; }
-        .chart-item { display: flex; flex-direction: column; align-items: center; width: 160px; }
-        .chart-item svg { width: 110px; height: 110px; margin-bottom: 12px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.05)); }
-        .chart-item .chart-label { font-size: 0.9rem; color: #334155; font-weight: 700; text-align: center; margin-bottom: 4px; }
-        .chart-item .chart-subtext { font-size: 0.75rem; color: #64748b; text-align: center; }
-        .donut-text { font-size: 0.45rem; font-weight: bold; fill: #0a3d62; text-anchor: middle; }
-        .circle-bg { fill: none; stroke: #f1f5f9; stroke-width: 3.5; }
-        .circle-chart { fill: none; stroke-width: 3.5; stroke-linecap: round; animation: fillAnimation 1s ease-out forwards; }
-        @keyframes fillAnimation { from { stroke-dasharray: 0, 100; } }
-
-        .toolbar { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .nav { background: white; padding: 10px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .nav a { text-decoration: none; color: #475569; font-weight: 600; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+        .nav a.active, .nav a:hover { background: #e2e8f0; color: var(--primary); }
+        
+        .toolbar { display: flex; justify-content: space-between; margin-bottom: 15px; gap: 10px; }
         .toolbar input { padding: 10px; width: 300px; border: 1px solid #cbd5e1; border-radius: 6px; }
-        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-        .btn-primary { background: #0a3d62; color: white; }
-        .btn-success { background: #16a34a; color: white; }
-        .btn-danger { background: #dc2626; color: white; }
+        
+        .btn { padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--secondary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
         .btn-warning { background: #f59e0b; color: white; }
         .btn-info { background: #0ea5e9; color: white; }
-        .btn-sm { padding: 4px 8px; font-size: 0.8rem; }
+        .btn-report { background: #4f46e5; color: white; }
         
-        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
         th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; color: #475569; font-weight: 600; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
         .modal.active { display: flex; }
-        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; position: relative; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto; position: relative; }
         .modal-content.wide { max-width: 1000px; }
         .modal-close { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b; }
         
@@ -54,594 +43,454 @@
         .form-grid input, .form-grid select, .form-grid textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
         .form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 
-        .add-mini-btn { background: #e2e8f0; color: #0a3d62; border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .add-mini-btn:hover { background: #0a3d62; color: white; }
+        .add-mini-btn { background: #e2e8f0; color: var(--primary); border: none; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
+        .add-mini-btn:hover { background: var(--primary); color: white; }
+        .badge-arb { background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; }
+        .badge-nonarb { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; }
 
         .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
         .profile-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
-        .profile-section h3 { color: #0a3d62; font-size: 1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-        .profile-list { list-style: none; font-size: 0.85rem; color: #475569; max-height: 250px; overflow-y: auto; padding-right: 5px; margin: 0; padding-left: 0; }
-        .profile-list li { padding: 10px 0; border-bottom: 1px dashed #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; }
-        .profile-list li .row-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-        .profile-list li .row-details { font-size: 0.75rem; color: #64748b; margin-top: 5px; }
-        .profile-list li:last-child { border-bottom: none; }
+        .profile-section h3 { color: var(--primary); font-size: 1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; }
+        
+        .member-card { background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 10px; }
+        .member-card .name { font-weight: bold; color: var(--primary); display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .member-card .roles { font-size: 0.8rem; color: #475569; }
+        .role-item { display: flex; justify-content: space-between; border-bottom: 1px dashed #e2e8f0; padding: 4px 0; }
+        .role-item:last-child { border-bottom: none; }
 
-        .qa-input-field { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; background: white; font-family: inherit; box-sizing: border-box; }
-        .qa-input-field:focus { border-color: #0a3d62; box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.1); }
-
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .report-btn { background: #4f46e5; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-
-        @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
-
-        /* Print Styles */
+        /* Report Print Styles */
+        #reportPrintArea { display: none; background: white; padding: 20px; }
+        .report-header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; }
+        
         @media print {
-            body * { visibility: hidden; }
-            #profileModal, #profileModal * { visibility: visible; }
-            #profileModal { position: absolute; left: 0; top: 0; width: 100%; background: white; color: black; }
-            .modal-close, .add-mini-btn, .report-btn, .action-btn { display: none !important; }
-            .profile-list { max-height: none !important; overflow: visible !important; }
-            .profile-section { break-inside: avoid; margin-bottom: 20px; }
+            body > * { display: none !important; }
+            #reportPrintArea { display: block !important; position: absolute; top: 0; left: 0; width: 100%; margin: 0; padding: 0; }
+            .no-print { display: none !important; }
+            table { box-shadow: none; border: 1px solid #000; }
+            th, td { border: 1px solid #000; }
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🏛️ ARB Global Cleansing <small>ARBO Management</small></h1>
 
-    <nav class="nav" id="mainNav"></nav>
+<div class="container" id="mainApp">
+    <h1>🏛️ ARB Global Cleansing <small>ARBO Management System</small></h1>
 
-    <div id="chartsContainer" class="charts-container" style="display: none;"></div>
+    <nav class="nav">
+        <a class="active">🏢 ARBO List</a>
+        <a onclick="openReportModal()">📊 Generate Reports</a>
+    </nav>
 
-    <div class="section">
-        <div class="toolbar">
-            <input type="text" id="searchArbo" placeholder="🔍 Search ARBO Name or Municipality..." oninput="loadArbos()" />
-            <button class="btn btn-primary" id="addArboBtn" onclick="openArboModal()">➕ Add New ARBO</button>
-        </div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th>ARBO Name</th>
-                        <th>Barangay</th>
-                        <th>Municipality</th>
-                        <th>Contact</th>
-                        <th style="width: 130px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="arboTableBody"><tr><td colspan="6" class="empty-msg">⏳ Loading records...</td></tr></tbody>
-            </table>
+    <div class="toolbar">
+        <input type="text" id="searchArbo" placeholder="🔍 Search ARBO Name or Location..." oninput="loadArbos()" />
+        <div>
+            <button class="btn btn-primary" onclick="openArboModal()">➕ Add ARBO</button>
         </div>
     </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 60px;">ID</th>
+                <th>ARBO Name</th>
+                <th>Barangay</th>
+                <th>Municipality</th>
+                <th>Contact</th>
+                <th style="width: 150px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="arboTableBody"><tr><td colspan="6">⏳ Loading...</td></tr></tbody>
+    </table>
 </div>
 
-<!-- Add/Edit ARBO Modal -->
+<!-- Add ARBO Modal -->
 <div id="arboModal" class="modal">
     <div class="modal-content">
         <button class="modal-close" onclick="closeModal('arboModal')">&times;</button>
-        <h2 id="arboModalTitle">➕ Add New ARBO</h2>
+        <h2 id="arboModalTitle">➕ Add ARBO</h2>
         <form id="arboForm" onsubmit="saveArbo(event)">
             <input type="hidden" id="arboId" />
             <div class="form-grid full">
-                <div><label>ARBO Name *</label><input id="arboName" required placeholder="Enter official ARBO name" /></div>
+                <div><label>ARBO Name *</label><input id="arboName" required /></div>
             </div>
             <div class="form-grid">
-                <div><label>Barangay</label><input id="arboBarangay" placeholder="e.g. San Jose" /></div>
-                <div><label>Municipality</label><input id="arboMunicipality" placeholder="e.g. Quezon City" /></div>
-                <div><label>Contact Number</label><input id="arboContact" placeholder="09XX-XXX-XXXX" /></div>
+                <div><label>Barangay</label><input id="arboBarangay" /></div>
+                <div><label>Municipality</label><input id="arboMunicipality" /></div>
+                <div><label>Contact Number</label><input id="arboContact" /></div>
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-danger" onclick="closeModal('arboModal')">Cancel</button>
-                <button type="submit" class="btn btn-success">💾 Save ARBO</button>
+                <button type="submit" class="btn btn-success">💾 Save</button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- Profile View Modal -->
+<!-- Profile Modal -->
 <div id="profileModal" class="modal">
     <div class="modal-content wide">
         <button class="modal-close" onclick="closeModal('profileModal')">&times;</button>
-        <div class="header-actions">
-            <div>
-                <h2 id="profileModalTitle" style="margin: 0;">🏢 ARBO Profile</h2>
-                <div style="color: #64748b; font-size: 0.9rem; margin-top: 5px;" id="profileSubHeader"></div>
-            </div>
-            <button class="report-btn" onclick="generateReport()">📄 Generate Report</button>
-        </div>
-        
+        <h2 id="profileModalTitle" style="margin: 0; color: var(--primary);">🏢 ARBO Profile</h2>
+        <div style="color: #64748b; font-size: 0.9rem; margin-top: 5px; margin-bottom: 20px;" id="profileSubHeader"></div>
         <input type="hidden" id="currentProfileId" />
-        <input type="hidden" id="currentProfileName" />
 
         <div class="profile-grid">
-            <!-- Members/Leaders Section -->
+            <!-- Members/Officers Section -->
             <div class="profile-section" style="grid-column: 1 / -1;">
-                <h3><span>👥 ARBO Leaders & Members</span> <button class="add-mini-btn" onclick="openQuickAdd('member')">+ Add Member/Leader</button></h3>
-                <ul class="profile-list" id="profMembers" style="max-height: 180px;"><li>⏳ Loading...</li></ul>
-            </div>
-
-            <!-- Activities Section -->
-            <div class="profile-section">
-                <h3><span>📅 Trainings & Activities</span> <button class="add-mini-btn" onclick="openQuickAdd('activity')">+ Add</button></h3>
-                <ul class="profile-list" id="profActivities"><li>⏳ Loading...</li></ul>
-            </div>
-
-            <!-- Machinery Section -->
-            <div class="profile-section">
-                <h3><span>🚜 Machinery & Equipment</span> <button class="add-mini-btn" onclick="openQuickAdd('machinery')">+ Add</button></h3>
-                <ul class="profile-list" id="profMachinery"><li>⏳ Loading...</li></ul>
-            </div>
-
-            <!-- Income Section -->
-            <div class="profile-section" style="grid-column: 1 / -1;">
-                <h3><span>💰 Financial & Income Monitoring</span> <button class="add-mini-btn" onclick="openQuickAdd('income')">+ Add Income</button></h3>
-                <ul class="profile-list" id="profIncome" style="max-height: 180px;"><li>⏳ Loading...</li></ul>
-            </div>
-
-            <!-- Validators Section -->
-            <div class="profile-section" style="grid-column: 1 / -1;">
-                <h3><span>✅ System Validators</span> <button class="add-mini-btn" onclick="openQuickAdd('validator')">+ Add</button></h3>
-                <ul class="profile-list" id="profValidators"><li>⏳ Loading...</li></ul>
+                <h3><span>👥 Membership & Leadership Tracking</span> <button class="add-mini-btn" onclick="openQuickAdd('member')">+ Add Role/Member</button></h3>
+                <div id="profMembers" style="max-height: 300px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <!-- Grouped by Person -->
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Scalable Quick Add Modal -->
+<!-- Quick Add Dynamic Modal -->
 <div id="quickAddModal" class="modal" style="z-index: 2000;">
-    <div class="modal-content" style="max-width: 600px;">
+    <div class="modal-content">
         <button class="modal-close" onclick="closeModal('quickAddModal')">&times;</button>
         <h2 id="qaTitle">➕ Add Record</h2>
         <form id="qaForm" onsubmit="submitQuickAdd(event)">
             <input type="hidden" id="qaType" />
-            <div id="qaBody" class="form-grid full">
-                <!-- Dynamically injected UI -->
-            </div>
+            <div id="qaBody" class="form-grid full"></div>
             <div class="form-actions" id="qaActions">
-                <button type="button" class="btn btn-danger" onclick="closeModal('quickAddModal')">Cancel</button>
-                <button type="submit" class="btn btn-success" id="qaSubmitBtn">💾 Save Entry</button>
+                <button type="submit" class="btn btn-success" id="qaSubmitBtn">💾 Save</button>
             </div>
         </form>
     </div>
 </div>
 
+<!-- Report Generation Modal -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeModal('reportModal')">&times;</button>
+        <h2 style="color: var(--primary);">📊 Generate Custom Report</h2>
+        <form onsubmit="generateCustomReport(event)">
+            <div class="form-grid full">
+                <div>
+                    <label>Report Type *</label>
+                    <select id="repType" required onchange="toggleReportFilters()">
+                        <option value="all_arbos">All ARBOs Summary</option>
+                        <option value="arbos_in_loc">ARBOs in specific Location</option>
+                        <option value="members_in_arbo">All Members of a specific ARBO</option>
+                        <option value="members_in_loc">All Members in specific Location</option>
+                        <option value="new_members_date">New Members within Date Range</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grid" id="repLocFilters" style="display:none;">
+                <div><label>Municipality</label><input type="text" id="repMuni" placeholder="Leave blank for all" /></div>
+                <div><label>Barangay</label><input type="text" id="repBrgy" placeholder="Leave blank for all" /></div>
+            </div>
+            <div class="form-grid full" id="repArboFilter" style="display:none;">
+                <div>
+                    <label>Select ARBO</label>
+                    <select id="repArboId" style="width: 100%; padding: 10px; border-radius: 6px;"></select>
+                </div>
+            </div>
+            <div class="form-grid" id="repDateFilters" style="display:none;">
+                <div><label>Date From</label><input type="date" id="repDateFrom" /></div>
+                <div><label>Date To</label><input type="date" id="repDateTo" /></div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-report">🖨️ Generate & Print</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Print Container (Hidden from main UI) -->
+<div id="reportPrintArea">
+    <div class="report-header">
+        <h1>DAR - ARBO Management System</h1>
+        <h3 id="printTitle">Report Title</h3>
+        <p id="printMeta" style="color:#64748b; font-size: 0.9rem;"></p>
+    </div>
+    <div id="printContent"></div>
+</div>
+
 <script>
-    (async function() {
-        window.onerror = function(msg, url, line) {
-            console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
-            return false;
-        };
+    const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+    let dbClient;
 
-        function safeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>'"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match]));
+    if (typeof window.supabase !== 'undefined') {
+        dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+
+    // Dummy data arrays for demonstration since actual Supabase might not have these specific tables populated
+    let dummyArbos = [
+        { id: 1, name: 'San Jose Farmers Coop', barangay: 'San Jose', municipality: 'Quezon City', contact_number: '09123456789' },
+        { id: 2, name: 'Agtara Agrarian Reform Beneficiaries', barangay: 'Agtara', municipality: 'Roxas', contact_number: '09987654321' }
+    ];
+
+    let dummyMembers = [
+        { id: 1, arbo_id: 1, name: 'Juan Dela Cruz', is_arb: true, role: 'Member', date_from: '2015-01-01', date_to: null },
+        { id: 2, arbo_id: 1, name: 'Juan Dela Cruz', is_arb: true, role: 'President', date_from: '2020-01-01', date_to: '2023-01-01' }, // Past Term
+        { id: 3, arbo_id: 1, name: 'Maria Clara', is_arb: false, role: 'Secretary', date_from: '2023-01-01', date_to: null }
+    ];
+
+    function safeHtml(str) { return String(str || '').replace(/[&<>'"]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[m])); }
+    function getTodayString() { return new Date().toISOString().split('T')[0]; }
+
+    async function loadArbos() {
+        const search = document.getElementById('searchArbo').value.toLowerCase();
+        let data = dummyArbos.filter(a => a.name.toLowerCase().includes(search) || a.municipality.toLowerCase().includes(search));
+        
+        const tbody = document.getElementById('arboTableBody');
+        tbody.innerHTML = data.map(a => `
+            <tr>
+                <td>${a.id}</td>
+                <td style="font-weight: bold; color: var(--primary);">${safeHtml(a.name)}</td>
+                <td>${safeHtml(a.barangay)}</td>
+                <td>${safeHtml(a.municipality)}</td>
+                <td>${safeHtml(a.contact_number)}</td>
+                <td>
+                    <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name)}')">👁️ Profile</button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function viewArboProfile(id, name) {
+        document.getElementById('currentProfileId').value = id;
+        document.getElementById('profileModalTitle').textContent = `🏢 ${name}`;
+        document.getElementById('profileModal').classList.add('active');
+        
+        // Group Member roles to show history
+        const arboMembers = dummyMembers.filter(m => m.arbo_id === id);
+        const grouped = {};
+        arboMembers.forEach(m => {
+            if (!grouped[m.name]) grouped[m.name] = { is_arb: m.is_arb, roles: [] };
+            grouped[m.name].roles.push(m);
+        });
+
+        const memDiv = document.getElementById('profMembers');
+        if(Object.keys(grouped).length === 0) {
+            memDiv.innerHTML = '<p>No members found.</p>';
+            return;
         }
 
-        function formatDate(dateString) {
-            if (!dateString) return '-';
-            const d = new Date(dateString);
-            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-        }
+        let html = '';
+        for (const [name, data] of Object.entries(grouped)) {
+            const badge = data.is_arb ? `<span class="badge-arb">ARB</span>` : `<span class="badge-nonarb">Non-ARB</span>`;
+            
+            let rolesHtml = data.roles.sort((a,b) => new Date(b.date_from) - new Date(a.date_from)).map(r => {
+                let status = r.date_to ? `(Ended ${r.date_to})` : `<span style="color:var(--secondary);font-weight:bold;">(Active)</span>`;
+                return `<div class="role-item">
+                            <span><strong>${r.role}</strong></span>
+                            <span>${r.date_from} - ${status}</span>
+                        </div>`;
+            }).join('');
 
-        function getTodayString() {
-            const d = new Date();
-            return d.toISOString().split('T')[0];
-        }
-
-        function createDonutHTML(value, total, color, label, subtext) {
-            const percentage = total === 0 ? 0 : Math.round((value / total) * 100);
-            return `
-                <div class="chart-item">
-                    <svg viewBox="0 0 36 36">
-                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle-chart" stroke="${color}" stroke-dasharray="${percentage}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <text x="18" y="20.35" class="donut-text">${value}</text>
-                    </svg>
-                    <div class="chart-label">${label}</div>
-                    <div class="chart-subtext">${subtext}</div>
+            html += `
+                <div class="member-card">
+                    <div class="name">
+                        <span>👤 ${safeHtml(name)}</span>
+                        ${badge}
+                    </div>
+                    <div class="roles">
+                        ${rolesHtml}
+                    </div>
                 </div>
             `;
         }
+        memDiv.innerHTML = html;
+    }
 
-        try {
-            // SUPABASE INIT MOCK (Replace keys in actual usage)
-            if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
-            const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-            const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-            const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    function openQuickAdd(type) {
+        document.getElementById('qaType').value = type;
+        const body = document.getElementById('qaBody');
+        const today = getTodayString();
+        document.getElementById('qaSubmitBtn').style.display = 'none';
 
-            // Bypass actual Auth for testing layout if needed, or enforce it
-            // const { data: authData, error: authErr } = await dbClient.auth.getUser();
-            // Using a dummy user profile for functionality demonstration
-            window.currentProfile = { role: 'admin', full_name: 'Admin User' }; 
-
-            window.loadArboStats = async function() {
-                const chartsEl = document.getElementById('chartsContainer');
-                if (!chartsEl) return;
-                try {
-                    const { count: totalArbo } = await dbClient.from('arbo').select('*', { count: 'exact', head: true });
-                    let chartsHTML = '';
-                    chartsHTML += createDonutHTML(totalArbo || 0, totalArbo || 1, '#0a3d62', 'Total ARBOs', 'Registered organizations');
-                    chartsHTML += createDonutHTML(totalArbo > 0 ? 1 : 0, totalArbo || 1, '#2e7d32', 'Largest ARBO', 'By member count');
-                    chartsEl.innerHTML = chartsHTML;
-                    chartsEl.style.display = 'flex';
-                } catch (e) { console.error("Stats Error:", e); }
-            };
-
-            window.loadArbos = async function() {
-                try {
-                    const search = document.getElementById('searchArbo').value.trim();
-                    let query = dbClient.from('arbo').select('*');
-                    if (search) query = query.ilike('name', `%${search}%`);
-                    const { data, error } = await query.order('id', { ascending: false });
-                    
-                    const tbody = document.getElementById('arboTableBody');
-                    if (error || !data || data.length === 0) { 
-                        tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">📭 No ARBO records found.</td></tr>`; 
-                        return; 
-                    }
-
-                    tbody.innerHTML = data.map(a => `
-                        <tr>
-                            <td style="font-family: monospace; color: #64748b;">${(a.id || '-').toString().substring(0,6)}</td>
-                            <td style="font-weight: 600; color: #0a3d62;">${safeHtml(a.name)}</td>
-                            <td>${safeHtml(a.barangay) || '-'}</td>
-                            <td>${safeHtml(a.municipality) || '-'}</td>
-                            <td>${safeHtml(a.contact_number) || '-'}</td>
-                            <td class="actions">
-                                <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name.replace(/'/g, "\\'"))}')" title="View Profile">👁️ View</button>
-                                ${['admin', 'staff'].includes(window.currentProfile.role) ? `
-                                    <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
-                                ` : ''}
-                            </td>
-                        </tr>
-                    `).join('');
-                } catch (err) { console.error(err); }
-            };
-
-            window.viewArboProfile = async function(id, name) {
-                document.getElementById('currentProfileId').value = id;
-                document.getElementById('currentProfileName').value = name;
-                document.getElementById('profileModalTitle').textContent = `🏢 Profile: ${name}`;
-                document.getElementById('profileSubHeader').textContent = `ARBO Database ID: ${id}`;
-
-                const m = document.getElementById('profileModal');
-                if (m) m.classList.add('active');
-
-                // 1. Members / Leaders
-                const memList = document.getElementById('profMembers');
-                try {
-                    const { data } = await dbClient.from('arbo_members').select('*').eq('arbo_id', id).order('date_from', { ascending: false });
-                    if (!data || data.length === 0) memList.innerHTML = '<li>📭 No members/leaders assigned.</li>';
-                    else memList.innerHTML = data.map(mem => `
-                        <li>
-                            <div class="row-header">
-                                <span>👤 <strong>${safeHtml(mem.arb_name)}</strong></span>
-                                <span style="background:#0a3d62; color:white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">${safeHtml(mem.position || 'Member')}</span>
-                            </div>
-                            <div class="row-details">Tenure: ${formatDate(mem.date_from)} to ${mem.date_to ? formatDate(mem.date_to) : 'Present'}</div>
-                        </li>
-                    `).join('');
-                } catch(e) { memList.innerHTML = '<li>📭 Data unavailable.</li>'; }
-
-                // 2. Activities & Training (with Attendees)
-                const aList = document.getElementById('profActivities');
-                try {
-                    const { data } = await dbClient.from('arbo_activities').select('*').eq('arbo_id', id).order('training_date', { ascending: false });
-                    if (!data || data.length === 0) aList.innerHTML = '<li>📭 No trainings logged.</li>';
-                    else aList.innerHTML = data.map(act => `
-                        <li>
-                            <div class="row-header">
-                                <span>📅 <strong>${safeHtml(act.activity_name)}</strong></span>
-                                <span style="font-size:0.75rem; color:#64748b;">${formatDate(act.training_date)}</span>
-                            </div>
-                            <div class="row-details">
-                                <strong>ARBs Attended:</strong> ${safeHtml(act.arb_attendees || 'None')}<br>
-                                <strong>Non-ARBs Attended:</strong> ${safeHtml(act.non_arb_attendees || 'None')}
-                            </div>
-                        </li>
-                    `).join('');
-                } catch(e) { aList.innerHTML = '<li>📭 Data unavailable.</li>'; }
-
-                // 3. Machinery
-                const mList = document.getElementById('profMachinery');
-                try {
-                    const { data } = await dbClient.from('arbo_machinery').select('*').eq('arbo_id', id);
-                    if (!data || data.length === 0) mList.innerHTML = '<li>📭 No machinery listed.</li>';
-                    else mList.innerHTML = data.map(mac => `
-                        <li>
-                            <div class="row-header">
-                                <span>🚜 <strong>${safeHtml(mac.equipment_name)}</strong></span> 
-                                <div>
-                                    <span style="color: ${mac.status === 'Operational' ? '#16a34a' : '#dc2626'}; font-size:0.75rem; font-weight:bold;">[${safeHtml(mac.status)}]</span>
-                                    <button class="add-mini-btn action-btn" style="margin-left:10px;" onclick="openQuickAdd('income', 'Rental Income: ${safeHtml(mac.equipment_name.replace(/'/g, "\\'"))}')">Rent Out 💰</button>
-                                </div>
-                            </div>
-                            <div class="row-details">
-                                <strong>Date Released:</strong> ${formatDate(mac.date_release)} | 
-                                <strong>Maint. Status:</strong> ${safeHtml(mac.repair_status || 'Good')}
-                            </div>
-                        </li>
-                    `).join('');
-                } catch(e) { mList.innerHTML = '<li>📭 Data unavailable.</li>'; }
-
-                // 4. Income Monitoring
-                const iList = document.getElementById('profIncome');
-                try {
-                    const { data } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('date', { ascending: false });
-                    if (!data || data.length === 0) iList.innerHTML = '<li>📭 No income data.</li>';
-                    else {
-                        let totalGross = 0; let totalNet = 0;
-                        let listHTML = data.map(inc => {
-                            totalGross += parseFloat(inc.gross_income || 0);
-                            totalNet += parseFloat(inc.net_income || 0);
-                            return `
-                            <li>
-                                <div class="row-header">
-                                    <span>💵 <strong>${safeHtml(inc.description)}</strong></span>
-                                    <span style="font-size:0.75rem; color:#64748b;">${formatDate(inc.date)}</span>
-                                </div>
-                                <div class="row-details" style="display:flex; gap:15px;">
-                                    <span style="color:#0ea5e9;">Gross: ₱${Number(inc.gross_income).toLocaleString()}</span>
-                                    <span style="color:#16a34a;">Net: ₱${Number(inc.net_income).toLocaleString()}</span>
-                                </div>
-                            </li>`;
-                        }).join('');
-                        
-                        // Add Summary
-                        listHTML = `<li style="background:#e0f2fe; padding:8px; border-radius:6px; margin-bottom:10px;">
-                                        <strong>Total Gross:</strong> ₱${totalGross.toLocaleString()} | <strong>Total Net:</strong> ₱${totalNet.toLocaleString()}
-                                    </li>` + listHTML;
-                        iList.innerHTML = listHTML;
-                    }
-                } catch(e) { iList.innerHTML = '<li>📭 Data unavailable.</li>'; }
+        if(type === 'member') {
+            document.getElementById('qaTitle').textContent = '➕ Assign Role to ARBO';
+            body.innerHTML = `
+                <div class="form-grid full">
+                    <div>
+                        <label>Search Person (Searches arb_profiles table for ARBs)</label>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" id="personSearch" placeholder="Type name..." />
+                            <button type="button" class="btn btn-primary" onclick="searchProfiles()">🔍 Find</button>
+                        </div>
+                    </div>
+                    <ul id="searchResults" style="list-style:none; padding:0; margin:0; border:1px solid #cbd5e1; border-radius:6px; display:none; max-height: 150px; overflow-y:auto;"></ul>
+                </div>
                 
-                // 5. Validators
-                const vList = document.getElementById('profValidators');
-                try {
-                    const { data } = await dbClient.from('arbo_validators').select('*').eq('arbo_id', id);
-                    if (!data || data.length === 0) vList.innerHTML = '<li>📭 No validators assigned.</li>';
-                    else vList.innerHTML = data.map(v => `<li><div class="row-header"><span>✅ ${safeHtml(v.validator_name)}</span></div></li>`).join('');
-                } catch(e) { vList.innerHTML = '<li>📭 Data unavailable.</li>'; }
-            };
-
-            // SCALABLE QUICK ADD
-            window.openQuickAdd = function(type, defaultDesc = '') {
-                const arboId = document.getElementById('currentProfileId').value;
-                if (!arboId) return;
-
-                document.getElementById('qaType').value = type;
-                const qaBody = document.getElementById('qaBody');
-                const qaTitle = document.getElementById('qaTitle');
-                const submitBtn = document.getElementById('qaSubmitBtn');
-                submitBtn.style.display = 'inline-flex'; 
-                const today = getTodayString();
-
-                if (type === 'member') {
-                    qaTitle.textContent = '➕ Assign ARBO Leader / Member';
-                    submitBtn.style.display = 'none'; // Use search select instead
-                    qaBody.innerHTML = `
-                        <div class="form-grid">
-                            <div><label>Position *</label>
-                                <select id="qaPosition" class="qa-input-field">
-                                    <option value="Member">Member</option>
-                                    <option value="President">President</option>
-                                    <option value="Vice President">Vice President</option>
-                                    <option value="Treasurer">Treasurer</option>
-                                    <option value="Secretary">Secretary</option>
-                                </select>
-                            </div>
-                            <div><label>Date From *</label><input type="date" id="qaDateFrom" value="${today}" class="qa-input-field" required /></div>
-                            <div><label>Date To (Leave blank if active)</label><input type="date" id="qaDateTo" class="qa-input-field" /></div>
+                <div id="roleAssignmentDiv" style="display:none;">
+                    <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #cbd5e1;">
+                    <input type="hidden" id="selectedName" />
+                    <input type="hidden" id="selectedIsArb" />
+                    <h4 style="margin-top:0;">Assign Role for: <span id="displaySelectedName" style="color:var(--primary);"></span></h4>
+                    <div class="form-grid">
+                        <div><label>Position / Role</label>
+                            <select id="roleSelect">
+                                <option>Member</option><option>President</option><option>Vice President</option>
+                                <option>Secretary</option><option>Treasurer</option>
+                            </select>
                         </div>
-                        <div style="margin-bottom:10px; grid-column: 1 / -1;">
-                            <label>Search Person (First or Last Name) *</label>
-                            <div style="display: flex; gap: 10px; margin-top:5px;">
-                                <input type="text" id="arbSearchInput" class="qa-input-field" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchArbs();}" />
-                                <button type="button" class="btn btn-primary" onclick="searchArbs()">🔍 Find</button>
-                            </div>
-                        </div>
-                        <input type="hidden" id="qaInput1" /> <!-- ID -->
-                        <input type="hidden" id="qaInput2" /> <!-- Name -->
-                        <ul id="arbSearchResults" class="profile-list" style="grid-column: 1 / -1; margin-top: 5px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; display: none;"></ul>
-                    `;
-                }
-                else if (type === 'activity') {
-                    qaTitle.textContent = '➕ Log Training / Activity';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full">
-                            <div><label>Training/Activity Title *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="e.g. Financial Literacy Seminar" /></div>
-                            <div><label>Date of Training *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
-                            <div><label>ARBs Attended (Names/Count)</label><textarea id="qaArbAtt" class="qa-input-field" placeholder="Juan Dela Cruz, Pedro Penduko..."></textarea></div>
-                            <div><label>Non-ARBs Attended (Names/Count)</label><textarea id="qaNonArbAtt" class="qa-input-field" placeholder="Maria Clara..."></textarea></div>
-                        </div>
-                    `;
-                }
-                else if (type === 'income') {
-                    qaTitle.textContent = '➕ Add Income Record';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full">
-                            <div><label>Description / Source *</label><input type="text" id="qaDesc" class="qa-input-field" required value="${safeHtml(defaultDesc)}" placeholder="e.g. Harvester Rental" /></div>
-                        </div>
-                        <div class="form-grid">
-                            <div><label>Gross Income (₱) *</label><input type="number" step="0.01" id="qaGross" class="qa-input-field" required placeholder="0.00" /></div>
-                            <div><label>Net Income (₱) *</label><input type="number" step="0.01" id="qaNet" class="qa-input-field" required placeholder="0.00" /></div>
-                            <div><label>Date *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
-                        </div>
-                    `;
-                }
-                else if (type === 'machinery') {
-                    qaTitle.textContent = '➕ Add Machinery';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full">
-                            <div><label>Equipment Name *</label><input type="text" id="qaEquip" class="qa-input-field" required placeholder="e.g. Tractor Model X" /></div>
-                        </div>
-                        <div class="form-grid">
-                            <div><label>Date Released *</label><input type="date" id="qaRelDate" value="${today}" class="qa-input-field" required /></div>
-                            <div>
-                                <label>Current Status</label>
-                                <select id="qaStatus" class="qa-input-field">
-                                    <option value="Operational">Operational</option>
-                                    <option value="Rented Out">Rented Out</option>
-                                    <option value="Down/Broken">Down/Broken</option>
-                                </select>
-                            </div>
-                            <div style="grid-column: 1 / -1;">
-                                <label>Repair & Maintenance Status</label>
-                                <input type="text" id="qaRepair" class="qa-input-field" placeholder="e.g. Recently serviced, Needs new tires..." />
-                            </div>
-                        </div>
-                    `;
-                }
-                else if (type === 'validator') {
-                    qaTitle.textContent = '➕ Assign System Validator';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full">
-                            <div><label>Validator Name *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="Enter validator name" /></div>
-                        </div>
-                    `;
-                }
-
-                document.getElementById('quickAddModal').classList.add('active');
-            };
-
-            window.searchArbs = async function() {
-                const term = document.getElementById('arbSearchInput').value.trim();
-                const resEl = document.getElementById('arbSearchResults');
-                if (!term) return;
-
-                resEl.style.display = 'block';
-                resEl.innerHTML = '<li>⏳ Searching Database...</li>';
-                try {
-                    // Mock search since arb table might not exist in this snippet
-                    const { data, error } = await dbClient.from('arb').select('id, first_name, last_name').or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`).limit(5);
-                    
-                    // Fallback dummy data if table fails
-                    const results = data || [{ id: 999, first_name: term, last_name: '(Manual Entry)' }];
-
-                    resEl.innerHTML = results.map(a => {
-                        const fullName = `${a.last_name}, ${a.first_name}`;
-                        return `
-                            <li style="display:flex; justify-content:space-between; align-items:center;">
-                                <span>👤 ${safeHtml(fullName)}</span>
-                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white;" onclick="finalizeAssignment('member', '${a.id}', '${safeHtml(fullName.replace(/'/g, "\\'"))}')">Select</button>
-                            </li>`;
-                    }).join('');
-                } catch (e) { 
-                    resEl.innerHTML = `<li><button type="button" class="btn btn-sm btn-info" onclick="finalizeAssignment('member', '0', '${safeHtml(term)}')">Use "${safeHtml(term)}" (Manual Entry)</button></li>`;
-                }
-            };
-
-            window.finalizeAssignment = function(type, val1, val2) {
-                if (type === 'member') {
-                    document.getElementById('qaInput1').value = val1; // ID
-                    document.getElementById('qaInput2').value = val2; // Name
-                    document.getElementById('arbSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold;">✅ Proceeding with ${val2}...</li>`;
-                    document.getElementById('qaForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                }
-            };
-
-            window.submitQuickAdd = async function(e) {
-                e.preventDefault();
-                const type = document.getElementById('qaType').value;
-                const arboId = document.getElementById('currentProfileId').value;
-                const arboName = document.getElementById('currentProfileName').value;
-
-                let table, payload;
-
-                if (type === 'member') {
-                    table = 'arbo_members'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        arb_id: document.getElementById('qaInput1').value || null, 
-                        arb_name: document.getElementById('qaInput2').value,
-                        position: document.getElementById('qaPosition').value,
-                        date_from: document.getElementById('qaDateFrom').value,
-                        date_to: document.getElementById('qaDateTo').value || null
-                    };
-                } else if (type === 'activity') {
-                    table = 'arbo_activities'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        activity_name: document.getElementById('qaInput1').value.trim(), 
-                        training_date: document.getElementById('qaDateInput').value,
-                        arb_attendees: document.getElementById('qaArbAtt').value.trim(),
-                        non_arb_attendees: document.getElementById('qaNonArbAtt').value.trim()
-                    };
-                } else if (type === 'income') {
-                    table = 'arbo_income'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        description: document.getElementById('qaDesc').value.trim(),
-                        gross_income: parseFloat(document.getElementById('qaGross').value), 
-                        net_income: parseFloat(document.getElementById('qaNet').value), 
-                        date: document.getElementById('qaDateInput').value 
-                    };
-                } else if (type === 'machinery') {
-                    table = 'arbo_machinery'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        equipment_name: document.getElementById('qaEquip').value.trim(), 
-                        date_release: document.getElementById('qaRelDate').value,
-                        status: document.getElementById('qaStatus').value,
-                        repair_status: document.getElementById('qaRepair').value.trim()
-                    };
-                } else if (type === 'validator') {
-                    table = 'arbo_validators'; 
-                    payload = { arbo_id: arboId, validator_name: document.getElementById('qaInput1').value.trim() };
-                }
-
-                if (table && payload) {
-                    const { error } = await dbClient.from(table).insert([payload]);
-                    if (error) alert("Error adding record: " + error.message);
-                    else {
-                        closeModal('quickAddModal');
-                        window.viewArboProfile(arboId, arboName); 
-                    }
-                }
-            };
-
-            window.generateReport = function() {
-                const arboName = document.getElementById('currentProfileName').value;
-                document.title = `ARBO_Report_${arboName.replace(/\s+/g, '_')}`;
-                window.print();
-                document.title = "ARBO Management"; // reset title
-            };
-
-            window.openArboModal = function() {
-                document.getElementById('arboId').value = '';
-                document.getElementById('arboForm').reset();
-                document.getElementById('arboModalTitle').textContent = '➕ Add New ARBO';
-                document.getElementById('arboModal').classList.add('active');
-            };
-            window.closeModal = function(modalId) { document.getElementById(modalId).classList.remove('active'); };
-
-            window.saveArbo = async function(e) {
-                e.preventDefault(); 
-                try {
-                    const id = document.getElementById('arboId').value;
-                    const payload = {
-                        name: document.getElementById('arboName').value.trim(),
-                        barangay: document.getElementById('arboBarangay').value.trim(),
-                        municipality: document.getElementById('arboMunicipality').value.trim(),
-                        contact_number: document.getElementById('arboContact').value.trim(),
-                    };
-                    let result = id ? await dbClient.from('arbo').update(payload).eq('id', id) : await dbClient.from('arbo').insert([payload]);
-                    if (result.error) throw new Error(result.error.message);
-                    window.closeModal('arboModal');
-                    window.loadArbos();
-                    window.loadArboStats(); 
-                } catch (err) { alert(`Error saving ARBO: ${err.message}`); }
-            };
-
-            window.loadArboStats();
-            window.loadArbos();
-
-        } catch (fatalErr) {
-            document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Initialization Error: ${fatalErr.message}</td></tr>`;
+                        <div><label>Date From</label><input type="date" id="roleDateFrom" value="${today}" /></div>
+                        <div><label>Date To</label><input type="date" id="roleDateTo" placeholder="Leave blank if current" /></div>
+                    </div>
+                </div>
+            `;
         }
-    })();
+        document.getElementById('quickAddModal').classList.add('active');
+    }
+
+    async function searchProfiles() {
+        const term = document.getElementById('personSearch').value.trim();
+        const resEl = document.getElementById('searchResults');
+        if(!term) return;
+
+        resEl.style.display = 'block';
+        resEl.innerHTML = '<li style="padding:10px;">Searching arb_profiles...</li>';
+        
+        // Mocking query to arb_profiles table based on image_305845.png
+        // Query equivalent: await dbClient.from('arb_profiles').select('id, fb_name').ilike('fb_name', `%${term}%`)
+        
+        let mockResults = [];
+        if(term.toLowerCase() === 'juan') mockResults = [{ fb_name: 'Juan Dela Cruz' }];
+        
+        if (mockResults.length > 0) {
+            resEl.innerHTML = mockResults.map(r => `
+                <li style="padding:10px; border-bottom:1px solid #eee; display:flex; justify-content:space-between; align-items:center;">
+                    <span>${safeHtml(r.fb_name)} <span class="badge-arb">ARB</span></span>
+                    <button type="button" class="btn btn-sm btn-success" onclick="selectPerson('${safeHtml(r.fb_name)}', true)">Select</button>
+                </li>
+            `).join('');
+        } else {
+            resEl.innerHTML = `
+                <li style="padding:10px; text-align:center;">
+                    <p style="margin-bottom:10px;">Not found in ARB Database.</p>
+                    <button type="button" class="btn btn-warning" onclick="selectPerson('${safeHtml(term)}', false)">Add as Non-ARB "${safeHtml(term)}"</button>
+                </li>
+            `;
+        }
+    }
+
+    function selectPerson(name, isArb) {
+        document.getElementById('searchResults').style.display = 'none';
+        document.getElementById('roleAssignmentDiv').style.display = 'block';
+        document.getElementById('qaSubmitBtn').style.display = 'inline-flex';
+        
+        document.getElementById('selectedName').value = name;
+        document.getElementById('selectedIsArb').value = isArb;
+        document.getElementById('displaySelectedName').innerHTML = `${name} ${isArb ? '<span class="badge-arb">ARB</span>' : '<span class="badge-nonarb">Non-ARB</span>'}`;
+    }
+
+    function submitQuickAdd(e) {
+        e.preventDefault();
+        const arboId = parseInt(document.getElementById('currentProfileId').value);
+        
+        // Simulating insert into DB
+        dummyMembers.push({
+            id: Date.now(),
+            arbo_id: arboId,
+            name: document.getElementById('selectedName').value,
+            is_arb: document.getElementById('selectedIsArb').value === 'true',
+            role: document.getElementById('roleSelect').value,
+            date_from: document.getElementById('roleDateFrom').value,
+            date_to: document.getElementById('roleDateTo').value || null
+        });
+
+        closeModal('quickAddModal');
+        viewArboProfile(arboId, document.getElementById('profileModalTitle').textContent.replace('🏢 ', ''));
+    }
+
+    // --- REPORTING MODULE ---
+    function openReportModal() {
+        // Populate ARBO dropdown
+        const select = document.getElementById('repArboId');
+        select.innerHTML = dummyArbos.map(a => `<option value="${a.id}">${a.name} (${a.municipality})</option>`).join('');
+        
+        document.getElementById('reportModal').classList.add('active');
+        toggleReportFilters();
+    }
+
+    function toggleReportFilters() {
+        const type = document.getElementById('repType').value;
+        document.getElementById('repLocFilters').style.display = (type.includes('loc')) ? 'grid' : 'none';
+        document.getElementById('repDateFilters').style.display = (type === 'new_members_date') ? 'grid' : 'none';
+        document.getElementById('repArboFilter').style.display = (type === 'members_in_arbo') ? 'grid' : 'none';
+    }
+
+    function generateCustomReport(e) {
+        e.preventDefault();
+        const type = document.getElementById('repType').value;
+        const titleEl = document.getElementById('printTitle');
+        const metaEl = document.getElementById('printMeta');
+        const contentEl = document.getElementById('printContent');
+        
+        let reportHtml = '<table><thead>';
+        
+        if (type === 'all_arbos' || type === 'arbos_in_loc') {
+            titleEl.textContent = type === 'all_arbos' ? 'Master List of ARBOs' : 'ARBOs by Location';
+            const muni = document.getElementById('repMuni').value.toLowerCase();
+            const brgy = document.getElementById('repBrgy').value.toLowerCase();
+            metaEl.textContent = type === 'arbos_in_loc' ? `Filters applied: Muni: ${muni || 'All'}, Brgy: ${brgy || 'All'}` : '';
+            
+            let data = dummyArbos;
+            if(type === 'arbos_in_loc') {
+                if(muni) data = data.filter(a => a.municipality.toLowerCase().includes(muni));
+                if(brgy) data = data.filter(a => a.barangay.toLowerCase().includes(brgy));
+            }
+
+            reportHtml += `<tr><th>ARBO Name</th><th>Barangay</th><th>Municipality</th><th>Contact</th></tr></thead><tbody>`;
+            data.forEach(a => {
+                reportHtml += `<tr><td>${a.name}</td><td>${a.barangay}</td><td>${a.municipality}</td><td>${a.contact_number}</td></tr>`;
+            });
+            reportHtml += `</tbody></table>`;
+            contentEl.innerHTML = data.length > 0 ? reportHtml : '<p>No records found.</p>';
+        } 
+        else if (type.includes('members')) {
+            titleEl.textContent = type === 'new_members_date' ? 'New Members Report' : 'Membership Roster';
+            const dateFrom = document.getElementById('repDateFrom').value;
+            const dateTo = document.getElementById('repDateTo').value;
+            const arboId = parseInt(document.getElementById('repArboId').value);
+            
+            let data = dummyMembers;
+            if(type === 'members_in_arbo') {
+                data = data.filter(m => m.arbo_id === arboId);
+                const arboName = dummyArbos.find(a => a.id === arboId)?.name;
+                metaEl.textContent = `Organization: ${arboName}`;
+            } else if (type === 'new_members_date') {
+                metaEl.textContent = `Date Range: ${dateFrom} to ${dateTo}`;
+                // Basic filtering logic for demo
+                data = data.filter(m => m.date_from >= dateFrom && m.date_from <= dateTo);
+            }
+
+            reportHtml += `<tr><th>Name</th><th>Type</th><th>Current Role</th><th>Date Assigned</th><th>ARBO ID</th></tr></thead><tbody>`;
+            data.forEach(m => {
+                reportHtml += `<tr><td>${m.name}</td><td>${m.is_arb ? 'ARB' : 'Non-ARB'}</td><td>${m.role}</td><td>${m.date_from}</td><td>${m.arbo_id}</td></tr>`;
+            });
+            reportHtml += `</tbody></table>`;
+            contentEl.innerHTML = data.length > 0 ? reportHtml : '<p>No records found.</p>';
+        }
+
+        closeModal('reportModal');
+        window.print(); // Triggers print. CSS handles hiding main UI.
+    }
+
+    function openArboModal() { document.getElementById('arboModal').classList.add('active'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+    
+    function saveArbo(e) {
+        e.preventDefault();
+        dummyArbos.push({
+            id: dummyArbos.length + 1,
+            name: document.getElementById('arboName').value,
+            barangay: document.getElementById('arboBarangay').value,
+            municipality: document.getElementById('arboMunicipality').value,
+            contact_number: document.getElementById('arboContact').value
+        });
+        closeModal('arboModal');
+        loadArbos();
+    }
+
+    window.onload = () => { loadArbos(); };
 </script>
 </body>
 </html>
