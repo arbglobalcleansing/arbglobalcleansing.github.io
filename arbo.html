@@ -12,15 +12,9 @@
 <body>
 <div class="container">
     <h1>ARBO Management</h1>
-    <nav class="nav">
-        <a href="dashboard.html">Dashboard</a>
-        <a href="arbo.html" class="active">ARBO</a>
-        <a href="arb.html">ARB</a>
-        <a href="validators.html">Validators</a>
-        <a href="reports.html">Reports</a>
-        <span class="user-badge" id="userDisplay"></span>
-        <a href="#" class="logout-link" onclick="logout()">Logout</a>
-    </nav>
+    
+    <!-- Unified Navigation Container -->
+    <nav class="nav" id="mainNav"></nav>
 
     <div class="section">
         <div class="toolbar">
@@ -39,6 +33,7 @@
 <!-- Modal -->
 <div id="arboModal" class="modal">
     <div class="modal-content">
+        <button class="modal-close" id="closeModalBtn" style="float: right; background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
         <h2 id="arboModalTitle">Add ARBO</h2>
         <form id="arboForm" onsubmit="saveArbo(event)">
             <input type="hidden" id="arboId" />
@@ -48,7 +43,7 @@
                 <div><label>Municipality</label><input id="arboMunicipality" /></div>
                 <div><label>Contact Number</label><input id="arboContact" /></div>
             </div>
-            <div class="form-actions">
+            <div class="form-actions" style="margin-top: 20px;">
                 <button type="button" class="btn btn-danger" onclick="closeModal('arboModal')">Cancel</button>
                 <button type="submit" class="btn btn-success">💾 Save</button>
             </div>
@@ -57,10 +52,8 @@
 </div>
 
 <script>
-    // Isolate scope to prevent variable collisions
     (async function() {
         
-        // 1. Failsafe Error Catcher
         window.onerror = function(msg, url, line) {
             console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
             const tbody = document.getElementById('arboTableBody');
@@ -69,63 +62,81 @@
         };
 
         try {
-            console.log("Initializing Standalone Database Connection...");
-            
-            if (typeof window.supabase === 'undefined') {
-                throw new Error("Supabase CDN script failed to load. Check your internet connection.");
-            }
+            if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
 
-            // Explicitly generate the database client to guarantee it exists
             const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
             const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
             const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             // ====================================================================
-            // LOUD AUTHENTICATION CHECK
+            // AUTHENTICATION CHECK
             // ====================================================================
-            console.log("Checking authentication status...");
-            
-            // Step A: Check if logged in
             const { data: authData, error: authErr } = await dbClient.auth.getUser();
             if (authErr || !authData || !authData.user) {
-                alert("Auth Error: You are not fully logged in. Redirecting to dashboard.");
                 window.location.href = 'dashboard.html';
                 return;
             }
 
-            // Step B: Check if profile exists and can be read
             const { data: profile, error: profErr } = await dbClient
                 .from('profiles')
                 .select('*')
                 .eq('id', authData.user.id)
                 .single();
 
-            if (profErr) {
-                alert("Database Error: Cannot read your profile.\nSupabase says: " + profErr.message);
+            if (profErr || !profile || (profile.role !== 'admin' && profile.role !== 'staff')) {
                 window.location.href = 'dashboard.html';
                 return;
             }
 
-            if (!profile) {
-                alert("Profile Missing: Your account exists, but your 'profiles' row is missing in the database.");
-                window.location.href = 'dashboard.html';
-                return;
-            }
-
-            // Step C: Check if role is correct
-            if (profile.role !== 'admin' && profile.role !== 'staff') {
-                alert("Access Denied: Your role is currently set to '" + profile.role + "'. You must be an 'admin' or 'staff' to view this page.");
-                window.location.href = 'dashboard.html';
-                return;
-            }
-
-            // If we make it here, you are officially authorized!
             window.currentProfile = profile;
-            document.getElementById('userDisplay').textContent = `👤 ${profile.full_name || authData.user.email} (${profile.role})`;
             
             // ====================================================================
+            // DYNAMIC NAVBAR BUILDER
+            // ====================================================================
+            async function buildNavbar(userProfile) {
+                const navEl = document.getElementById('mainNav');
+                if (!navEl) return;
+                
+                // Fetch menu items from system_navigation table
+                const { data: navItems } = await dbClient.from('system_navigation').select('*').order('id', { ascending: true });
+                const curPath = window.location.pathname;
+                
+                // Fallback links if the database is empty
+                const links = navItems && navItems.length > 0 ? navItems : [
+                    { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
+                    { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
+                    { label: 'ARB Management', url: '/arb.html', icon: '👤' },
+                    { label: 'Validators', url: '/validators.html', icon: '✅' },
+                    { label: 'Reports', url: '/reports.html', icon: '📈' }
+                ];
 
-            // 4. Attach application functions to the 'window' object 
+                let html = links.map(l => {
+                    // Check if current URL matches the link to highlight it
+                    const linkTarget = (l.url || '').replace('/', '');
+                    const isActive = curPath.includes(linkTarget) && linkTarget !== '' ? 'active' : '';
+                    return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
+                }).join('');
+
+                // Add User profile and Logout button
+                if (userProfile) {
+                    html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${userProfile.full_name || authData.user.email} (${userProfile.role})</span>`;
+                    html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
+                }
+                
+                navEl.innerHTML = html;
+
+                document.getElementById('navLogoutBtn')?.addEventListener('click', async () => {
+                    await dbClient.auth.signOut();
+                    window.location.href = 'login.html';
+                });
+            }
+
+            // Build the navbar immediately
+            await buildNavbar(profile);
+
+            // ====================================================================
+            // PAGE LOGIC
+            // ====================================================================
             window.loadArbos = async function() {
                 try {
                     const search = document.getElementById('searchArbo').value.trim();
@@ -143,7 +154,6 @@
                         return;
                     }
 
-                    // Render table safely
                     tbody.innerHTML = data.map(a => `
                         <tr>
                             <td>${(a.id || '-').toString().substring(0,8)}</td>
@@ -158,7 +168,6 @@
                         </tr>
                     `).join('');
                 } catch (err) {
-                    console.error("Load Error:", err);
                     document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center;">❌ Error loading data: ${err.message}</td></tr>`;
                 }
             };
@@ -171,19 +180,15 @@
                 if (m) m.classList.add('active');
             };
 
-            // Custom closeModal to avoid common.js dependencies
             window.closeModal = function(modalId) {
                 const m = document.getElementById(modalId);
                 if (m) m.classList.remove('active');
             };
 
-            // Allow clicking outside the modal to close it
-            const modalEl = document.getElementById('arboModal');
-            if (modalEl) {
-                modalEl.addEventListener('click', function(e) {
-                    if (e.target === this) window.closeModal('arboModal');
-                });
-            }
+            document.getElementById('closeModalBtn')?.addEventListener('click', () => window.closeModal('arboModal'));
+            document.getElementById('arboModal')?.addEventListener('click', function(e) {
+                if (e.target === this) window.closeModal('arboModal');
+            });
 
             window.editArbo = async function(id) {
                 try {
@@ -244,12 +249,7 @@
                 }
             };
 
-            window.logout = async function() {
-                await dbClient.auth.signOut();
-                window.location.href = 'login.html'; 
-            };
-
-            // 5. Initialize the table on load
+            // Initialize the table
             window.loadArbos();
 
         } catch (fatalErr) {
