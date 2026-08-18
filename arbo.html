@@ -3,823 +3,359 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARBO Management</title>
+    <title>ARBO Cooperative Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
-
     <style>
-        .charts-container { display: flex; flex-wrap: wrap; justify-content: space-evenly; gap: 20px; background: white; padding: 40px 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06); margin-bottom: 30px; }
-        .chart-item { display: flex; flex-direction: column; align-items: center; width: 160px; }
-        .chart-item svg { width: 110px; height: 110px; margin-bottom: 12px; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.05)); }
-        .chart-item .chart-label { font-size: 0.9rem; color: #334155; font-weight: 700; text-align: center; margin-bottom: 4px; }
-        .chart-item .chart-subtext { font-size: 0.75rem; color: #64748b; text-align: center; }
-        .donut-text { font-size: 0.45rem; font-weight: bold; fill: #0a3d62; text-anchor: middle; }
-        .circle-bg { fill: none; stroke: #f1f5f9; stroke-width: 3.5; }
-        .circle-chart { fill: none; stroke-width: 3.5; stroke-linecap: round; animation: fillAnimation 1s ease-out forwards; }
-        @keyframes fillAnimation { from { stroke-dasharray: 0, 100; } }
-
-        .btn-info { background: #0ea5e9; color: white; }
-        .btn-info:hover { background: #0284c7; }
-        .add-mini-btn { background: #e2e8f0; color: #0a3d62; border: none; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .add-mini-btn:hover { background: #0a3d62; color: white; }
-        .btn-report { background: #4f46e5; color: white; margin-right: 10px; }
-        
-        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
-        .profile-section { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }
-        .profile-section h3 { color: #0a3d62; font-size: 1rem; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
-        .profile-list { list-style: none; font-size: 0.85rem; color: #475569; max-height: 180px; overflow-y: auto; padding-right: 5px; }
-        .profile-list li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-        .profile-list li:last-child { border-bottom: none; }
-        
-        /* Ensure dynamic date inputs match the theme */
-        .qa-input-field { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #cbd5e1; outline: none; background: white; font-family: inherit; }
-        .qa-input-field:focus { border-color: #0a3d62; box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.1); }
-
-        /* ADDED FOR ADVANCED FEATURES */
-        .badge-arb { background: #16a34a; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; }
-        .badge-nonarb { background: #64748b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: bold; }
-        .member-card { background: white; border: 1px solid #cbd5e1; padding: 10px; border-radius: 6px; margin-bottom: 8px; width: 100%; box-sizing: border-box; }
-        .member-card-header { display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 5px; font-weight: bold; }
-        .role-row { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 2px 0; color: #475569;}
-
-        #printArea { display: none; background: white; padding: 20px; }
-        #printArea table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        #printArea th, #printArea td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
-        
-        @media print {
-            body > * { display: none !important; }
-            #printArea { display: block !important; position: absolute; top: 0; left: 0; width: 100%; margin: 0; padding: 0; }
-        }
-
-        @media (max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
+        :root { --arbo-navy:#0a3d62; --arbo-blue:#1769a0; --arbo-green:#15803d; --arbo-red:#b91c1c; --arbo-amber:#b45309; --arbo-line:#dbe3ea; --arbo-soft:#f8fafc; }
+        .arbo-master-toolbar { display:grid; grid-template-columns:minmax(240px,1.5fr) repeat(3,minmax(140px,.7fr)) auto; gap:10px; align-items:end; margin-bottom:15px; }
+        .arbo-master-toolbar label { display:block; margin-bottom:5px; color:#475569; font-size:.76rem; font-weight:700; text-transform:uppercase; }
+        .arbo-input { width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:7px; background:white; color:#0f172a; font:inherit; box-sizing:border-box; }
+        .arbo-input:focus { outline:none; border-color:var(--arbo-blue); box-shadow:0 0 0 3px rgba(23,105,160,.1); }
+        .arbo-kpis { display:grid; grid-template-columns:repeat(6,minmax(125px,1fr)); gap:12px; margin:18px 0; }
+        .arbo-kpi { padding:14px; border:1px solid var(--arbo-line); border-radius:10px; background:white; box-shadow:0 3px 10px rgba(15,23,42,.04); }
+        .arbo-kpi span { display:block; color:#64748b; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.035em; }
+        .arbo-kpi strong { display:block; margin-top:5px; color:var(--arbo-navy); font-size:1.35rem; }
+        .workspace { margin-top:24px; overflow:hidden; border:1px solid var(--arbo-line); border-radius:12px; background:white; box-shadow:0 10px 28px rgba(15,23,42,.08); }
+        .workspace-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:20px; border-bottom:1px solid var(--arbo-line); background:linear-gradient(135deg,#fff,#f2f8fc); }
+        .workspace-header h2 { margin:0 0 5px; color:var(--arbo-navy); }
+        .workspace-header p { margin:0; color:#64748b; }
+        .workspace-actions { display:flex; flex-wrap:wrap; gap:8px; }
+        .workspace-tabs { display:flex; gap:4px; overflow:auto; padding:8px 10px 0; border-bottom:1px solid var(--arbo-line); background:#f8fafc; }
+        .workspace-tab { flex:0 0 auto; padding:10px 12px; border:0; border-bottom:3px solid transparent; background:transparent; color:#475569; font-weight:700; cursor:pointer; }
+        .workspace-tab.active { border-bottom-color:var(--arbo-blue); color:var(--arbo-navy); background:white; }
+        .workspace-body { min-height:280px; padding:18px; }
+        .module-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:13px; }
+        .module-heading h3 { margin:0; color:var(--arbo-navy); }
+        .module-note { margin:3px 0 0; color:#64748b; font-size:.82rem; }
+        .module-actions { display:flex; gap:8px; flex-wrap:wrap; }
+        .data-table-wrap { width:100%; overflow:auto; border:1px solid var(--arbo-line); border-radius:8px; }
+        .data-table { width:100%; min-width:900px; border-collapse:collapse; }
+        .data-table th,.data-table td { padding:10px; border-bottom:1px solid #e8edf2; text-align:left; vertical-align:top; }
+        .data-table th { background:#f8fafc; color:#475569; font-size:.76rem; text-transform:uppercase; letter-spacing:.025em; }
+        .data-table tr:last-child td { border-bottom:0; }
+        .data-table tbody tr:hover { background:#fbfdff; }
+        .badge { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; font-size:.7rem; font-weight:800; white-space:nowrap; }
+        .badge-green { color:#166534; background:#dcfce7; }
+        .badge-red { color:#991b1b; background:#fee2e2; }
+        .badge-amber { color:#92400e; background:#fef3c7; }
+        .badge-blue { color:#1e40af; background:#dbeafe; }
+        .badge-gray { color:#475569; background:#e2e8f0; }
+        .due-row { background:#fff7ed !important; }
+        .overdue-row { background:#fff1f2 !important; }
+        .empty-panel { padding:30px; color:#64748b; text-align:center; }
+        .profile-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+        .profile-summary-card { padding:15px; border:1px solid var(--arbo-line); border-radius:9px; background:#f8fafc; }
+        .profile-summary-card h4 { margin:0 0 10px; color:var(--arbo-navy); }
+        .summary-field { display:grid; grid-template-columns:130px 1fr; gap:8px; padding:6px 0; border-bottom:1px dashed #dbe3ea; }
+        .summary-field:last-child { border-bottom:0; }
+        .summary-field span { color:#64748b; font-size:.8rem; }
+        .summary-field strong { overflow-wrap:anywhere; font-size:.85rem; }
+        .form-grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+        .form-grid-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+        .field-group { min-width:0; }
+        .field-group.full { grid-column:1 / -1; }
+        .field-group label { display:block; margin-bottom:5px; color:#334155; font-size:.82rem; font-weight:700; }
+        .field-help { display:block; margin-top:4px; color:#64748b; font-size:.75rem; }
+        .form-actions { display:flex; justify-content:flex-end; gap:9px; margin-top:18px; }
+        .picker-results { max-height:250px; overflow:auto; margin-top:10px; border:1px solid var(--arbo-line); border-radius:7px; }
+        .picker-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #e8edf2; }
+        .picker-row:last-child { border-bottom:0; }
+        .picker-row small { display:block; margin-top:3px; color:#64748b; }
+        .selected-person { margin-top:10px; padding:10px; border:1px solid #86efac; border-radius:7px; background:#f0fdf4; color:#166534; }
+        .access-note { margin:0 0 15px; padding:10px 12px; border-left:4px solid var(--arbo-blue); border-radius:6px; background:#eff6ff; color:#1e3a5f; }
+        .warning-note { border-left-color:var(--arbo-amber); background:#fffbeb; color:#78350f; }
+        .error-note { border-left-color:var(--arbo-red); background:#fff1f2; color:#881337; }
+        .money { white-space:nowrap; font-variant-numeric:tabular-nums; }
+        .page-controls { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:12px; }
+        .modal-content.coop-modal { width:min(900px,94vw); max-height:92vh; overflow:auto; }
+        #setupWarning { display:none; }
+        @media print { body > * { display:none !important; } #printArea { display:block !important; position:absolute; inset:0; padding:12px; background:white; } }
+        @media (max-width:1050px) { .arbo-master-toolbar { grid-template-columns:repeat(2,1fr); } .arbo-kpis { grid-template-columns:repeat(3,1fr); } .profile-summary-grid { grid-template-columns:1fr; } }
+        @media (max-width:700px) { .arbo-master-toolbar,.form-grid-2,.form-grid-3 { grid-template-columns:1fr; } .arbo-kpis { grid-template-columns:repeat(2,1fr); } .workspace-header { flex-direction:column; } .field-group.full { grid-column:auto; } }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>🏛️ ARB Global Cleansing <small>ARBO Management</small></h1>
-    
     <nav class="nav" id="mainNav"></nav>
 
-    <div id="chartsContainer" class="charts-container" style="display: none;"></div>
+    <div id="setupWarning" class="access-note error-note"></div>
 
-    <div class="section">
-        <div class="toolbar">
-            <input type="text" id="searchArbo" placeholder="🔍 Search ARBO Name or Municipality..." oninput="loadArbos()" />
+    <section class="section">
+        <div class="module-heading">
             <div>
-                <button class="btn btn-report" onclick="openReportModal()">📊 Generate Report</button>
-                <button class="btn btn-primary" id="addArboBtn" onclick="openArboModal()">➕ Add New ARBO</button>
+                <h2 style="margin:0;color:#0a3d62;">Cooperative Management System</h2>
+                <p class="module-note">Only ARBOs permitted by your account are displayed.</p>
+            </div>
+            <div class="module-actions">
+                <button class="btn btn-primary" id="addArboBtn" type="button">➕ Add ARBO</button>
             </div>
         </div>
-        <div class="table-wrap">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 80px;">ID</th>
-                        <th>ARBO Name</th>
-                        <th>Barangay</th>
-                        <th>Municipality</th>
-                        <th>Contact</th>
-                        <th style="width: 130px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="arboTableBody"><tr><td colspan="6" class="empty-msg">⏳ Loading records...</td></tr></tbody>
+
+        <div class="arbo-master-toolbar">
+            <div><label for="searchArbo">ARBO name</label><input class="arbo-input" id="searchArbo" placeholder="Search cooperative name"></div>
+            <div><label for="searchMunicipality">Municipality</label><input class="arbo-input" id="searchMunicipality" placeholder="All municipalities"></div>
+            <div><label for="searchBarangay">Barangay</label><input class="arbo-input" id="searchBarangay" placeholder="All barangays"></div>
+            <div><label for="searchStatus">Status</label><select class="arbo-input" id="searchStatus"><option value="">All</option><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></div>
+            <button class="btn btn-primary" id="applyArboSearch" type="button">Search</button>
+        </div>
+
+        <div class="data-table-wrap">
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>ARBO</th><th>Municipality</th><th>Barangay</th><th>Contact</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody id="arboTableBody"><tr><td colspan="7" class="empty-panel">Loading accessible ARBOs…</td></tr></tbody>
             </table>
         </div>
-    </div>
+        <div class="page-controls"><button class="btn btn-primary" id="previousArboPage" type="button">Previous</button><span id="arboPageInfo">Page 1</span><button class="btn btn-primary" id="nextArboPage" type="button">Next</button></div>
+    </section>
+
+    <section class="workspace" id="cooperativeWorkspace" style="display:none;">
+        <header class="workspace-header">
+            <div><h2 id="workspaceTitle">ARBO</h2><p id="workspaceSubtitle"></p></div>
+            <div class="workspace-actions"><button class="btn btn-warning" id="editCurrentArbo" type="button">✏️ Edit ARBO</button><button class="btn btn-primary" id="printCurrentArbo" type="button">🖨️ Print</button><button class="btn btn-danger" id="closeWorkspace" type="button">Close</button></div>
+        </header>
+        <div class="arbo-kpis" id="workspaceKpis"></div>
+        <nav class="workspace-tabs" id="workspaceTabs"></nav>
+        <div class="workspace-body" id="workspaceBody"><div class="empty-panel">Select an ARBO.</div></div>
+    </section>
 </div>
 
-<!-- Print Area Container (Hidden from main UI) -->
-<div id="printArea">
-    <div style="text-align: center; margin-bottom: 20px;">
-        <h2 style="color: #0a3d62;">DAR - ARBO Management System</h2>
-        <h3 id="printTitle">Report</h3>
-        <p id="printMeta" style="color: #64748b; font-size: 0.9rem;"></p>
-    </div>
-    <div id="printContent"></div>
-</div>
-
-<!-- Add/Edit ARBO Modal -->
-<div id="arboModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('arboModal')">&times;</button>
-        <h2 id="arboModalTitle">➕ Add New ARBO</h2>
-        <form id="arboForm" onsubmit="saveArbo(event)">
-            <input type="hidden" id="arboId" />
-            <div class="form-grid full">
-                <div><label>ARBO Name *</label><input id="arboName" class="qa-input-field" required placeholder="Enter official ARBO name" /></div>
-            </div>
-            <div class="form-grid">
-                <div><label>Barangay</label><input id="arboBarangay" class="qa-input-field" placeholder="e.g. San Jose" /></div>
-                <div><label>Municipality</label><input id="arboMunicipality" class="qa-input-field" placeholder="e.g. Quezon City" /></div>
-                <div><label>Contact Number</label><input id="arboContact" class="qa-input-field" placeholder="09XX-XXX-XXXX" /></div>
-            </div>
-            <div class="form-actions">
-                <button type="button" class="btn btn-danger" onclick="closeModal('arboModal')">Cancel</button>
-                <button type="submit" class="btn btn-success">💾 Save ARBO</button>
-            </div>
+<div id="entityModal" class="modal">
+    <div class="modal-content coop-modal">
+        <button class="modal-close" id="closeEntityModal" type="button">&times;</button>
+        <h2 id="entityModalTitle">Add record</h2>
+        <form id="entityForm">
+            <input type="hidden" id="entityType"><input type="hidden" id="entityId">
+            <div id="entityFormBody"></div>
+            <div class="form-actions"><button class="btn btn-danger" id="cancelEntity" type="button">Cancel</button><button class="btn btn-success" id="saveEntity" type="submit">💾 Save</button></div>
         </form>
     </div>
 </div>
 
-<!-- Report Generator Modal -->
-<div id="reportModal" class="modal">
-    <div class="modal-content">
-        <button class="modal-close" onclick="closeModal('reportModal')">&times;</button>
-        <h2 style="color: #4f46e5;">📊 Custom Report Generator</h2>
-        <form onsubmit="generateReport(event)">
-            <div class="form-grid full">
-                <div>
-                    <label>Report Target *</label>
-                    <select id="repTarget" class="qa-input-field" required onchange="toggleReportFilters()">
-                        <option value="arbo_muni">List of ARBOs in specific Municipality</option>
-                        <option value="arbo_brgy">List of ARBOs in specific Barangay</option>
-                        <option value="mem_arbo">All Members of a specific ARBO</option>
-                        <option value="mem_new">New Members/Officers (Date Range)</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-grid" id="repLocFilter">
-                <div><label>Municipality</label><input type="text" id="repMuni" class="qa-input-field" placeholder="Leave blank for all" /></div>
-                <div><label>Barangay</label><input type="text" id="repBrgy" class="qa-input-field" placeholder="Leave blank for all" /></div>
-            </div>
-            <div class="form-grid full" id="repArboFilter" style="display:none;">
-                <div><label>Select ARBO</label><select id="repArboId" class="qa-input-field"></select></div>
-            </div>
-            <div class="form-grid" id="repDateFilter" style="display:none;">
-                <div><label>Date From</label><input type="date" id="repDateFrom" class="qa-input-field" /></div>
-                <div><label>Date To</label><input type="date" id="repDateTo" class="qa-input-field" /></div>
-            </div>
-            <div class="form-actions"><button type="submit" class="btn btn-report" style="width:100%;">🖨️ Generate & Print</button></div>
-        </form>
-    </div>
-</div>
-
-<!-- Profile View Modal -->
-<div id="profileModal" class="modal">
-    <div class="modal-content wide">
-        <button class="modal-close" onclick="closeModal('profileModal')">&times;</button>
-        <h2 id="profileModalTitle">🏢 ARBO Profile</h2>
-        <div style="margin-bottom: 10px; color: #64748b; font-size: 0.9rem;" id="profileSubHeader"></div>
-        <input type="hidden" id="currentProfileId" />
-        <input type="hidden" id="currentProfileName" />
-        
-        <div class="profile-grid">
-            <div class="profile-section">
-                <h3><span>✅ Validators</span> <button class="add-mini-btn" onclick="openQuickAdd('validator')">+ Add</button></h3>
-                <ul class="profile-list" id="profValidators"><li>⏳ Loading...</li></ul>
-            </div>
-            <div class="profile-section">
-                <h3><span>📅 Activities & Trainings</span> <button class="add-mini-btn" onclick="openQuickAdd('activity')">+ Add</button></h3>
-                <ul class="profile-list" id="profActivities"><li>⏳ Loading...</li></ul>
-            </div>
-            <div class="profile-section">
-                <h3><span>💰 Income Monitoring</span> <button class="add-mini-btn" onclick="openQuickAdd('income')">+ Add</button></h3>
-                <ul class="profile-list" id="profIncome"><li>⏳ Loading...</li></ul>
-            </div>
-            <div class="profile-section">
-                <h3><span>🚜 Machinery Inventory</span> <button class="add-mini-btn" onclick="openQuickAdd('machinery')">+ Add</button></h3>
-                <ul class="profile-list" id="profMachinery"><li>⏳ Loading...</li></ul>
-            </div>
-            <!-- Expanded Members Section to span full width and show cards -->
-            <div class="profile-section" style="grid-column: 1 / -1;">
-                <h3><span>👥 Registered Members & Leaders</span> <button class="add-mini-btn" onclick="openQuickAdd('member')">+ Assign Role</button></h3>
-                <div id="profMembers" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 200px; overflow-y: auto;">
-                    <p style="padding: 10px;">⏳ Loading...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Scalable Quick Add Modal -->
-<div id="quickAddModal" class="modal" style="z-index: 2000;">
-    <div class="modal-content" style="max-width: 550px;">
-        <button class="modal-close" onclick="closeModal('quickAddModal')">&times;</button>
-        <h2 id="qaTitle">➕ Add Record</h2>
-        <form id="qaForm" onsubmit="submitQuickAdd(event)">
-            <input type="hidden" id="qaType" />
-            <div id="qaBody" class="form-grid full">
-                <!-- Dynamically injected UI -->
-            </div>
-            <div class="form-actions" id="qaActions">
-                <button type="button" class="btn btn-danger" onclick="closeModal('quickAddModal')">Cancel</button>
-                <button type="submit" class="btn btn-success" id="qaSubmitBtn">💾 Save Entry</button>
-            </div>
-        </form>
-    </div>
-</div>
+<div id="printArea" style="display:none;"><h2 id="printHeading"></h2><p id="printSubheading"></p><div id="printBody"></div></div>
 
 <script>
-    (async function() {
-        window.onerror = function(msg, url, line) {
-            console.error(`[CRITICAL CRASH] Line ${line}: ${msg}`);
-            return false;
-        };
+(async function () {
+    'use strict';
+    const PAGE_SIZE = 50;
+    const state = {
+        db:null, user:null, profile:null, arboPage:0, arboCount:0,
+        currentArbo:null, activeTab:'overview', selectedMemberCandidate:null, selectedValidator:null,
+        data:{ members:[], officers:[], machinery:[], services:[], income:[], capital:[], activities:[], validators:[] }
+    };
+    const $ = (id) => document.getElementById(id);
+    const esc = (v) => String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const blank = (v) => v === null || v === undefined || String(v).trim() === '';
+    const val = (v) => blank(v) ? '—' : esc(v);
+    const nullIfBlank = (v) => blank(v) ? null : String(v).trim();
+    const money = (v) => '₱' + (Number(v) || 0).toLocaleString('en-PH', {minimumFractionDigits:2,maximumFractionDigits:2});
+    const dateOnly = (v) => v ? String(v).slice(0,10) : '';
+    const formatDate = (v) => { if (!v) return '—'; const d=new Date(String(v).length===10?v+'T00:00:00':v); return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}); };
+    const badge = (text, kind='gray') => `<span class="badge badge-${kind}">${val(text)}</span>`;
+    const role = () => String(state.profile?.role || '').toLowerCase();
+    const isManager = () => ['admin','staff'].includes(role());
+    const today = () => new Date().toISOString().slice(0,10);
+    const byId = (rows,id) => rows.find(r => String(r.id) === String(id));
+    const formValue = (name) => new FormData($('entityForm')).get(name);
+    const currentId = () => state.currentArbo?.id;
+    const input = (name,label,value='',type='text',attrs='') => `<div class="field-group"><label for="f_${name}">${esc(label)}</label><input class="arbo-input" id="f_${name}" name="${esc(name)}" type="${esc(type)}" value="${esc(value ?? '')}" ${attrs}></div>`;
+    const textarea = (name,label,value='') => `<div class="field-group full"><label for="f_${name}">${esc(label)}</label><textarea class="arbo-input" id="f_${name}" name="${esc(name)}" rows="3">${esc(value ?? '')}</textarea></div>`;
+    const select = (name,label,options,value='',attrs='') => `<div class="field-group"><label for="f_${name}">${esc(label)}</label><select class="arbo-input" id="f_${name}" name="${esc(name)}" ${attrs}>${options.map(o=>{const pair=Array.isArray(o)?o:[o,o];return `<option value="${esc(pair[0])}"${String(pair[0])===String(value)?' selected':''}>${esc(pair[1])}</option>`;}).join('')}</select></div>`;
 
-        function safeHtml(str) {
-            if (!str) return '';
-            return String(str).replace(/[&<>'"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[match]));
-        }
+    function resolveClient() {
+        const existing=window.secureDbClient||window.supabaseClient||window.dbClient;
+        if (existing?.from && existing?.auth) return existing;
+        const c=window.SUPABASE_CONFIG||window.supabaseConfig||window.APP_CONFIG||{};
+        const url=c.url||c.supabaseUrl||window.SUPABASE_URL||'https://xnwttnpfzcjbszwxsgox.supabase.co';
+        const key=c.publishableKey||c.anonKey||c.supabaseAnonKey||window.SUPABASE_ANON_KEY||'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
+        return window.supabase?.createClient ? window.supabase.createClient(url,key) : null;
+    }
 
-        function formatDate(dateString) {
-            if (!dateString) return '-';
-            const d = new Date(dateString);
-            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-        }
+    async function buildNavbar(userProfile, authData) {
+        const navEl=$('mainNav'); if(!navEl) return;
+        const {data:navItems}=await state.db.from('system_navigation').select('*').order('id',{ascending:true});
+        const curPath=window.location.pathname;
+        const links=navItems?.length?navItems:[
+            {label:'Dashboard',url:'/dashboard.html',icon:'📊'},{label:'ARBO Management',url:'/arbo.html',icon:'🏢'},
+            {label:'ARB Management',url:'/arb.html',icon:'👤'},{label:'Validators',url:'/validators.html',icon:'✅'},{label:'Reports',url:'/reports.html',icon:'📈'}
+        ];
+        const unique=[]; const seen=new Set(); for(const item of links){if(!seen.has(item.label)){seen.add(item.label);unique.push(item);}}
+        let html=unique.map(l=>{const target=(l.url||'').replace('/','');const active=curPath.includes(target)&&target?'active':'';return `<a href="${esc(l.url)}" class="${active}">${esc(l.icon||'')} ${esc(l.label)}</a>`;}).join('');
+        const display=userProfile?.full_name?.trim()||authData.user.email;
+        html+=`<span class="user-badge" style="margin-left:auto;color:#0a3d62;font-weight:600;">👤 ${esc(display)} (${esc(userProfile?.role)})</span><span id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
+        navEl.innerHTML=html; $('navLogoutBtn')?.addEventListener('click',async()=>{await state.db.auth.signOut();location.href='login.html';});
+    }
 
-        function getTodayString() {
-            const d = new Date();
-            return d.toISOString().split('T')[0];
-        }
+    function showSetupWarning(message) { const el=$('setupWarning'); el.innerHTML=`<strong>Database setup required:</strong> ${esc(message)} Run <code>ARBO_Cooperative_Management_Schema.sql</code> once in Supabase SQL Editor.`; el.style.display='block'; }
+    function openModal(title,type,id='') { $('entityModalTitle').textContent=title; $('entityType').value=type; $('entityId').value=id||''; $('entityModal').classList.add('active'); }
+    function closeModal() { $('entityModal').classList.remove('active'); $('entityForm').reset(); $('entityFormBody').innerHTML=''; state.selectedMemberCandidate=null; state.selectedValidator=null; }
+    function recordAudit(payload,isNew) { payload.updated_at=new Date().toISOString(); payload.updated_by=state.user.id; if(isNew) payload.created_by=state.user.id; return payload; }
 
-        function createDonutHTML(value, total, color, label, subtext) {
-            const percentage = total === 0 ? 0 : Math.round((value / total) * 100);
-            return `
-                <div class="chart-item">
-                    <svg viewBox="0 0 36 36">
-                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle-chart" stroke="${color}" stroke-dasharray="${percentage}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <text x="18" y="20.35" class="donut-text">${value}</text>
-                    </svg>
-                    <div class="chart-label">${label}</div>
-                    <div class="chart-subtext">${subtext}</div>
-                </div>
-            `;
-        }
-
+    async function loadArbos() {
+        const tbody=$('arboTableBody'); tbody.innerHTML='<tr><td colspan="7" class="empty-panel">Loading accessible ARBOs…</td></tr>';
+        const from=state.arboPage*PAGE_SIZE, to=from+PAGE_SIZE-1;
         try {
-            if (typeof window.supabase === 'undefined') throw new Error("Supabase CDN script failed to load.");
+            let q=state.db.from('arbo').select('*',{count:'exact'}).order('name',{ascending:true}).range(from,to);
+            const name=$('searchArbo').value.trim(), muni=$('searchMunicipality').value.trim(), brgy=$('searchBarangay').value.trim(), status=$('searchStatus').value;
+            if(name) q=q.ilike('name','%'+name.replaceAll('%','\\%').replaceAll('_','\\_')+'%');
+            if(muni) q=q.ilike('municipality','%'+muni.replaceAll('%','\\%').replaceAll('_','\\_')+'%');
+            if(brgy) q=q.ilike('barangay','%'+brgy.replaceAll('%','\\%').replaceAll('_','\\_')+'%');
+            if(status) q=q.eq('status',status);
+            const r=await q; if(r.error) throw r.error; state.arboCount=r.count||0;
+            if(!r.data?.length){tbody.innerHTML='<tr><td colspan="7" class="empty-panel">No accessible ARBO matched the filters.</td></tr>';}
+            else tbody.innerHTML=r.data.map(a=>`<tr><td>${val(a.id)}</td><td><strong style="color:#0a3d62;">${val(a.name)}</strong><br><small>${val(a.registration_no||a.cda_registration_no)}</small></td><td>${val(a.municipality)}</td><td>${val(a.barangay)}</td><td>${val(a.contact_number)}</td><td>${badge(a.status||'ACTIVE',(a.status||'ACTIVE')==='ACTIVE'?'green':'gray')}</td><td><button class="btn btn-info btn-sm" type="button" data-open-arbo="${esc(a.id)}">Open</button></td></tr>`).join('');
+            $('arboPageInfo').textContent=`Page ${state.arboPage+1} of ${Math.max(1,Math.ceil(state.arboCount/PAGE_SIZE))} · ${state.arboCount} ARBO(s)`;
+            $('previousArboPage').disabled=state.arboPage===0; $('nextArboPage').disabled=to+1>=state.arboCount;
+        } catch(e) { tbody.innerHTML=`<tr><td colspan="7" class="empty-panel" style="color:#b91c1c;">${esc(e.message)}</td></tr>`; }
+    }
 
-            const SUPABASE_URL = 'https://xnwttnpfzcjbszwxsgox.supabase.co';
-            const SUPABASE_KEY = 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI';
-            const dbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    async function safeArboQuery(table,orderColumn) {
+        let q=state.db.from(table).select('*').eq('arbo_id',currentId()); if(orderColumn) q=q.order(orderColumn,{ascending:false}); const r=await q; if(r.error) throw r.error; return r.data||[];
+    }
 
-            // AUTHENTICATION
-            const { data: authData, error: authErr } = await dbClient.auth.getUser();
-            if (authErr || !authData || !authData.user) { window.location.href = 'dashboard.html'; return; }
+    async function openArbo(id) {
+        $('cooperativeWorkspace').style.display='block'; $('workspaceBody').innerHTML='<div class="empty-panel">Loading cooperative records…</div>';
+        try {
+            const ar=await state.db.from('arbo').select('*').eq('id',id).single(); if(ar.error) throw ar.error; state.currentArbo=ar.data;
+            const loaders=[
+                ['members','arbo_members','date_from'],['officers','arbo_officer_terms','date_assumed'],['machinery','arbo_machinery','created_at'],
+                ['services','arbo_machinery_services','scheduled_date'],['income','arbo_income','date'],['capital','arbo_capital_transactions','transaction_date'],
+                ['activities','arbo_activities','training_date'],['validators','arbo_validators','assigned_from']
+            ];
+            const results=await Promise.all(loaders.map(async([key,table,order])=>{try{return [key,await safeArboQuery(table,order),null];}catch(e){return [key,[],e];}}));
+            const missing=[]; for(const [key,rows,error] of results){state.data[key]=rows;if(error)missing.push(`${key}: ${error.message}`);}
+            if(missing.length) showSetupWarning(missing.join(' | '));
+            renderWorkspace(); $('cooperativeWorkspace').scrollIntoView({behavior:'smooth',block:'start'});
+        } catch(e) { $('workspaceBody').innerHTML=`<div class="access-note error-note">${esc(e.message)}</div>`; }
+    }
 
-            const { data: profile } = await dbClient.from('profiles').select('*').eq('id', authData.user.id).single();
-            if (!profile) { window.location.href = 'dashboard.html'; return; }
-            window.currentProfile = profile; 
-            
-            // NAVBAR BUILDER (KEPT INTACT)
-            async function buildNavbar(userProfile, authData) {
-                const navEl = document.getElementById('mainNav');
-                if (!navEl) return;
-                
-                const { data: navItems } = await dbClient.from('system_navigation').select('*').order('id', { ascending: true });
-                const curPath = window.location.pathname;
-                
-                const links = navItems && navItems.length > 0 ? navItems : [
-                    { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
-                    { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
-                    { label: 'ARB Management', url: '/arb.html', icon: '👤' },
-                    { label: 'Validators', url: '/validators.html', icon: '✅' },
-                    { label: 'Reports', url: '/reports.html', icon: '📈' }
-                ];
+    function signedCapital(tx) { return String(tx.transaction_type).toUpperCase()==='REFUND' ? -(Number(tx.amount)||0) : Number(tx.amount)||0; }
+    function isDue(date) { if(!date) return false; const days=(new Date(dateOnly(date))-new Date(today()))/86400000; return days<=30; }
+    function isOverdue(date) { return Boolean(date) && dateOnly(date)<today(); }
+    function canEditCurrent() { return isManager() || state.data.validators.some(v=>v.validator_user_id===state.user.id && v.is_active && dateOnly(v.assigned_from)<=today() && (!v.assigned_until||dateOnly(v.assigned_until)>=today())); }
+    function memberName(id) { return byId(state.data.members,id)?.arb_name || 'Unknown member'; }
+    function machineryName(id) { return byId(state.data.machinery,id)?.equipment_name || '—'; }
+    function activeMembers() { return state.data.members.filter(m=>(m.membership_status||'ACTIVE')==='ACTIVE' && !m.date_to); }
 
-                const uniqueLinks = [];
-                const seenLabels = new Set();
-                for (const item of links) {
-                    if (!seenLabels.has(item.label)) { seenLabels.add(item.label); uniqueLinks.push(item); }
-                }
+    const tabs=[['overview','Overview'],['members','Members'],['officers','Officers'],['machinery','Machinery'],['services','Maintenance & Repairs'],['income','Income & Rentals'],['capital','Paid-up Capital'],['activities','Activities'],['validators','Validators']];
+    function renderWorkspace() {
+        const a=state.currentArbo; $('workspaceTitle').textContent=a.name; $('workspaceSubtitle').textContent=[a.barangay,a.municipality,a.registration_no||a.cda_registration_no].filter(Boolean).join(' · ');
+        $('editCurrentArbo').style.display=canEditCurrent()?'inline-flex':'none';
+        const activeOfficers=state.data.officers.filter(o=>(o.term_status||'ACTIVE')==='ACTIVE'&&!o.actual_end_date).length;
+        const due=state.data.machinery.filter(m=>isDue(m.next_maintenance_date)).length;
+        const gross=state.data.income.reduce((s,r)=>s+(Number(r.gross_income??r.amount)||0),0);
+        const net=state.data.income.reduce((s,r)=>s+(Number(r.net_income??r.amount)||0),0);
+        const paid=state.data.capital.reduce((s,r)=>s+signedCapital(r),0);
+        $('workspaceKpis').innerHTML=[['Active Members',activeMembers().length],['Active Officers',activeOfficers],['Machinery',state.data.machinery.length],['Maintenance Due',due],['Net Income',money(net)],['Paid-up Capital',money(paid)]].map(x=>`<div class="arbo-kpi"><span>${esc(x[0])}</span><strong>${esc(x[1])}</strong></div>`).join('');
+        $('workspaceTabs').innerHTML=tabs.map(([id,label])=>`<button class="workspace-tab${state.activeTab===id?' active':''}" data-tab="${id}" type="button">${esc(label)}</button>`).join('');
+        renderActiveTab();
+    }
 
-                let html = uniqueLinks.map(l => {
-                    const linkTarget = (l.url || '').replace('/', '');
-                    const isActive = curPath.includes(linkTarget) && linkTarget !== '' ? 'active' : '';
-                    return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
-                }).join('');
+    function heading(title,note,type,button='Add Record') { return `<div class="module-heading"><div><h3>${esc(title)}</h3><p class="module-note">${esc(note)}</p></div>${canEditCurrent()&&type?`<button class="btn btn-primary" type="button" data-add="${type}">➕ ${esc(button)}</button>`:''}</div>`; }
+    function editButton(type,id) { return canEditCurrent()?`<button class="btn btn-warning btn-sm" type="button" data-edit="${type}" data-id="${esc(id)}">Edit</button>`:''; }
+    function table(headers,rows,colspan) { return rows.length?`<div class="data-table-wrap"><table class="data-table"><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`:`<div class="empty-panel">No records yet.</div>`; }
 
-                if (userProfile && authData) {
-                    const displayName = userProfile.full_name && userProfile.full_name.trim() !== '' ? userProfile.full_name : authData.user.email;
-                    html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${displayName} (${userProfile.role})</span>`;
-                    html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
-                }
-                
-                navEl.innerHTML = html;
-                document.getElementById('navLogoutBtn')?.addEventListener('click', async () => { await dbClient.auth.signOut(); window.location.href = 'login.html'; });
-            }
-            await buildNavbar(profile, authData);
-
-            // PAGE LOGIC
-            window.loadArboStats = async function() {
-                const chartsEl = document.getElementById('chartsContainer');
-                if (!chartsEl) return;
-                try {
-                    const { count: totalArbo } = await dbClient.from('arbo').select('*', { count: 'exact', head: true });
-                    let chartsHTML = '';
-                    chartsHTML += createDonutHTML(totalArbo || 0, totalArbo || 1, '#0a3d62', 'Total ARBOs', 'Registered organizations');
-                    chartsHTML += createDonutHTML(totalArbo > 0 ? 1 : 0, totalArbo || 1, '#2e7d32', 'Largest ARBO', 'By member count');
-                    chartsHTML += createDonutHTML(totalArbo > 0 ? 1 : 0, totalArbo || 1, '#e8a317', 'Most Active', 'Highest engagement');
-                    chartsEl.innerHTML = chartsHTML;
-                    chartsEl.style.display = 'flex';
-                } catch (e) { console.error("Stats Error:", e); }
-            };
-
-            window.loadArbos = async function() {
-                try {
-                    const search = document.getElementById('searchArbo').value.trim();
-                    let query = dbClient.from('arbo').select('*');
-                    if (search) query = query.ilike('name', `%${search}%`);
-                    const { data, error } = await query.order('id', { ascending: false });
-                    if (error) throw new Error(error.message);
-                    
-                    const tbody = document.getElementById('arboTableBody');
-                    if (!data || data.length === 0) { tbody.innerHTML = `<tr><td colspan="6" class="empty-msg">📭 No ARBO records found.</td></tr>`; return; }
-
-                    tbody.innerHTML = data.map(a => `
-                        <tr>
-                            <td style="font-family: monospace; color: #64748b;">${(a.id || '-').toString().substring(0,6)}</td>
-                            <td style="font-weight: 600; color: #0a3d62;">${safeHtml(a.name)}</td>
-                            <td>${safeHtml(a.barangay) || '-'}</td>
-                            <td>${safeHtml(a.municipality) || '-'}</td>
-                            <td>${safeHtml(a.contact_number) || '-'}</td>
-                            <td class="actions">
-                                <button class="btn btn-info btn-sm" onclick="viewArboProfile(${a.id}, '${safeHtml(a.name.replace(/'/g, "\\'"))}')" title="View Profile">👁️</button>
-                                ${['admin', 'staff'].includes(window.currentProfile.role) ? `
-                                    <button class="btn btn-warning btn-sm" onclick="editArbo(${a.id})" title="Edit">✏️</button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteArbo(${a.id})" title="Delete">🗑️</button>
-                                ` : ''}
-                            </td>
-                        </tr>
-                    `).join('');
-                } catch (err) { document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Error loading data: ${err.message}</td></tr>`; }
-            };
-
-            // PROFILE MODAL LOGIC - WITH UPGRADED QUERIES
-            window.viewArboProfile = async function(id, name) {
-                document.getElementById('currentProfileId').value = id;
-                document.getElementById('currentProfileName').value = name;
-                document.getElementById('profileModalTitle').textContent = `🏢 Profile: ${name}`;
-                document.getElementById('profileSubHeader').textContent = `ARBO Database ID: ${id}`;
-                
-                const vList = document.getElementById('profValidators');
-                const aList = document.getElementById('profActivities');
-                const iList = document.getElementById('profIncome');
-                const mList = document.getElementById('profMachinery');
-                const memList = document.getElementById('profMembers');
-
-                vList.innerHTML = '<li>⏳ Loading...</li>';
-                aList.innerHTML = '<li>⏳ Loading...</li>';
-                iList.innerHTML = '<li>⏳ Loading...</li>';
-                mList.innerHTML = '<li>⏳ Loading...</li>';
-                memList.innerHTML = '<p style="padding:10px;">⏳ Loading...</p>';
-
-                const m = document.getElementById('profileModal');
-                if (m) m.classList.add('active');
-
-                // 1. Fetch Validators (unchanged)
-                try {
-                    const { data } = await dbClient.from('arbo_validators').select('*').eq('arbo_id', id);
-                    if (!data || data.length === 0) vList.innerHTML = '<li>📭 No validators assigned.</li>';
-                    else vList.innerHTML = data.map(v => `<li style="flex-direction:row;"><span>👤 ${safeHtml(v.validator_name)}</span></li>`).join('');
-                } catch(e) { vList.innerHTML = '<li>📭 No records found.</li>'; }
-
-                // 2. Fetch Activities (Upgraded with Attendees)
-                try {
-                    const { data } = await dbClient.from('arbo_activities').select('*').eq('arbo_id', id).order('training_date', { ascending: false });
-                    if (!data || data.length === 0) aList.innerHTML = '<li>📭 No activities logged.</li>';
-                    else aList.innerHTML = data.map(act => `
-                        <li style="flex-direction: column; align-items: flex-start;">
-                            <div style="display:flex; justify-content:space-between; width:100%;">
-                                <span>📅 <strong>${safeHtml(act.activity_name)}</strong></span>
-                                <span style="font-size:0.75rem; color:#64748b;">${formatDate(act.training_date || act.created_at)}</span>
-                            </div>
-                            <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">
-                                ARBs: ${safeHtml(act.arb_attendees || '0')} | Non-ARBs: ${safeHtml(act.non_arb_attendees || '0')}
-                            </div>
-                        </li>
-                    `).join('');
-                } catch(e) { aList.innerHTML = '<li>📭 No records found.</li>'; }
-
-                // 3. Fetch Income (Upgraded with Gross/Net)
-                try {
-                    const { data } = await dbClient.from('arbo_income').select('*').eq('arbo_id', id).order('date', { ascending: false });
-                    if (!data || data.length === 0) iList.innerHTML = '<li>📭 No income data.</li>';
-                    else {
-                        let html = '';
-                        data.forEach(inc => {
-                            const net = inc.net_income || inc.amount || 0; 
-                            html += `
-                                <li style="flex-direction:column; align-items:flex-start;">
-                                    <div style="display:flex; justify-content:space-between; width:100%;">
-                                        <span>💵 <strong>${safeHtml(inc.description || inc.source)}</strong></span>
-                                        <span style="font-size:0.75rem; color:#64748b;">${formatDate(inc.date || inc.created_at)}</span>
-                                    </div>
-                                    <div style="font-size:0.75rem; color:#16a34a; margin-top:2px;">Net: ₱${Number(net).toLocaleString()}</div>
-                                </li>`;
-                        });
-                        iList.innerHTML = html;
-                    }
-                } catch(e) { iList.innerHTML = '<li>📭 No records found.</li>'; }
-
-                // 4. Fetch Machinery (Upgraded with Status/Repair)
-                try {
-                    const { data } = await dbClient.from('arbo_machinery').select('*').eq('arbo_id', id);
-                    if (!data || data.length === 0) mList.innerHTML = '<li>📭 No machinery listed.</li>';
-                    else mList.innerHTML = data.map(mac => `
-                        <li style="flex-direction:column; align-items:flex-start;">
-                            <div style="display:flex; justify-content:space-between; width:100%;">
-                                <span>⚙️ <strong>${safeHtml(mac.equipment_name)}</strong></span>
-                                <span style="color: ${mac.status === 'Operational' ? '#16a34a' : '#dc2626'}; font-size:0.75rem; font-weight:bold;">[${safeHtml(mac.status)}]</span>
-                            </div>
-                            <div style="font-size:0.75rem; color:#64748b; margin-top:2px;">Released: ${formatDate(mac.date_release)}</div>
-                        </li>
-                    `).join('');
-                } catch(e) { mList.innerHTML = '<li>📭 No records found.</li>'; }
-
-                // 5. Fetch Members (Upgraded with Grouping and Terms)
-                try {
-                    const { data } = await dbClient.from('arbo_members').select('*').eq('arbo_id', id).order('date_from', { ascending: false });
-                    if (!data || data.length === 0) memList.innerHTML = '<p style="padding:10px; color:#64748b; width:100%; grid-column:1/-1;">📭 No members/leaders assigned.</p>';
-                    else {
-                        let grouped = {};
-                        data.forEach(m => {
-                            const key = m.profile_id || m.arb_name;
-                            if (!grouped[key]) grouped[key] = { name: m.arb_name, is_arb: m.is_arb, roles: [] };
-                            grouped[key].roles.push(m);
-                        });
-
-                        let cardsHtml = '';
-                        for (const key in grouped) {
-                            const person = grouped[key];
-                            const badge = person.is_arb ? `<span class="badge-arb">ARB</span>` : `<span class="badge-nonarb">NON-ARB</span>`;
-                            let rolesHtml = person.roles.map(r => {
-                                let endStr = r.date_to ? formatDate(r.date_to) : '<span style="color:#16a34a;">Present</span>';
-                                return `<div class="role-row"><strong>${safeHtml(r.position)}</strong> <span>${formatDate(r.date_from)} - ${endStr}</span></div>`;
-                            }).join('');
-                            cardsHtml += `<div class="member-card"><div class="member-card-header"><span>👤 ${safeHtml(person.name)}</span> ${badge}</div><div>${rolesHtml}</div></div>`;
-                        }
-                        memList.innerHTML = cardsHtml;
-                    }
-                } catch(e) { memList.innerHTML = '<p style="padding:10px; color:#b91c1c;">📭 Error loading members (Check if arbo_members table is updated).</p>'; }
-            };
-
-            // SCALABLE QUICK ADD WITH UPGRADED UI
-            window.openQuickAdd = function(type) {
-                const arboId = document.getElementById('currentProfileId').value;
-                if (!arboId) return;
-
-                document.getElementById('qaType').value = type;
-                const qaBody = document.getElementById('qaBody');
-                const qaTitle = document.getElementById('qaTitle');
-                const submitBtn = document.getElementById('qaSubmitBtn');
-                submitBtn.style.display = 'inline-flex'; 
-                const today = getTodayString();
-
-                if (type === 'validator') {
-                    qaTitle.textContent = '➕ Assign System Validator';
-                    submitBtn.style.display = 'none'; 
-                    qaBody.innerHTML = `
-                        <div style="margin-bottom:10px;">
-                            <label>Search User (Name or Email) *</label>
-                            <div style="display: flex; gap: 10px; margin-top:5px;">
-                                <input type="text" id="userSearchInput" class="qa-input-field" placeholder="Type name..." style="flex-grow:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchUsers();}" />
-                                <button type="button" class="btn btn-primary" style="padding: 10px 15px;" onclick="searchUsers()">🔍 Find</button>
-                            </div>
-                        </div>
-                        <input type="hidden" id="qaInput1" required />
-                        <ul id="userSearchResults" class="profile-list" style="margin-top: 15px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; display: none;"></ul>
-                    `;
-                } 
-                else if (type === 'member') {
-                    qaTitle.textContent = '➕ Assign Role / Term';
-                    submitBtn.style.display = 'none'; 
-                    qaBody.innerHTML = `
-                        <div class="form-grid full" style="margin-bottom:10px;">
-                            <label>1. Search ARB Database (queries 'arb_profiles')</label>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" id="personSearch" class="qa-input-field" placeholder="Type fb_name..." onkeydown="if(event.key==='Enter'){event.preventDefault(); window.searchProfiles();}" />
-                                <button type="button" class="btn btn-primary" onclick="searchProfiles()">🔍 Find</button>
-                            </div>
-                            <ul id="searchResults" class="profile-list" style="display:none; border: 1px solid #cbd5e1; border-radius: 6px; padding:10px; margin-top:5px; max-height:120px; overflow-y:auto;"></ul>
-                        </div>
-                        <div id="roleAssignmentDiv" style="display:none; border-top: 2px dashed #cbd5e1; padding-top: 15px;">
-                            <input type="hidden" id="selProfId" /><input type="hidden" id="selName" /><input type="hidden" id="selIsArb" />
-                            <h4 style="margin-top:0; color:#0a3d62;">2. Assign term for: <span id="dispName"></span></h4>
-                            <div class="form-grid">
-                                <div><label>Position</label><select id="qaPosition" class="qa-input-field"><option>Member</option><option>President</option><option>Vice President</option><option>Secretary</option><option>Treasurer</option></select></div>
-                                <div><label>Date From *</label><input type="date" id="qaDateFrom" value="${today}" class="qa-input-field" required /></div>
-                                <div><label>Date To (End of Term)</label><input type="date" id="qaDateTo" class="qa-input-field" placeholder="Leave blank if active" /></div>
-                            </div>
-                        </div>
-                    `;
-                }
-                else if (type === 'activity') {
-                    qaTitle.textContent = '➕ Log Training / Activity';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full">
-                            <div><label>Training Title *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="e.g. Agrarian Seminar 2026" /></div>
-                            <div><label>Date of Training *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
-                            <div><label>ARBs Attended (Names/Count)</label><input type="text" id="qaArbAtt" class="qa-input-field" placeholder="Number or Names" /></div>
-                            <div><label>Non-ARBs Attended (Names/Count)</label><input type="text" id="qaNonArbAtt" class="qa-input-field" placeholder="Number or Names" /></div>
-                        </div>
-                    `;
-                }
-                else if (type === 'income') {
-                    qaTitle.textContent = '➕ Add Income Record';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full"><div><label>Source/Description *</label><input type="text" id="qaInput2" class="qa-input-field" required placeholder="e.g. Harvest Sales" /></div></div>
-                        <div class="form-grid">
-                            <div><label>Gross (₱) *</label><input type="number" step="0.01" id="qaGross" class="qa-input-field" required placeholder="0.00" /></div>
-                            <div><label>Net (₱) *</label><input type="number" step="0.01" id="qaNet" class="qa-input-field" required placeholder="0.00" /></div>
-                            <div><label>Date *</label><input type="date" id="qaDateInput" value="${today}" class="qa-input-field" required /></div>
-                        </div>
-                    `;
-                }
-                else if (type === 'machinery') {
-                    qaTitle.textContent = '➕ Add Machinery';
-                    qaBody.innerHTML = `
-                        <div class="form-grid full"><div><label>Equipment Name *</label><input type="text" id="qaInput1" class="qa-input-field" required placeholder="e.g. Tractor Model X" /></div></div>
-                        <div class="form-grid">
-                            <div><label>Status</label><select id="qaStat" class="qa-input-field"><option>Operational</option><option>Rented Out</option><option>Broken</option></select></div>
-                            <div><label>Date Released *</label><input type="date" id="qaDateM" value="${today}" class="qa-input-field" required /></div>
-                        </div>
-                    `;
-                }
-                
-                document.getElementById('quickAddModal').classList.add('active');
-            };
-
-            // USER SEARCH FOR VALIDATOR
-            window.searchUsers = async function() {
-                const term = document.getElementById('userSearchInput').value.trim();
-                const resEl = document.getElementById('userSearchResults');
-                if (!term) return;
-
-                resEl.style.display = 'block';
-                resEl.innerHTML = '<li>⏳ Searching Database...</li>';
-
-                try {
-                    const { data, error } = await dbClient.from('profiles').select('full_name, email, role').or(`full_name.ilike.%${term}%,email.ilike.%${term}%`).limit(15);
-                    if (error) throw error;
-                    if (!data || data.length === 0) { resEl.innerHTML = '<li>📭 No matching users found.</li>'; return; }
-
-                    resEl.innerHTML = data.map(u => {
-                        const name = u.full_name && u.full_name.trim() !== '' ? u.full_name : u.email;
-                        return `
-                            <li style="display:flex; justify-content:space-between; align-items:center; flex-direction:row;">
-                                <span>👤 ${safeHtml(name)} <small style="color:#64748b;">(${safeHtml(u.role)})</small></span>
-                                <button type="button" class="add-mini-btn" style="background:#16a34a; color:white;" onclick="finalizeAssignment('validator', '${safeHtml(name.replace(/'/g, "\\'"))}')">Select</button>
-                            </li>`;
-                    }).join('');
-                } catch (e) { resEl.innerHTML = `<li>❌ Error: ${e.message}</li>`; }
-            }
-
-            // PROFILE SEARCH FOR ARB MEMBERS
-            window.searchProfiles = async function() {
-                const term = document.getElementById('personSearch').value.trim();
-                const resEl = document.getElementById('searchResults');
-                if(!term) return;
-
-                resEl.style.display = 'block';
-                resEl.innerHTML = '<li style="padding:10px;">⏳ Searching arb_profiles...</li>';
-                
-                try {
-                    const { data, error } = await dbClient.from('arb_profiles').select('id, fb_name').ilike('fb_name', `%${term}%`).limit(10);
-                    if (error) throw error;
-                    
-                    if (!data || data.length === 0) {
-                        resEl.innerHTML = `
-                            <li style="text-align:center; padding:10px; flex-direction:column;">
-                                <p style="margin:0 0 10px 0;">No ARB found matching "${safeHtml(term)}".</p>
-                                <button type="button" class="btn btn-warning btn-sm" onclick="selectPerson(null, '${safeHtml(term.replace(/'/g, "\\'"))}', false)">➕ Add as Non-ARB</button>
-                            </li>`;
-                    } else {
-                        resEl.innerHTML = data.map(r => `
-                            <li style="padding:5px 10px; flex-direction:row;">
-                                <span>${safeHtml(r.fb_name)} <span class="badge-arb">ARB</span></span>
-                                <button type="button" class="btn btn-success btn-sm" onclick="selectPerson('${r.id}', '${safeHtml(r.fb_name.replace(/'/g, "\\'"))}', true)">Select</button>
-                            </li>
-                        `).join('');
-                    }
-                } catch (err) {
-                    resEl.innerHTML = `<li style="padding:10px; flex-direction:column;">Database query failed. Make sure 'arb_profiles' table exists. <button type="button" class="btn btn-info btn-sm" style="margin-top:10px;" onclick="selectPerson(null, '${safeHtml(term)}', false)">Use as Manual Entry</button></li>`;
-                }
-            };
-
-            // SELECTION HANDLERS
-            window.selectPerson = function(id, name, isArb) {
-                document.getElementById('searchResults').style.display = 'none';
-                document.getElementById('roleAssignmentDiv').style.display = 'block';
-                document.getElementById('qaSubmitBtn').style.display = 'inline-flex';
-                
-                document.getElementById('selProfId').value = id || '';
-                document.getElementById('selName').value = name;
-                document.getElementById('selIsArb').value = isArb;
-                document.getElementById('dispName').innerHTML = `${safeHtml(name)} ${isArb ? '<span class="badge-arb">ARB</span>' : '<span class="badge-nonarb">Non-ARB</span>'}`;
-            };
-
-            window.finalizeAssignment = async function(type, val1) {
-                if (type === 'validator') {
-                    document.getElementById('qaInput1').value = val1;
-                    document.getElementById('userSearchResults').innerHTML = `<li style="color: #16a34a; font-weight: bold; flex-direction:row;">✅ Proceeding with ${val1}...</li>`;
-                    document.getElementById('qaForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-                }
-            }
-
-            // FORM SUBMISSION (UPGRADED)
-            window.submitQuickAdd = async function(e) {
-                e.preventDefault();
-                const type = document.getElementById('qaType').value;
-                const arboId = document.getElementById('currentProfileId').value;
-                const arboName = document.getElementById('currentProfileName').value;
-                
-                let table, payload;
-
-                if (type === 'validator') {
-                    table = 'arbo_validators'; 
-                    payload = { arbo_id: arboId, validator_name: document.getElementById('qaInput1').value };
-                } 
-                else if (type === 'member') {
-                    table = 'arbo_members'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        profile_id: document.getElementById('selProfId').value || null, 
-                        arb_name: document.getElementById('selName').value, 
-                        is_arb: document.getElementById('selIsArb').value === 'true', 
-                        position: document.getElementById('qaPosition').value, 
-                        date_from: document.getElementById('qaDateFrom').value, 
-                        date_to: document.getElementById('qaDateTo').value || null 
-                    };
-                } 
-                else if (type === 'activity') {
-                    table = 'arbo_activities'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        activity_name: document.getElementById('qaInput1').value.trim(), 
-                        training_date: document.getElementById('qaDateInput').value,
-                        arb_attendees: document.getElementById('qaArbAtt').value,
-                        non_arb_attendees: document.getElementById('qaNonArbAtt').value
-                    };
-                } 
-                else if (type === 'income') {
-                    table = 'arbo_income'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        description: document.getElementById('qaInput2').value.trim(), 
-                        gross_income: parseFloat(document.getElementById('qaGross').value), 
-                        net_income: parseFloat(document.getElementById('qaNet').value), 
-                        date: document.getElementById('qaDateInput').value 
-                    };
-                } 
-                else if (type === 'machinery') {
-                    table = 'arbo_machinery'; 
-                    payload = { 
-                        arbo_id: arboId, 
-                        equipment_name: document.getElementById('qaInput1').value.trim(), 
-                        status: document.getElementById('qaStat').value,
-                        date_release: document.getElementById('qaDateM').value
-                    };
-                }
-
-                if (table && payload) {
-                    const { error } = await dbClient.from(table).insert([payload]);
-                    if (error) { alert("Error adding record: Make sure you ran the SQL update script from the previous message.\n\nDetail: " + error.message); } 
-                    else { closeModal('quickAddModal'); window.viewArboProfile(arboId, arboName); }
-                }
-            };
-
-            // REPORT GENERATOR LOGIC
-            window.openReportModal = async function() {
-                const { data } = await dbClient.from('arbo').select('id, name');
-                document.getElementById('repArboId').innerHTML = data ? data.map(a => `<option value="${a.id}">${safeHtml(a.name)}</option>`).join('') : '';
-                document.getElementById('reportModal').classList.add('active');
-                window.toggleReportFilters();
-            };
-
-            window.toggleReportFilters = function() {
-                const t = document.getElementById('repTarget').value;
-                document.getElementById('repLocFilter').style.display = t.includes('arbo_') ? 'grid' : 'none';
-                document.getElementById('repArboFilter').style.display = t === 'mem_arbo' ? 'grid' : 'none';
-                document.getElementById('repDateFilter').style.display = t === 'mem_new' ? 'grid' : 'none';
-            };
-
-            window.generateReport = async function(e) {
-                e.preventDefault();
-                const target = document.getElementById('repTarget').value;
-                const content = document.getElementById('printContent');
-                const meta = document.getElementById('printMeta');
-                let html = '', title = '';
-
-                try {
-                    if (target === 'arbo_muni' || target === 'arbo_brgy') {
-                        const muni = document.getElementById('repMuni').value;
-                        const brgy = document.getElementById('repBrgy').value;
-                        let q = dbClient.from('arbo').select('*');
-                        if(target === 'arbo_muni' && muni) q = q.ilike('municipality', `%${muni}%`);
-                        if(target === 'arbo_brgy' && brgy) q = q.ilike('barangay', `%${brgy}%`);
-                        
-                        const { data } = await q;
-                        title = target === 'arbo_muni' ? `ARBO Masterlist (Municipality)` : `ARBO Masterlist (Barangay)`;
-                        meta.textContent = `Filtered by: ${muni || brgy || 'All'}`;
-                        
-                        html = `<table><thead><tr><th>ARBO ID</th><th>Name</th><th>Barangay</th><th>Municipality</th><th>Contact</th></tr></thead><tbody>`;
-                        if(data && data.length > 0) data.forEach(d => html += `<tr><td>${d.id}</td><td>${d.name}</td><td>${d.barangay}</td><td>${d.municipality}</td><td>${d.contact_number}</td></tr>`);
-                        else html += `<tr><td colspan="5">No ARBOs found.</td></tr>`;
-                        html += `</tbody></table>`;
-                    } 
-                    else if (target === 'mem_arbo') {
-                        const arboId = document.getElementById('repArboId').value;
-                        const arboName = document.getElementById('repArboId').options[document.getElementById('repArboId').selectedIndex].text;
-                        const { data } = await dbClient.from('arbo_members').select('*').eq('arbo_id', arboId).order('date_from', { ascending: false });
-                        
-                        title = `Membership Roster`;
-                        meta.textContent = `Organization: ${arboName}`;
-                        html = `<table><thead><tr><th>Name</th><th>Type</th><th>Position</th><th>Tenure Start</th><th>Tenure End</th></tr></thead><tbody>`;
-                        if(data && data.length > 0) data.forEach(m => html += `<tr><td>${m.arb_name}</td><td>${m.is_arb ? 'ARB' : 'Non-ARB'}</td><td>${m.position}</td><td>${formatDate(m.date_from)}</td><td>${m.date_to ? formatDate(m.date_to) : 'Present'}</td></tr>`);
-                        else html += `<tr><td colspan="5">No members found.</td></tr>`;
-                        html += `</tbody></table>`;
-                    }
-                    else if (target === 'mem_new') {
-                        const df = document.getElementById('repDateFrom').value;
-                        const dt = document.getElementById('repDateTo').value;
-                        if(!df || !dt) { alert("Please provide Date From and Date To"); return; }
-                        
-                        const { data: mems } = await dbClient.from('arbo_members').select('*, arbo(name)').gte('date_from', df).lte('date_from', dt).order('date_from', { ascending: false });
-
-                        title = `New Assigned Roles & Members`;
-                        meta.textContent = `Date Range: ${df} to ${dt}`;
-                        html = `<table><thead><tr><th>Date</th><th>ARBO Name</th><th>Name</th><th>Position</th><th>Type</th></tr></thead><tbody>`;
-                        if(mems && mems.length > 0) mems.forEach(m => html += `<tr><td>${formatDate(m.date_from)}</td><td>${m.arbo?.name || m.arbo_id}</td><td>${m.arb_name}</td><td>${m.position}</td><td>${m.is_arb ? 'ARB' : 'Non-ARB'}</td></tr>`);
-                        else html += `<tr><td colspan="5">No new assignments found.</td></tr>`;
-                        html += `</tbody></table>`;
-                    }
-
-                    document.getElementById('printTitle').textContent = title;
-                    content.innerHTML = html;
-                    closeModal('reportModal');
-                    setTimeout(() => window.print(), 300);
-
-                } catch (err) { alert("Error generating report: " + err.message); }
-            };
-
-            // STANDARD CRUD MODALS
-            window.openArboModal = function() {
-                document.getElementById('arboId').value = '';
-                document.getElementById('arboForm').reset();
-                document.getElementById('arboModalTitle').textContent = '➕ Add New ARBO';
-                const m = document.getElementById('arboModal');
-                if (m) m.classList.add('active');
-            };
-
-            window.closeModal = function(modalId) { const m = document.getElementById(modalId); if (m) m.classList.remove('active'); };
-
-            window.editArbo = async function(id) {
-                try {
-                    const { data, error } = await dbClient.from('arbo').select('*').eq('id', id).single();
-                    if (error) throw new Error(error.message);
-                    document.getElementById('arboId').value = data.id;
-                    document.getElementById('arboName').value = data.name || '';
-                    document.getElementById('arboBarangay').value = data.barangay || '';
-                    document.getElementById('arboMunicipality').value = data.municipality || '';
-                    document.getElementById('arboContact').value = data.contact_number || '';
-                    document.getElementById('arboModalTitle').textContent = '✏️ Edit ARBO';
-                    const m = document.getElementById('arboModal');
-                    if (m) m.classList.add('active');
-                } catch (err) { alert(`Error loading details: ${err.message}`); }
-            };
-
-            window.saveArbo = async function(e) {
-                e.preventDefault(); 
-                try {
-                    const id = document.getElementById('arboId').value;
-                    const payload = {
-                        name: document.getElementById('arboName').value.trim(),
-                        barangay: document.getElementById('arboBarangay').value.trim(),
-                        municipality: document.getElementById('arboMunicipality').value.trim(),
-                        contact_number: document.getElementById('arboContact').value.trim(),
-                    };
-                    let result;
-                    if (id) result = await dbClient.from('arbo').update(payload).eq('id', id);
-                    else result = await dbClient.from('arbo').insert([payload]);
-                    
-                    if (result.error) throw new Error(result.error.message);
-                    window.closeModal('arboModal');
-                    window.loadArbos();
-                    window.loadArboStats(); 
-                } catch (err) { alert(`Error saving ARBO: ${err.message}`); }
-            };
-
-            window.deleteArbo = async function(id) {
-                if (!confirm('Are you sure you want to delete this ARBO?\nAny ARBs linked to it will have their ARBO set to NULL.')) return;
-                try {
-                    const { error } = await dbClient.from('arbo').delete().eq('id', id);
-                    if (error) throw new Error(error.message);
-                    window.loadArbos();
-                    window.loadArboStats();
-                } catch (err) { alert(`Error deleting ARBO: ${err.message}`); }
-            };
-
-            window.loadArboStats();
-            window.loadArbos();
-
-        } catch (fatalErr) {
-            document.getElementById('arboTableBody').innerHTML = `<tr><td colspan="6" style="color:#b91c1c; text-align:center; padding: 20px;">❌ Critical Page Error: ${fatalErr.message}</td></tr>`;
+    function renderActiveTab() {
+        const body=$('workspaceBody'), a=state.currentArbo;
+        if(state.activeTab==='overview') {
+            body.innerHTML=heading('Organization Overview','Master cooperative information and access scope.',null)+`<div class="access-note">${isManager()?'Administrator/staff access.':'Validator access is limited to this assigned ARBO.'}</div><div class="profile-summary-grid"><div class="profile-summary-card"><h4>Registration</h4><div class="summary-field"><span>ARBO ID</span><strong>${val(a.id)}</strong></div><div class="summary-field"><span>Registration</span><strong>${val(a.registration_no||a.cda_registration_no)}</strong></div><div class="summary-field"><span>Organized</span><strong>${formatDate(a.date_organized)}</strong></div><div class="summary-field"><span>Registered</span><strong>${formatDate(a.date_registered)}</strong></div></div><div class="profile-summary-card"><h4>Location & Contact</h4><div class="summary-field"><span>Municipality</span><strong>${val(a.municipality)}</strong></div><div class="summary-field"><span>Barangay</span><strong>${val(a.barangay)}</strong></div><div class="summary-field"><span>Address</span><strong>${val(a.address)}</strong></div><div class="summary-field"><span>Contact</span><strong>${val(a.contact_number)}</strong></div><div class="summary-field"><span>Email</span><strong>${val(a.email)}</strong></div></div><div class="profile-summary-card"><h4>Management</h4><div class="summary-field"><span>Chairperson</span><strong>${val(a.chairperson)}</strong></div><div class="summary-field"><span>Status</span><strong>${badge(a.status||'ACTIVE',(a.status||'ACTIVE')==='ACTIVE'?'green':'gray')}</strong></div><div class="summary-field"><span>Remarks</span><strong>${val(a.remarks)}</strong></div></div></div>`;
         }
-    })();
+        if(state.activeTab==='members') {
+            const capital=new Map(); state.data.capital.forEach(t=>capital.set(t.membership_id,(capital.get(t.membership_id)||0)+signedCapital(t)));
+            body.innerHTML=heading('Membership Registry','ARB members must be selected from the ARB database. Non-ARBs are explicitly tagged.','member','Add Member')+table(['Member','Type','Source details','Membership','Capital','Status','Action'],state.data.members.map(m=>`<tr><td><strong>${val(m.arb_name)}</strong><br><small>${val(m.membership_no)}</small></td><td>${m.is_arb?badge('ARB','green'):badge('NON-ARB','gray')}</td><td>${m.is_arb?`Profile: ${val(m.profile_id)}<br>${val(m.municipality)} · ${val(m.barangay)}<br>CLOA: ${val(m.cloa_reference)}`:'Manual non-ARB record'}</td><td>From: ${formatDate(m.date_from)}<br>To: ${formatDate(m.date_to)}</td><td>Subscribed: <span class="money">${money(m.subscribed_capital)}</span><br>Paid: <span class="money">${money(capital.get(m.id)||0)}</span></td><td>${badge(m.membership_status||(!m.date_to?'ACTIVE':'ENDED'),!m.date_to?'green':'gray')}</td><td>${editButton('member',m.id)}</td></tr>`),7);
+        }
+        if(state.activeTab==='officers') body.innerHTML=heading('Leadership and Officer Terms','Every term retains its assumed, expected end, and actual end dates.','officer','Add Officer Term')+table(['Officer','Position','Assumed','Expected End','Actual End','Status','Action'],state.data.officers.map(o=>`<tr><td><strong>${val(memberName(o.membership_id))}</strong></td><td>${val(o.position)}</td><td>${formatDate(o.date_assumed)}</td><td>${formatDate(o.term_end_date)}</td><td>${formatDate(o.actual_end_date)}</td><td>${badge(o.term_status||'ACTIVE',o.actual_end_date?'gray':'green')}</td><td>${editButton('officer',o.id)}</td></tr>`),7);
+        if(state.activeTab==='machinery') body.innerHTML=heading('Machinery Inventory','Awarded machinery, current condition, availability, and maintenance reminders.','machinery','Add Machinery')+table(['Machinery','Award / Source','Condition','Operating Status','Maintenance','Repair','Action'],state.data.machinery.map(m=>{const cls=isOverdue(m.next_maintenance_date)?'overdue-row':isDue(m.next_maintenance_date)?'due-row':'';return `<tr class="${cls}"><td><strong>${val(m.equipment_name)}</strong><br>${val(m.machinery_code)} · ${val(m.brand)} ${val(m.model)}<br><small>Serial: ${val(m.serial_no)}</small></td><td>${formatDate(m.date_release)}<br>${val(m.acquisition_source)}</td><td>${badge(m.condition_status||m.status||'SERVICEABLE',(m.condition_status||m.status)==='SERVICEABLE'?'green':'amber')}</td><td>${badge(m.operating_status||m.status||'AVAILABLE',(m.operating_status||m.status)==='AVAILABLE'?'green':'blue')}</td><td>Last: ${formatDate(m.last_maintenance_date)}<br>Next: ${formatDate(m.next_maintenance_date)} ${isOverdue(m.next_maintenance_date)?badge('OVERDUE','red'):isDue(m.next_maintenance_date)?badge('DUE SOON','amber'):''}</td><td>${val(m.repair_status)}</td><td><div style="display:flex;gap:5px;">${editButton('machinery',m.id)}${canEditCurrent()?`<button class="btn btn-info btn-sm" data-add-service="${esc(m.id)}" type="button">Service</button>`:''}</div></td></tr>`;}),7);
+        if(state.activeTab==='services') body.innerHTML=heading('Maintenance and Repair Log','Open repairs, scheduled maintenance, costs, and next-service dates.','service','Add Service Record')+table(['Machinery','Type','Status','Schedule / Completion','Issue / Work','Cost','Next Maintenance','Action'],state.data.services.map(s=>`<tr class="${s.service_status==='OPEN'?'due-row':''}"><td>${val(machineryName(s.machinery_id))}</td><td>${val(s.service_type)}</td><td>${badge(s.service_status||'OPEN',s.service_status==='COMPLETED'?'green':'amber')}</td><td>Scheduled: ${formatDate(s.scheduled_date)}<br>Completed: ${formatDate(s.completion_date)}</td><td>${val(s.issue_description)}<br><small>${val(s.work_performed)}</small></td><td class="money">${money(s.service_cost)}</td><td>${formatDate(s.next_maintenance_date)}</td><td>${editButton('service',s.id)}</td></tr>`),8);
+        if(state.activeTab==='income') body.innerHTML=heading('Income and Machinery Rentals','Income type, activity, gross receipts, expenses, net income, and linked rental machinery.','income','Add Income')+table(['Date','Income / Activity','Description','Machinery / Rental','Gross','Expenses','Net','Payment','Action'],state.data.income.map(i=>`<tr><td>${formatDate(i.date)}</td><td><strong>${val(i.income_type||i.source)}</strong><br>${val(i.activity_type)}</td><td>${val(i.description||i.source)}<br><small>${val(i.reference_no)}</small></td><td>${i.machinery_id?`${val(machineryName(i.machinery_id))}<br>${formatDate(i.rental_start_date)} – ${formatDate(i.rental_end_date)}<br>${val(i.customer_name)}`:'—'}</td><td class="money">${money(i.gross_income??i.amount)}</td><td class="money">${money(i.expenses)}</td><td class="money"><strong>${money(i.net_income??i.amount)}</strong></td><td>${badge(i.payment_status||'PAID',(i.payment_status||'PAID')==='PAID'?'green':'amber')}</td><td>${editButton('income',i.id)}</td></tr>`),9);
+        if(state.activeTab==='capital') body.innerHTML=heading('Paid-up Capital Ledger','Member-level payments, refunds, adjustments, receipt numbers, and running accountability.','capital','Record Capital')+table(['Date','Member','Type','Amount','OR / Reference','Remarks','Action'],state.data.capital.map(c=>`<tr><td>${formatDate(c.transaction_date)}</td><td>${val(memberName(c.membership_id))}</td><td>${badge(c.transaction_type,c.transaction_type==='REFUND'?'amber':'green')}</td><td class="money">${money(c.amount)}</td><td>${val(c.official_receipt_no)}<br>${val(c.reference_no)}</td><td>${val(c.remarks)}</td><td>${editButton('capital',c.id)}</td></tr>`),7);
+        if(state.activeTab==='activities') body.innerHTML=heading('Activities and Trainings','Activity type, attendance, location, facilitator, and cost.','activity','Add Activity')+table(['Date','Activity','Type','Location','Attendance','Cost','Action'],state.data.activities.map(a=>`<tr><td>${formatDate(a.training_date||a.created_at)}</td><td><strong>${val(a.activity_name)}</strong><br>${val(a.facilitator)}</td><td>${val(a.activity_type)}</td><td>${val(a.location)}</td><td>ARB: ${val(a.arb_attendees)}<br>Non-ARB: ${val(a.non_arb_attendees||a.non_arb_attendee)}</td><td class="money">${money(a.total_cost)}</td><td>${editButton('activity',a.id)}</td></tr>`),7);
+        if(state.activeTab==='validators') body.innerHTML=heading('Assigned Validators','RLS limits validators to ARBOs assigned to their authenticated user account.',isManager()?'validator':null,'Assign Validator')+table(['Validator','User ID','Assigned From','Assigned Until','Active','Remarks','Action'],state.data.validators.map(v=>`<tr><td><strong>${val(v.validator_name)}</strong></td><td>${val(v.validator_user_id)}</td><td>${formatDate(v.assigned_from)}</td><td>${formatDate(v.assigned_until)}</td><td>${v.is_active?badge('ACTIVE','green'):badge('INACTIVE','gray')}</td><td>${val(v.remarks)}</td><td>${isManager()?editButton('validator',v.id):''}</td></tr>`),7);
+    }
+
+    function findRecord(type,id) { const key={member:'members',officer:'officers',machinery:'machinery',service:'services',income:'income',capital:'capital',activity:'activities',validator:'validators'}[type]; return byId(state.data[key]||[],id)||{}; }
+    function memberOptions(selected='') { const pool=state.data.members.filter(m=>activeMembers().includes(m)||String(m.id)===String(selected)); return pool.map(m=>[m.id,m.arb_name+(m.is_arb?' (ARB)':' (Non-ARB)')]).map(o=>`<option value="${esc(o[0])}"${String(o[0])===String(selected)?' selected':''}>${esc(o[1])}</option>`).join(''); }
+    function machineryOptions(selected='') { return state.data.machinery.map(m=>`<option value="${esc(m.id)}"${String(m.id)===String(selected)?' selected':''}>${esc(m.equipment_name)}</option>`).join(''); }
+
+    function openForm(type,id='',preset={}) {
+        const r=type==='arbo'?(id?state.currentArbo:preset):(id?findRecord(type,id):preset); state.selectedMemberCandidate=null; state.selectedValidator=null; openModal((id?'Edit ':'Add ')+type.replace('_',' '),type,id);
+        if(type==='arbo') $('entityFormBody').innerHTML=`<div class="form-grid-2">${input('name','ARBO Name',r.name,'text','required')}${input('registration_no','Registration Number',r.registration_no||r.cda_registration_no)}${input('municipality','Municipality',r.municipality)}${input('barangay','Barangay',r.barangay)}${input('address','Address',r.address)}${input('contact_number','Contact Number',r.contact_number)}${input('email','Email',r.email,'email')}${input('chairperson','Chairperson',r.chairperson)}${input('date_organized','Date Organized',dateOnly(r.date_organized),'date')}${input('date_registered','Date Registered',dateOnly(r.date_registered),'date')}${select('status','Status',['ACTIVE','INACTIVE'],r.status||'ACTIVE')}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='member') {
+            $('entityFormBody').innerHTML=`<div class="access-note">ARB membership must be selected from the ARB database. Choose Non-ARB only for a person who is not an ARB.</div>${id?'':`<div class="form-grid-2">${select('member_type','Member Type',[['ARB','ARB — select from database'],['NON_ARB','Non-ARB — manual name']],'ARB')}<div class="field-group" id="manualNameGroup" style="display:none;"><label>Non-ARB Name</label><input class="arbo-input" id="manualMemberName"><span class="field-help">This record will be saved and displayed with a NON-ARB tag.</span></div></div><div id="arbPicker"><div class="form-grid-3">${select('search_field','Search ARB By',[['any','Any available field'],['display_name','Name'],['municipalities','Municipality'],['barangays','Barangay'],['cloa_numbers','CLOA / Title Number'],['sequence_no','Sequence Number'],['arb_id','ARB ID'],['landowners','Landowner'],['claim_numbers','Claim Number'],['survey_numbers','Survey Number'],['lot_numbers','Lot Number'],['ep_cloa_serial_numbers','EP/CLOA Serial'],['cocrom_numbers','CoCROM Number'],['district','District'],['fb_gender','Gender'],['life_status','Life Status']],'any')} ${input('search_term','Search value','')}<div class="field-group"><label>&nbsp;</label><button class="btn btn-primary" id="searchMemberDatabase" type="button">Search ARB Database</button></div></div><div class="picker-results" id="memberSearchResults" style="display:none;"></div><div id="selectedMember"></div></div>`}<div class="form-grid-3" style="margin-top:12px;">${input('membership_no','Membership Number',r.membership_no)}${input('date_from','Member Since',dateOnly(r.date_from)||today(),'date','required')}${input('date_to','Membership End',dateOnly(r.date_to),'date')}${select('membership_status','Membership Status',['ACTIVE','INACTIVE','WITHDRAWN','TERMINATED','DECEASED'],r.membership_status||'ACTIVE')}${input('subscribed_capital','Subscribed Capital',r.subscribed_capital||0,'number','step="0.01" min="0"')}${textarea('remarks','Remarks',r.remarks)}</div>`;
+            if(!id){$('f_member_type').addEventListener('change',toggleMemberType);$('searchMemberDatabase').addEventListener('click',searchMemberDatabase);toggleMemberType();}
+        }
+        if(type==='officer') $('entityFormBody').innerHTML=`<div class="form-grid-2"><div class="field-group"><label>Member *</label><select class="arbo-input" name="membership_id" required><option value="">Select member</option>${memberOptions(r.membership_id)}</select></div>${input('position','Position',r.position,'text','required')}${input('date_assumed','Date Assumed',dateOnly(r.date_assumed)||today(),'date','required')}${input('term_end_date','Expected Term End',dateOnly(r.term_end_date),'date')}${input('actual_end_date','Actual End Date',dateOnly(r.actual_end_date),'date')}${select('term_status','Term Status',['ACTIVE','COMPLETED','RESIGNED','REMOVED'],r.term_status||'ACTIVE')}${input('election_reference','Election / Resolution Reference',r.election_reference)}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='machinery') $('entityFormBody').innerHTML=`<div class="form-grid-3">${input('equipment_name','Equipment Name',r.equipment_name,'text','required')}${input('machinery_code','Property / Machinery Code',r.machinery_code)}${input('machinery_type','Machinery Type',r.machinery_type)}${input('brand','Brand',r.brand)}${input('model','Model',r.model)}${input('serial_no','Serial Number',r.serial_no)}${input('engine_no','Engine Number',r.engine_no)}${input('date_release','Award / Release Date',dateOnly(r.date_release)||today(),'date')}${input('acquisition_source','Award / Acquisition Source',r.acquisition_source)}${input('acquisition_reference','Award Reference',r.acquisition_reference)}${input('acquisition_cost','Acquisition Cost',r.acquisition_cost,'number','step="0.01"')}${input('current_location','Current Location',r.current_location)}${select('condition_status','Condition',['SERVICEABLE','NEEDS MAINTENANCE','NEEDS REPAIR','UNSERVICEABLE'],r.condition_status||'SERVICEABLE')}${select('operating_status','Operating Status',['AVAILABLE','IN USE','RENTED OUT','OUT OF SERVICE','DISPOSED'],r.operating_status||'AVAILABLE')}${input('last_maintenance_date','Last Maintenance',dateOnly(r.last_maintenance_date),'date')}${input('next_maintenance_date','Next Maintenance',dateOnly(r.next_maintenance_date),'date')}${input('maintenance_interval_days','Interval (days)',r.maintenance_interval_days,'number','min="1"')}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='service') $('entityFormBody').innerHTML=`<div class="form-grid-2"><div class="field-group"><label>Machinery *</label><select class="arbo-input" name="machinery_id" required><option value="">Select machinery</option>${machineryOptions(r.machinery_id||preset.machinery_id)}</select></div>${select('service_type','Service Type',['PREVENTIVE MAINTENANCE','CORRECTIVE MAINTENANCE','REPAIR','INSPECTION'],r.service_type||'PREVENTIVE MAINTENANCE')}${select('service_status','Status',['OPEN','SCHEDULED','IN PROGRESS','COMPLETED','CANCELLED'],r.service_status||'OPEN')}${input('reported_on','Reported On',dateOnly(r.reported_on)||today(),'date')}${input('scheduled_date','Scheduled Date',dateOnly(r.scheduled_date),'date')}${input('service_date','Service Date',dateOnly(r.service_date),'date')}${input('completion_date','Completion Date',dateOnly(r.completion_date),'date')}${input('next_maintenance_date','Next Maintenance',dateOnly(r.next_maintenance_date),'date')}${input('service_provider','Service Provider',r.service_provider)}${input('service_cost','Service Cost',r.service_cost||0,'number','step="0.01"')}${textarea('issue_description','Issue / Work Required',r.issue_description)}${textarea('work_performed','Work Performed',r.work_performed)}${textarea('parts_replaced','Parts Replaced',r.parts_replaced)}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='income') $('entityFormBody').innerHTML=`<div class="form-grid-3">${select('income_type','Income Type',['PRODUCT SALES','SERVICE INCOME','MACHINERY RENTAL','INTEREST','GRANT','OTHER'],r.income_type||r.source||'PRODUCT SALES')}${input('activity_type','Activity Type',r.activity_type)}${input('date','Transaction Date',dateOnly(r.date)||today(),'date','required')}${input('description','Description',r.description||r.source,'text','required')}${input('reference_no','Reference Number',r.reference_no)}${input('customer_name','Customer / Payor',r.customer_name)}${input('gross_income','Gross Income',r.gross_income??r.amount??0,'number','step="0.01" required')}${input('expenses','Expenses',r.expenses||0,'number','step="0.01"')}${input('net_income','Net Income',r.net_income??r.amount??0,'number','step="0.01" readonly')}${select('payment_status','Payment Status',['PAID','PARTIAL','UNPAID'],r.payment_status||'PAID')}<div class="field-group rental-field"><label>Machinery</label><select class="arbo-input" id="f_machinery_id" name="machinery_id"><option value="">Select machinery</option>${machineryOptions(r.machinery_id)}</select></div>${input('rental_start_date','Rental Start',dateOnly(r.rental_start_date),'date')}${input('rental_end_date','Rental End',dateOnly(r.rental_end_date),'date')}${input('rental_hours','Rental Hours',r.rental_hours,'number','step="0.01"')}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='capital') $('entityFormBody').innerHTML=`<div class="form-grid-2"><div class="field-group"><label>Member *</label><select class="arbo-input" name="membership_id" required><option value="">Select member</option>${memberOptions(r.membership_id)}</select></div>${input('transaction_date','Transaction Date',dateOnly(r.transaction_date)||today(),'date','required')}${select('transaction_type','Transaction Type',['PAYMENT','ADJUSTMENT','REFUND'],r.transaction_type||'PAYMENT')}${input('amount','Amount',r.amount||0,'number','step="0.01" min="0" required')}${input('official_receipt_no','Official Receipt Number',r.official_receipt_no)}${input('reference_no','Reference Number',r.reference_no)}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='activity') $('entityFormBody').innerHTML=`<div class="form-grid-2">${input('activity_name','Activity / Training Name',r.activity_name,'text','required')}${select('activity_type','Activity Type',['TRAINING','MEETING','ASSEMBLY','BUSINESS ACTIVITY','COMMUNITY ACTIVITY','OTHER'],r.activity_type||'TRAINING')}${input('training_date','Activity Date',dateOnly(r.training_date)||today(),'date')}${input('location','Location',r.location)}${input('facilitator','Facilitator',r.facilitator)}${input('arb_attendees','ARB Attendees',r.arb_attendees)}${input('non_arb_attendees','Non-ARB Attendees',r.non_arb_attendees||r.non_arb_attendee)}${input('total_cost','Activity Cost',r.total_cost||0,'number','step="0.01"')}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='validator') $('entityFormBody').innerHTML=`<div class="access-note">Only an authenticated user can be assigned. The database uses the selected user ID to enforce ARBO access.</div>${id?'':`<div class="form-grid-2">${input('user_search','Search User by Name or Email','')}<div class="field-group"><label>&nbsp;</label><button class="btn btn-primary" id="searchValidatorUser" type="button">Search Users</button></div></div><div class="picker-results" id="validatorSearchResults" style="display:none;"></div><div id="selectedValidator"></div>`}<div class="form-grid-2" style="margin-top:12px;">${input('assigned_from','Assigned From',dateOnly(r.assigned_from)||today(),'date','required')}${input('assigned_until','Assigned Until',dateOnly(r.assigned_until),'date')}${select('is_active','Active',[['true','Yes'],['false','No']],String(r.is_active??true))}${textarea('remarks','Remarks',r.remarks)}</div>`;
+        if(type==='income'){const calc=()=>{$('f_net_income').value=((Number($('f_gross_income').value)||0)-(Number($('f_expenses').value)||0)).toFixed(2);};const showRental=()=>{const display=$('f_income_type').value==='MACHINERY RENTAL'?'block':'none';['f_machinery_id','f_rental_start_date','f_rental_end_date','f_rental_hours'].forEach(fieldId=>$(fieldId).closest('.field-group').style.display=display);};$('f_gross_income').addEventListener('input',calc);$('f_expenses').addEventListener('input',calc);$('f_income_type').addEventListener('change',showRental);calc();showRental();}
+        if(type==='validator'&&!id) $('searchValidatorUser').addEventListener('click',searchValidatorUsers);
+    }
+
+    function toggleMemberType() { const isArb=$('f_member_type').value==='ARB'; $('arbPicker').style.display=isArb?'block':'none'; $('manualNameGroup').style.display=isArb?'none':'block'; state.selectedMemberCandidate=null; $('selectedMember').innerHTML=''; }
+    async function searchMemberDatabase() {
+        const term=$('f_search_term').value.trim(), field=$('f_search_field').value, box=$('memberSearchResults'); if(!term){box.style.display='block';box.innerHTML='<div class="empty-panel">Enter a search value.</div>';return;}
+        box.style.display='block';box.innerHTML='<div class="empty-panel">Searching ARB database…</div>';
+        try { let q=state.db.from('arbo_member_search_v').select('*').limit(30);const safeTerm=term.replace(/[(),]/g,' ').replaceAll('%','\\%').replaceAll('_','\\_');if(field==='arb_id')q=q.eq(field,term);else if(field==='any'){const fields=['display_name','municipalities','barangays','cloa_numbers','sequence_no','arb_id','landowners','claim_numbers','survey_numbers','lot_numbers','ep_cloa_serial_numbers','cocrom_numbers','district'];q=q.or(fields.map(name=>`${name}.ilike.%${safeTerm}%`).join(','));}else q=q.ilike(field,'%'+safeTerm+'%'); const r=await q;if(r.error)throw r.error;box.innerHTML=r.data?.length?r.data.map(c=>`<div class="picker-row"><div><strong>${val(c.display_name)}</strong> ${badge('ARB','green')}<small>Sequence: ${val(c.sequence_no)} · Municipality: ${val(c.municipalities)} · Barangay: ${val(c.barangays)} · CLOA/Title: ${val(c.cloa_numbers)}</small></div><button class="btn btn-success btn-sm" type="button" data-select-member="${esc(c.arb_profile_id)}">Select</button></div>`).join(''):'<div class="empty-panel">No ARB matched. Use Non-ARB only if the person is not an ARB.</div>'; state.lastMemberCandidates=r.data||[]; }
+        catch(e){box.innerHTML=`<div class="empty-panel" style="color:#b91c1c;">${esc(e.message)}</div>`;}
+    }
+    function selectMemberCandidate(id) { const c=(state.lastMemberCandidates||[]).find(x=>String(x.arb_profile_id)===String(id)); if(!c)return;state.selectedMemberCandidate=c;$('selectedMember').innerHTML=`<div class="selected-person"><strong>Selected ARB:</strong> ${val(c.display_name)}<br><small>${val(c.municipalities)} · ${val(c.barangays)} · CLOA ${val(c.cloa_numbers)}</small></div>`; }
+    async function searchValidatorUsers() { const term=$('f_user_search').value.trim(),box=$('validatorSearchResults');if(!term)return;box.style.display='block';box.innerHTML='<div class="empty-panel">Searching users…</div>';try{const pattern='%'+term.replace(/[(),]/g,' ').trim().replaceAll('%','\\%').replaceAll('_','\\_')+'%';const r=await state.db.from('profiles').select('id,full_name,email,role').or('full_name.ilike.'+pattern+',email.ilike.'+pattern).limit(20);if(r.error)throw r.error;state.lastValidatorCandidates=r.data||[];box.innerHTML=r.data?.length?r.data.map(u=>`<div class="picker-row"><div><strong>${val(u.full_name||u.email)}</strong><small>${val(u.email)} · ${val(u.role)}</small></div><button class="btn btn-success btn-sm" type="button" data-select-validator="${esc(u.id)}">Select</button></div>`).join(''):'<div class="empty-panel">No user found.</div>';}catch(e){box.innerHTML=`<div class="empty-panel">${esc(e.message)}</div>`;}}
+    function selectValidator(id){const u=(state.lastValidatorCandidates||[]).find(x=>String(x.id)===String(id));if(!u)return;state.selectedValidator=u;$('selectedValidator').innerHTML=`<div class="selected-person"><strong>Selected user:</strong> ${val(u.full_name||u.email)} · ${val(u.email)}</div>`;}
+
+    async function saveEntity(event) {
+        event.preventDefault(); const type=$('entityType').value,id=$('entityId').value,isNew=!id; let table,payload;
+        try {
+            if(type==='arbo'){table='arbo';payload={name:nullIfBlank(formValue('name')),registration_no:nullIfBlank(formValue('registration_no')),municipality:nullIfBlank(formValue('municipality')),barangay:nullIfBlank(formValue('barangay')),address:nullIfBlank(formValue('address')),contact_number:nullIfBlank(formValue('contact_number')),email:nullIfBlank(formValue('email')),chairperson:nullIfBlank(formValue('chairperson')),date_organized:nullIfBlank(formValue('date_organized')),date_registered:nullIfBlank(formValue('date_registered')),status:formValue('status'),is_active:formValue('status')==='ACTIVE',remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='member'){table='arbo_members';let isArb,name,profileId,details={};if(isNew){isArb=formValue('member_type')==='ARB';if(isArb){if(!state.selectedMemberCandidate)throw new Error('Select an ARB from the database.');name=state.selectedMemberCandidate.display_name;profileId=state.selectedMemberCandidate.arb_profile_id;details={municipality:state.selectedMemberCandidate.municipalities,barangay:state.selectedMemberCandidate.barangays,cloa_reference:state.selectedMemberCandidate.cloa_numbers};}else{name=nullIfBlank($('manualMemberName').value);if(!name)throw new Error('Enter the non-ARB member name.');profileId=null;}}else{const old=findRecord('member',id);isArb=old.is_arb;name=old.arb_name;profileId=old.profile_id;details={municipality:old.municipality,barangay:old.barangay,cloa_reference:old.cloa_reference};}payload={arbo_id:currentId(),profile_id:profileId,arb_name:name,is_arb:isArb,position:'Member',date_from:formValue('date_from'),date_to:nullIfBlank(formValue('date_to')),membership_no:nullIfBlank(formValue('membership_no')),membership_status:formValue('membership_status'),subscribed_capital:Number(formValue('subscribed_capital'))||0,remarks:nullIfBlank(formValue('remarks')),...details};}
+            if(type==='officer'){table='arbo_officer_terms';payload={arbo_id:currentId(),membership_id:formValue('membership_id'),position:nullIfBlank(formValue('position')),date_assumed:formValue('date_assumed'),term_end_date:nullIfBlank(formValue('term_end_date')),actual_end_date:nullIfBlank(formValue('actual_end_date')),term_status:formValue('term_status'),election_reference:nullIfBlank(formValue('election_reference')),remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='machinery'){table='arbo_machinery';const operating=formValue('operating_status');const legacyStatus={'AVAILABLE':'Operational','IN USE':'Operational','RENTED OUT':'Rented Out','OUT OF SERVICE':'Broken','DISPOSED':'Disposed'}[operating]||'Operational';payload={arbo_id:currentId(),equipment_name:nullIfBlank(formValue('equipment_name')),machinery_code:nullIfBlank(formValue('machinery_code')),machinery_type:nullIfBlank(formValue('machinery_type')),brand:nullIfBlank(formValue('brand')),model:nullIfBlank(formValue('model')),serial_no:nullIfBlank(formValue('serial_no')),engine_no:nullIfBlank(formValue('engine_no')),date_release:nullIfBlank(formValue('date_release')),acquisition_source:nullIfBlank(formValue('acquisition_source')),acquisition_reference:nullIfBlank(formValue('acquisition_reference')),acquisition_cost:Number(formValue('acquisition_cost'))||null,current_location:nullIfBlank(formValue('current_location')),condition_status:formValue('condition_status'),operating_status:operating,status:legacyStatus,last_maintenance_date:nullIfBlank(formValue('last_maintenance_date')),next_maintenance_date:nullIfBlank(formValue('next_maintenance_date')),maintenance_interval_days:Number(formValue('maintenance_interval_days'))||null,remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='service'){table='arbo_machinery_services';payload={arbo_id:currentId(),machinery_id:formValue('machinery_id'),service_type:formValue('service_type'),service_status:formValue('service_status'),reported_on:nullIfBlank(formValue('reported_on')),scheduled_date:nullIfBlank(formValue('scheduled_date')),service_date:nullIfBlank(formValue('service_date')),completion_date:nullIfBlank(formValue('completion_date')),next_maintenance_date:nullIfBlank(formValue('next_maintenance_date')),service_provider:nullIfBlank(formValue('service_provider')),service_cost:Number(formValue('service_cost'))||0,issue_description:nullIfBlank(formValue('issue_description')),work_performed:nullIfBlank(formValue('work_performed')),parts_replaced:nullIfBlank(formValue('parts_replaced')),remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='income'){table='arbo_income';const gross=Number(formValue('gross_income'))||0,expenses=Number(formValue('expenses'))||0,isRental=formValue('income_type')==='MACHINERY RENTAL';payload={arbo_id:currentId(),income_type:formValue('income_type'),activity_type:nullIfBlank(formValue('activity_type')),source:formValue('income_type'),date:formValue('date'),description:nullIfBlank(formValue('description')),reference_no:nullIfBlank(formValue('reference_no')),customer_name:nullIfBlank(formValue('customer_name')),gross_income:gross,expenses,net_income:gross-expenses,amount:gross-expenses,payment_status:formValue('payment_status'),machinery_id:isRental?nullIfBlank(formValue('machinery_id')):null,rental_start_date:isRental?nullIfBlank(formValue('rental_start_date')):null,rental_end_date:isRental?nullIfBlank(formValue('rental_end_date')):null,rental_hours:isRental?(Number(formValue('rental_hours'))||null):null,remarks:nullIfBlank(formValue('remarks'))};if(isRental&&!payload.machinery_id)throw new Error('Select the machinery rented.');}
+            if(type==='capital'){table='arbo_capital_transactions';payload={arbo_id:currentId(),membership_id:formValue('membership_id'),transaction_date:formValue('transaction_date'),transaction_type:formValue('transaction_type'),amount:Number(formValue('amount'))||0,official_receipt_no:nullIfBlank(formValue('official_receipt_no')),reference_no:nullIfBlank(formValue('reference_no')),remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='activity'){table='arbo_activities';payload={arbo_id:currentId(),activity_name:nullIfBlank(formValue('activity_name')),activity_type:formValue('activity_type'),training_date:nullIfBlank(formValue('training_date')),location:nullIfBlank(formValue('location')),facilitator:nullIfBlank(formValue('facilitator')),arb_attendees:nullIfBlank(formValue('arb_attendees')),non_arb_attendees:nullIfBlank(formValue('non_arb_attendees')),total_cost:Number(formValue('total_cost'))||0,remarks:nullIfBlank(formValue('remarks'))};}
+            if(type==='validator'){table='arbo_validators';const old=id?findRecord('validator',id):null;if(!id&&!state.selectedValidator)throw new Error('Select an authenticated user.');payload={arbo_id:currentId(),validator_user_id:id?old.validator_user_id:state.selectedValidator.id,validator_name:id?old.validator_name:(state.selectedValidator.full_name||state.selectedValidator.email),assigned_from:formValue('assigned_from'),assigned_until:nullIfBlank(formValue('assigned_until')),is_active:formValue('is_active')==='true',remarks:nullIfBlank(formValue('remarks'))};}
+            recordAudit(payload,isNew); const result=isNew?await state.db.from(table).insert(payload):await state.db.from(table).update(payload).eq('id',id); if(result.error)throw result.error;
+            if(type==='service'){const update={updated_at:new Date().toISOString(),updated_by:state.user.id};if(payload.service_status==='COMPLETED'){update.last_maintenance_date=payload.completion_date||payload.service_date||today();update.next_maintenance_date=payload.next_maintenance_date;if(payload.service_type==='REPAIR'){update.repair_status='COMPLETED';update.condition_status='SERVICEABLE';update.operating_status='AVAILABLE';}}else if(payload.service_type==='REPAIR'){update.repair_status=payload.service_status;update.condition_status='NEEDS REPAIR';update.operating_status='OUT OF SERVICE';}await state.db.from('arbo_machinery').update(update).eq('id',payload.machinery_id);}
+            closeModal(); if(type==='arbo'){await loadArbos();if(state.currentArbo&&String(state.currentArbo.id)===String(id))await openArbo(id);}else await openArbo(currentId());
+        } catch(e) { alert('Unable to save: '+e.message); }
+    }
+
+    function printCurrent() { const a=state.currentArbo;$('printHeading').textContent='ARBO Cooperative Management Report — '+a.name;$('printSubheading').textContent=[a.barangay,a.municipality,'Generated '+new Date().toLocaleString('en-PH')].filter(Boolean).join(' · ');$('printBody').innerHTML=$('workspaceKpis').outerHTML+$('workspaceBody').innerHTML;window.print(); }
+
+    document.addEventListener('click',e=>{
+        const open=e.target.closest('[data-open-arbo]'); if(open)openArbo(open.dataset.openArbo);
+        const tab=e.target.closest('[data-tab]'); if(tab){state.activeTab=tab.dataset.tab;renderWorkspace();}
+        const add=e.target.closest('[data-add]'); if(add)openForm(add.dataset.add);
+        const edit=e.target.closest('[data-edit]'); if(edit)openForm(edit.dataset.edit,edit.dataset.id);
+        const service=e.target.closest('[data-add-service]'); if(service)openForm('service','',{machinery_id:service.dataset.addService});
+        const member=e.target.closest('[data-select-member]'); if(member)selectMemberCandidate(member.dataset.selectMember);
+        const validator=e.target.closest('[data-select-validator]'); if(validator)selectValidator(validator.dataset.selectValidator);
+    });
+    $('applyArboSearch').addEventListener('click',()=>{state.arboPage=0;loadArbos();});
+    ['searchArbo','searchMunicipality','searchBarangay'].forEach(id=>$(id).addEventListener('keydown',e=>{if(e.key==='Enter'){state.arboPage=0;loadArbos();}}));
+    $('previousArboPage').addEventListener('click',()=>{state.arboPage=Math.max(0,state.arboPage-1);loadArbos();});
+    $('nextArboPage').addEventListener('click',()=>{state.arboPage++;loadArbos();});
+    $('addArboBtn').addEventListener('click',()=>openForm('arbo'));
+    $('editCurrentArbo').addEventListener('click',()=>openForm('arbo',currentId(),state.currentArbo));
+    $('printCurrentArbo').addEventListener('click',printCurrent);
+    $('closeWorkspace').addEventListener('click',()=>{$('cooperativeWorkspace').style.display='none';state.currentArbo=null;});
+    $('closeEntityModal').addEventListener('click',closeModal); $('cancelEntity').addEventListener('click',closeModal); $('entityForm').addEventListener('submit',saveEntity);
+    $('entityModal').addEventListener('click',e=>{if(e.target===$('entityModal'))closeModal();});
+
+    try {
+        state.db=resolveClient(); if(!state.db)throw new Error('Supabase client configuration was not found.');
+        const auth=await state.db.auth.getUser(); if(auth.error||!auth.data?.user){location.href='login.html';return;} state.user=auth.data.user;
+        const p=await state.db.from('profiles').select('*').eq('id',state.user.id).single(); if(p.error)throw p.error; state.profile=p.data;
+        await buildNavbar(state.profile,auth.data); $('addArboBtn').style.display=isManager()?'inline-flex':'none'; await loadArbos();
+    } catch(e) { $('arboTableBody').innerHTML=`<tr><td colspan="7" class="empty-panel" style="color:#b91c1c;">${esc(e.message)}</td></tr>`; }
+})();
 </script>
 </body>
 </html>
