@@ -9,7 +9,7 @@
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
-        /* -------- Existing styles (unchanged) -------- */
+        /* -------- All styles (same as before) -------- */
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
         .profile-header h2 { margin: 0; }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -355,7 +355,7 @@
     <div class="advanced-filters" id="advancedFilters">
         <div class="filter-row" id="filterRow">
             <div class="form-group">
-                <label for="filterTown">Town</label>
+                <label for="filterTown">Municipality</label>
                 <select id="filterTown"><option value="">All</option></select>
             </div>
             <div class="form-group">
@@ -421,7 +421,7 @@
                     <tr>
                         <th>ARB ID</th>
                         <th>Name</th>
-                        <th>Town</th>
+                        <th>Municipality</th>
                         <th>Barangay</th>
                         <th>Validation</th>
                         <th>Life</th>
@@ -579,14 +579,14 @@
             }
         } catch(e) { console.error('Supabase init error:', e); }
 
-        // -------- Load ARB list with filters (includes town/barangay from landholdings) --------
+        // -------- Load ARB list with filters (includes landholding search) --------
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
 
             // Gather filters
-            const town = document.getElementById('filterTown').value;
+            const municipality = document.getElementById('filterTown').value; // now renamed to Municipality
             const barangay = document.getElementById('filterBarangay').value;
             const validation = document.getElementById('filterValidation').value;
             const split = document.getElementById('filterSplit').value;
@@ -610,14 +610,14 @@
                     }
                 }
 
-                // -------- 2. Build set of ARB IDs that match Town/Barangay (from arbo AND landholdings) --------
+                // -------- 2. Build set of ARB IDs that match Municipality/Barangay (from arbo AND landholdings) --------
                 let townBarangayArbIds = [];
-                let locationFilterActive = (town || barangay || municipalityPart);
+                let locationFilterActive = (municipality || barangay || municipalityPart);
 
                 if (locationFilterActive) {
-                    // 2a. Get ARB IDs from arbo table
+                    // 2a. Get ARB IDs from arbo table (using municipality column)
                     let arboQuery = secureDbClient.from('arbo').select('id');
-                    if (town) arboQuery = arboQuery.ilike('municipality', `%${town}%`);
+                    if (municipality) arboQuery = arboQuery.ilike('municipality', `%${municipality}%`);
                     if (barangay) arboQuery = arboQuery.ilike('barangay', `%${barangay}%`);
                     if (municipalityPart) {
                         arboQuery = arboQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
@@ -635,11 +635,11 @@
                         townBarangayArbIds = arbsFromArbo.map(a => a.id);
                     }
 
-                    // 2b. Get ARB IDs from landholdings table
+                    // 2b. Get ARB IDs from landholdings table (using municipality column)
                     let landQuery = secureDbClient
                         .from('arb_landholdings')
                         .select('arb_profile_id');
-                    if (town) landQuery = landQuery.ilike('municipality', `%${town}%`);
+                    if (municipality) landQuery = landQuery.ilike('municipality', `%${municipality}%`);
                     if (barangay) landQuery = landQuery.ilike('barangay', `%${barangay}%`);
                     if (municipalityPart) {
                         landQuery = landQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
@@ -661,7 +661,7 @@
 
                     // If after all that we have no ARB IDs, show empty
                     if (townBarangayArbIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the selected town/barangay.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the selected municipality/barangay.</td></tr>`;
                         return;
                     }
                 }
@@ -691,27 +691,20 @@
                 let landholdingArbIds = null;
                 if (searchTerm && searchField === 'landholding') {
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
+                    // Text columns only (no dates, no casting)
+                    const textColumns = [
+                        'claim_no', 'survey_no', 'asp_no', 'lot_no', 'lhid',
+                        'ccloa_title_raw', 'ep_cloa_serial_no', 'title_no',
+                        'title_type', 'cocrom_certificate_no', 'cocrom_reference_raw',
+                        'cocrom_serial_no', 'original_mother_title_no', 'release_status',
+                        'date_released_raw'
+                    ];
+                    // Build OR conditions string
+                    const conditions = textColumns.map(col => `${col}.ilike.${pattern}`).join(',');
                     const landQuery = secureDbClient
                         .from('arb_landholdings')
                         .select('arb_profile_id')
-                        .or(`
-                            claim_no.ilike.${pattern},
-                            survey_no.ilike.${pattern},
-                            asp_no.ilike.${pattern},
-                            lot_no.ilike.${pattern},
-                            lhid.ilike.${pattern},
-                            ccloa_title_raw.ilike.${pattern},
-                            ep_cloa_serial_no.ilike.${pattern},
-                            title_no.ilike.${pattern},
-                            title_type.ilike.${pattern},
-                            cocrom_certificate_no.ilike.${pattern},
-                            cocrom_reference_raw.ilike.${pattern},
-                            cocrom_serial_no.ilike.${pattern},
-                            original_mother_title_no.ilike.${pattern},
-                            release_status.ilike.${pattern},
-                            date_released_raw.ilike.${pattern},
-                            date_distributed_to_darmo::text.ilike.${pattern}
-                        `);
+                        .or(conditions);
                     const { data: landData, error: landErr } = await landQuery;
                     if (landErr) throw landErr;
                     if (landData && landData.length > 0) {
@@ -733,7 +726,7 @@
 
                 // -------- 5. Combine all filters into a final set of ARB IDs --------
                 let finalArbIds = null;
-                // Start with town/barangay set (if any)
+                // Start with location set (if any)
                 if (locationFilterActive) {
                     finalArbIds = townBarangayArbIds;
                 }
@@ -888,23 +881,24 @@
             }
         }
 
-        // -------- Populate filter dropdowns --------
+        // -------- Populate filter dropdowns (using municipality column) --------
         async function populateFilterOptions() {
             try {
-                // We'll still populate from arbo for simplicity, but user can type any town in search.
-                const { data: towns } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
-                const townSet = new Set(towns?.map(t => t.municipality).filter(Boolean) || []);
-                // Also add towns from landholdings for completeness
-                const { data: landTowns } = await secureDbClient.from('arb_landholdings').select('municipality').not('municipality','is',null);
-                (landTowns || []).forEach(l => { if (l.municipality) townSet.add(l.municipality); });
+                // Get municipalities from arbo
+                const { data: townsArbo } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
+                const townSet = new Set(townsArbo?.map(t => t.municipality).filter(Boolean) || []);
+                // Also from landholdings
+                const { data: townsLand } = await secureDbClient.from('arb_landholdings').select('municipality').not('municipality','is',null);
+                (townsLand || []).forEach(l => { if (l.municipality) townSet.add(l.municipality); });
                 filterTownOptions = Array.from(townSet).sort();
                 const townSelect = document.getElementById('filterTown');
                 townSelect.innerHTML = '<option value="">All</option>' + filterTownOptions.map(t => `<option value="${safe(t)}">${safe(t)}</option>`).join('');
 
-                const { data: barangays } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
-                const barangaySet = new Set(barangays?.map(b => b.barangay).filter(Boolean) || []);
-                const { data: landBarangays } = await secureDbClient.from('arb_landholdings').select('barangay').not('barangay','is',null);
-                (landBarangays || []).forEach(l => { if (l.barangay) barangaySet.add(l.barangay); });
+                // Barangay
+                const { data: barangaysArbo } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
+                const barangaySet = new Set(barangaysArbo?.map(b => b.barangay).filter(Boolean) || []);
+                const { data: barangaysLand } = await secureDbClient.from('arb_landholdings').select('barangay').not('barangay','is',null);
+                (barangaysLand || []).forEach(l => { if (l.barangay) barangaySet.add(l.barangay); });
                 filterBarangayOptions = Array.from(barangaySet).sort();
                 const barangaySelect = document.getElementById('filterBarangay');
                 barangaySelect.innerHTML = '<option value="">All</option>' + filterBarangayOptions.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
@@ -920,7 +914,7 @@
         }
 
         // ============================================================
-        //  OPEN ARB PROFILE (POP-UP MODAL)
+        //  OPEN ARB PROFILE (POP-UP MODAL) – same as before
         // ============================================================
         async function openArbProfile(arbId) {
             showModal('Loading...', '<p class="empty-msg">Loading ARB profile...</p>');
@@ -962,7 +956,7 @@
 
                 const arbo = arb.arbo || {};
 
-                // Build modal content
+                // Build modal content (same as before)
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
@@ -1087,7 +1081,7 @@
                 { label: 'Spouse', value: profile.spouse },
                 { label: 'CLOR/Urban', value: profile.clorurban },
                 { label: 'Sequence No.', value: profile.sequence_no },
-                { label: 'Town', value: arbo.municipality },
+                { label: 'Municipality', value: arbo.municipality },
                 { label: 'Barangay', value: arbo.barangay },
                 { label: 'District', value: profile.district },
                 { label: 'ARBO', value: arbo.name },
