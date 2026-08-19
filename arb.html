@@ -471,7 +471,7 @@
         let filterTownOptions = [];
         let filterBarangayOptions = [];
 
-        // -------- Helpers --------
+        // -------- Helpers (unchanged) --------
         function safe(value) {
             return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
         }
@@ -603,7 +603,6 @@
                 let namePart = searchTerm;
                 let municipalityPart = null;
                 if (searchTerm && searchField === 'name') {
-                    // Split by comma and trim
                     const parts = searchTerm.split(',').map(s => s.trim());
                     if (parts.length >= 2) {
                         namePart = parts[0];
@@ -655,21 +654,30 @@
                 let landholdingArbIds = null;
                 if (searchTerm && searchField === 'landholding') {
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                    // Extended landholding columns
+                    // Expanded landholding columns
                     const landQuery = secureDbClient
                         .from('arb_landholdings')
                         .select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern}, survey_no.ilike.${pattern}, asp_no.ilike.${pattern}, lot_no.ilike.${pattern}, lhid.ilike.${pattern}, ccloa_title_raw.ilike.${pattern}, ep_cloa_serial_no.ilike.${pattern}, title_no.ilike.${pattern}, title_type.ilike.${pattern}, cocrom_certificate_no.ilike.${pattern}, cocrom_reference_raw.ilike.${pattern}, cocrom_serial_no.ilike.${pattern}, original_mother_title_no.ilike.${pattern}`);
-                    // Also search date fields as text (if needed, we can convert, but better to search as string)
-                    // We'll add date_generated, date_registered, date_released, release_status, date_released_raw, date_distributed_to_darmo
-                    // We'll use cast to text for date fields, but it's safer to treat them as text in search.
-                    // Supabase doesn't support casting in ilike directly, so we'll use a separate query for dates if needed.
-                    // For simplicity, we'll just search the text columns already included.
-                    // We'll add the extra text columns: release_status, date_released_raw, date_distributed_to_darmo (text)
-                    // Also original_mother_title_no (text)
-                    // We'll update the or clause to include these:
-                    // Note: date fields are date type, we cannot ilike them directly. We'll skip them for now, but we can add if we cast in a separate query.
-                    // For now, we'll include the text columns.
+                        .or(`
+                            claim_no.ilike.${pattern},
+                            survey_no.ilike.${pattern},
+                            asp_no.ilike.${pattern},
+                            lot_no.ilike.${pattern},
+                            lhid.ilike.${pattern},
+                            ccloa_title_raw.ilike.${pattern},
+                            ep_cloa_serial_no.ilike.${pattern},
+                            title_no.ilike.${pattern},
+                            title_type.ilike.${pattern},
+                            cocrom_certificate_no.ilike.${pattern},
+                            cocrom_reference_raw.ilike.${pattern},
+                            cocrom_serial_no.ilike.${pattern},
+                            original_mother_title_no.ilike.${pattern},
+                            release_status.ilike.${pattern},
+                            date_released_raw.ilike.${pattern},
+                            date_distributed_to_darmo::text.ilike.${pattern}
+                        `);
+                    // Also search date fields by casting to text (if needed)
+                    // We'll also add mode_of_acquisisi for completeness
                     const { data: landData, error: landErr } = await landQuery;
                     if (landErr) throw landErr;
                     if (landData && landData.length > 0) {
@@ -749,12 +757,10 @@
                         // Split the search term into tokens (ignore commas)
                         const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                         if (tokens.length === 1) {
-                            // Single token: search in first_name, middle_name, last_name
                             const pattern = `%${tokens[0].replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                             arbQuery = arbQuery.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
                         } else {
-                            // Multiple tokens: search for combinations (first + last)
-                            // We'll build OR conditions for each token in first and last
+                            // Build OR conditions for each token in first and last
                             const conditions = tokens.map(token => {
                                 const p = `%${token.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                                 return `first_name.ilike.${p}, last_name.ilike.${p}`;
@@ -886,7 +892,7 @@
                     profile = profRes.data;
                     profileId = profile.id;
                 } else {
-                    // Profile missing – show a message and allow viewing only
+                    // Profile missing – show message and allow creating
                     profile = { id: null };
                 }
 
@@ -988,7 +994,6 @@
                         document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { hideModal(); openValidationForm(arbId); });
                     } else {
                         document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async () => {
-                            // Create a minimal profile
                             try {
                                 const { data, error } = await secureDbClient.from('arb_profiles').insert({
                                     arb_id: String(arbId),
@@ -1022,7 +1027,7 @@
             return parts.map(p => p.charAt(0).toUpperCase()).join('');
         }
 
-        // -------- Render Overview --------
+        // -------- Render Overview (unchanged) --------
         function renderOverview(arb, profile, arbo) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
@@ -1090,7 +1095,7 @@
             return html;
         }
 
-        // -------- Render Landholdings --------
+        // -------- Render Landholdings (now includes all requested columns) --------
         function renderLandholdings(holdings) {
             if (!holdings || holdings.length === 0) {
                 return `<p class="empty-card">No landholding records found.</p>`;
@@ -1105,6 +1110,7 @@
                             <th>CoCROM Ref</th><th>CoCROM Serial</th>
                             <th>Mother Title</th>
                             <th>Municipality</th><th>Barangay</th><th>Landowner</th>
+                            <th>Mode of Acquisition</th>
                             <th>Date Generated</th><th>Date Registered</th><th>Date Released</th>
                             <th>Release Status</th><th>Released Raw</th>
                             <th>Distributed to DARMO</th>
@@ -1131,6 +1137,7 @@
                     <td>${displayValue(h.municipality)}</td>
                     <td>${displayValue(h.barangay)}</td>
                     <td>${displayValue(h.landowner)}</td>
+                    <td>${displayValue(h.mode_of_acquisisi)}</td>
                     <td>${formatDateValue(h.date_generated)}</td>
                     <td>${formatDateValue(h.date_registered)}</td>
                     <td>${formatDateValue(h.date_released)}</td>
@@ -1143,89 +1150,32 @@
             return html;
         }
 
-        // -------- Render Heirs --------
+        // -------- Render Heirs, Tags, Validations (unchanged) --------
         function renderHeirs(heirs) {
-            if (!heirs || heirs.length === 0) {
-                return `<p class="empty-card">No heirs recorded.</p>`;
-            }
-            let html = `
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr>
-                            <th>Name</th><th>Relation</th><th>Contact</th><th>Email</th>
-                            <th>Supporting Doc</th><th>Verified</th><th>Selected</th>
-                        </tr></thead>
-                        <tbody>
-            `;
+            if (!heirs || heirs.length === 0) return `<p class="empty-card">No heirs recorded.</p>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Relation</th><th>Contact</th><th>Email</th><th>Supporting Doc</th><th>Verified</th><th>Selected</th></tr></thead><tbody>`;
             heirs.forEach(h => {
-                html += `<tr>
-                    <td>${displayValue(h.heir_name)}</td>
-                    <td>${displayValue(h.heir_relation)}</td>
-                    <td>${displayValue(h.heir_contact)}</td>
-                    <td>${displayValue(h.heir_email)}</td>
-                    <td>${displayValue(h.supporting_document_reference)}</td>
-                    <td>${h.is_verified ? '✅' : '❌'}</td>
-                    <td>${h.is_selected ? '✅' : '❌'}</td>
-                </tr>`;
+                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? '✅' : '❌'}</td><td>${h.is_selected ? '✅' : '❌'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
         }
 
-        // -------- Render Tags --------
         function renderTags(tags) {
-            if (!tags || tags.length === 0) {
-                return `<p class="empty-card">No tags recorded.</p>`;
-            }
-            let html = `
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr>
-                            <th>Tag Type</th><th>Status</th><th>Case Ref</th><th>Details</th>
-                            <th>Tagged By</th><th>Date</th>
-                        </tr></thead>
-                        <tbody>
-            `;
+            if (!tags || tags.length === 0) return `<p class="empty-card">No tags recorded.</p>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Tag Type</th><th>Status</th><th>Case Ref</th><th>Details</th><th>Tagged By</th><th>Date</th></tr></thead><tbody>`;
             tags.forEach(t => {
-                html += `<tr>
-                    <td>${displayValue(t.tag_type)}</td>
-                    <td>${displayValue(t.status)}</td>
-                    <td>${displayValue(t.case_reference_no)}</td>
-                    <td>${displayValue(t.case_details)}</td>
-                    <td>${displayValue(t.tagged_by)}</td>
-                    <td>${formatDateValue(t.created_at)}</td>
-                </tr>`;
+                html += `<tr><td>${displayValue(t.tag_type)}</td><td>${displayValue(t.status)}</td><td>${displayValue(t.case_reference_no)}</td><td>${displayValue(t.case_details)}</td><td>${displayValue(t.tagged_by)}</td><td>${formatDateValue(t.created_at)}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
         }
 
-        // -------- Render Validations --------
         function renderValidations(validations) {
-            if (!validations || validations.length === 0) {
-                return `<p class="empty-card">No validations recorded.</p>`;
-            }
-            let html = `
-                <div class="table-wrap">
-                    <table>
-                        <thead><tr>
-                            <th>Validator</th><th>Type</th><th>Position</th>
-                            <th>Barangay</th><th>Town</th>
-                            <th>Date</th><th>Basis</th><th>Document</th>
-                        </tr></thead>
-                        <tbody>
-            `;
+            if (!validations || validations.length === 0) return `<p class="empty-card">No validations recorded.</p>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Position</th><th>Barangay</th><th>Town</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
             validations.forEach(v => {
-                html += `<tr>
-                    <td>${displayValue(v.validator_name)}</td>
-                    <td>${displayValue(v.validator_type)}</td>
-                    <td>${displayValue(v.position)}</td>
-                    <td>${displayValue(v.validator_barangay)}</td>
-                    <td>${displayValue(v.validator_town)}</td>
-                    <td>${formatDateValue(v.date_validated)}</td>
-                    <td>${displayValue(v.validation_basis)}</td>
-                    <td>${displayValue(v.supporting_document_reference)}</td>
-                </tr>`;
+                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td>${displayValue(v.position)}</td><td>${displayValue(v.validator_barangay)}</td><td>${displayValue(v.validator_town)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -1233,52 +1183,21 @@
 
         // -------- Open Heir Form (modal) --------
         async function openHeirForm(arbId) {
-            // We need to get the profile ID first
             const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-            if (profRes.error) {
-                popToast('Profile not found. Please create profile first.', 'err');
-                return;
-            }
+            if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
             const profileId = profRes.data.id;
-            // Show a form modal (simplified for brevity, but you can expand)
             const formHtml = `
                 <form id="heirForm">
                     <div class="form-grid">
-                        <div class="form-group full">
-                            <label for="heirName">Heir Name</label>
-                            <input id="heirName" name="heir_name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="heirRelation">Relation</label>
-                            <input id="heirRelation" name="heir_relation">
-                        </div>
-                        <div class="form-group">
-                            <label for="heirContact">Contact</label>
-                            <input id="heirContact" name="heir_contact">
-                        </div>
-                        <div class="form-group full">
-                            <label for="heirAddress">Address</label>
-                            <input id="heirAddress" name="heir_address">
-                        </div>
-                        <div class="form-group full">
-                            <label for="heirEmail">Email</label>
-                            <input id="heirEmail" name="heir_email" type="email">
-                        </div>
-                        <div class="form-group full">
-                            <label for="heirDoc">Supporting Document Reference</label>
-                            <input id="heirDoc" name="supporting_document_reference">
-                        </div>
-                        <div class="form-group full">
-                            <div class="checkbox-row">
-                                <label><input type="checkbox" name="is_verified"> Verified</label>
-                                <label><input type="checkbox" name="is_selected"> Selected</label>
-                            </div>
-                        </div>
+                        <div class="form-group full"><label for="heirName">Heir Name</label><input id="heirName" name="heir_name" required></div>
+                        <div class="form-group"><label for="heirRelation">Relation</label><input id="heirRelation" name="heir_relation"></div>
+                        <div class="form-group"><label for="heirContact">Contact</label><input id="heirContact" name="heir_contact"></div>
+                        <div class="form-group full"><label for="heirAddress">Address</label><input id="heirAddress" name="heir_address"></div>
+                        <div class="form-group full"><label for="heirEmail">Email</label><input id="heirEmail" name="heir_email" type="email"></div>
+                        <div class="form-group full"><label for="heirDoc">Supporting Document Reference</label><input id="heirDoc" name="supporting_document_reference"></div>
+                        <div class="form-group full"><div class="checkbox-row"><label><input type="checkbox" name="is_verified"> Verified</label><label><input type="checkbox" name="is_selected"> Selected</label></div></div>
                     </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelHeirBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Heir</button>
-                    </div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelHeirBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Heir</button></div>
                 </form>
             `;
             showModal('Add Heir', formHtml);
@@ -1316,55 +1235,17 @@
             const formHtml = `
                 <form id="validationForm">
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="valType">Validator Type</label>
-                            <select id="valType" name="validator_type" required>
-                                <option value="Barangay">Barangay</option>
-                                <option value="DARMO">DARMO</option>
-                                <option value="PBDD">PBDD</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="valStatus">Validation Status</label>
-                            <select id="valStatus" name="validation_status" required>
-                                <option value="Pending">Pending</option>
-                                <option value="Validated">Validated</option>
-                                <option value="Rejected">Rejected</option>
-                            </select>
-                        </div>
-                        <div class="form-group full">
-                            <label for="valName">Validator Name</label>
-                            <input id="valName" name="validator_name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="valPos">Position</label>
-                            <input id="valPos" name="position">
-                        </div>
-                        <div class="form-group">
-                            <label for="valDate">Date Validated</label>
-                            <input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}">
-                        </div>
-                        <div class="form-group">
-                            <label for="valBarangay">Barangay</label>
-                            <input id="valBarangay" name="validator_barangay">
-                        </div>
-                        <div class="form-group">
-                            <label for="valTown">Town</label>
-                            <input id="valTown" name="validator_town">
-                        </div>
-                        <div class="form-group full">
-                            <label for="valBasis">Validation Basis</label>
-                            <input id="valBasis" name="validation_basis">
-                        </div>
-                        <div class="form-group full">
-                            <label for="valDoc">Supporting Document Reference</label>
-                            <input id="valDoc" name="supporting_document_reference">
-                        </div>
+                        <div class="form-group"><label for="valType">Validator Type</label><select id="valType" name="validator_type" required><option value="Barangay">Barangay</option><option value="DARMO">DARMO</option><option value="PBDD">PBDD</option></select></div>
+                        <div class="form-group"><label for="valStatus">Validation Status</label><select id="valStatus" name="validation_status" required><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
+                        <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" required></div>
+                        <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position"></div>
+                        <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
+                        <div class="form-group"><label for="valBarangay">Barangay</label><input id="valBarangay" name="validator_barangay"></div>
+                        <div class="form-group"><label for="valTown">Town</label><input id="valTown" name="validator_town"></div>
+                        <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
+                        <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference"></div>
                     </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Validation</button>
-                    </div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
                 </form>
             `;
             showModal('Add Validation', formHtml);
@@ -1389,7 +1270,6 @@
                 try {
                     const { error } = await secureDbClient.from('arb_validations').insert(payload);
                     if (error) throw error;
-                    // Update arb validation status
                     const valStatus = fd.get('validation_status');
                     await secureDbClient.from('arb').update({ validation_status: valStatus }).eq('id', arbId);
                     hideModal();
@@ -1414,93 +1294,23 @@
                 const formHtml = `
                     <form id="editArbForm">
                         <div class="form-grid">
-                            <div class="form-group full">
-                                <label>ARB ID</label>
-                                <input value="${safe(profile.generated_arb_ic || arb.id)}" disabled>
-                            </div>
-                            <div class="form-group">
-                                <label for="editFirstName">First Name</label>
-                                <input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="editMiddleName">Middle Name</label>
-                                <input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}">
-                            </div>
-                            <div class="form-group">
-                                <label for="editLastName">Last Name</label>
-                                <input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="editLifeStatus">Life Status</label>
-                                <select id="editLifeStatus" name="life_status">
-                                    <option value="Active" ${profile.life_status==='Active'?'selected':''}>Active</option>
-                                    <option value="Dead" ${profile.life_status==='Dead'?'selected':''}>Dead</option>
-                                    <option value="Unknown" ${!profile.life_status?'selected':''}>Unknown</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="editValidationStatus">Validation Status</label>
-                                <select id="editValidationStatus" name="validation_status">
-                                    <option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option>
-                                    <option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option>
-                                    <option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option>
-                                </select>
-                            </div>
-                            <div class="form-group full">
-                                <label for="editFbName">FB Name</label>
-                                <input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}">
-                            </div>
-                            <div class="form-group">
-                                <label for="editSplitStatus">SPLIT Status</label>
-                                <select id="editSplitStatus" name="split_status">
-                                    <option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option>
-                                    <option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option>
-                                    <option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="editCocrom">CoCROM No.</label>
-                                <input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}">
-                            </div>
-                            <div class="form-group">
-                                <label for="editTitleDistributed">Title Distributed</label>
-                                <select id="editTitleDistributed" name="is_title_distribute">
-                                    <option value="false" ${!profile.is_title_distribute?'selected':''}>No</option>
-                                    <option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="editETitle">Individual Title / e-Title</label>
-                                <input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}">
-                            </div>
-                            <div class="form-group">
-                                <label for="editDistrict">District</label>
-                                <input id="editDistrict" name="district" value="${safe(profile.district||'')}">
-                            </div>
-                            <div class="form-group full">
-                                <label>Legal Flags</label>
-                                <div class="checkbox-row">
-                                    <label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label>
-                                    <label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label>
-                                    <label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label>
-                                    <label><input type="checkbox" name="for_removal" ${arb.for_removal?'checked':''}> For Removal</label>
-                                    <label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label>
-                                    <label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label>
-                                </div>
-                            </div>
-                            <div class="form-group full">
-                                <label for="editRemovalReason">Removal Reason</label>
-                                <input id="editRemovalReason" name="removal_reason" value="${safe(arb.removal_reason||'')}">
-                            </div>
-                            <div class="form-group full">
-                                <label for="editDisqualificationReason">Disqualification Reason</label>
-                                <input id="editDisqualificationReason" name="disqualification_r" value="${safe(arb.disqualification_r||'')}">
-                            </div>
+                            <div class="form-group full"><label>ARB ID</label><input value="${safe(profile.generated_arb_ic || arb.id)}" disabled></div>
+                            <div class="form-group"><label for="editFirstName">First Name</label><input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required></div>
+                            <div class="form-group"><label for="editMiddleName">Middle Name</label><input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}"></div>
+                            <div class="form-group"><label for="editLastName">Last Name</label><input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required></div>
+                            <div class="form-group"><label for="editLifeStatus">Life Status</label><select id="editLifeStatus" name="life_status"><option value="Active" ${profile.life_status==='Active'?'selected':''}>Active</option><option value="Dead" ${profile.life_status==='Dead'?'selected':''}>Dead</option><option value="Unknown" ${!profile.life_status?'selected':''}>Unknown</option></select></div>
+                            <div class="form-group"><label for="editValidationStatus">Validation Status</label><select id="editValidationStatus" name="validation_status"><option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option><option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option></select></div>
+                            <div class="form-group full"><label for="editFbName">FB Name</label><input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}"></div>
+                            <div class="form-group"><label for="editSplitStatus">SPLIT Status</label><select id="editSplitStatus" name="split_status"><option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option><option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select></div>
+                            <div class="form-group"><label for="editCocrom">CoCROM No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}"></div>
+                            <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
+                            <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
+                            <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
+                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_removal" ${arb.for_removal?'checked':''}> For Removal</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
+                            <div class="form-group full"><label for="editRemovalReason">Removal Reason</label><input id="editRemovalReason" name="removal_reason" value="${safe(arb.removal_reason||'')}"></div>
+                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><input id="editDisqualificationReason" name="disqualification_r" value="${safe(arb.disqualification_r||'')}"></div>
                         </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                        </div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
                 `;
                 showModal('Edit ARB Record', formHtml);
@@ -1541,7 +1351,6 @@
                             const { error: e2 } = await secureDbClient.from('arb_profiles').update(profilePayload).eq('id', profile.id);
                             if (e2) throw e2;
                         } else {
-                            // Attempt to insert
                             profilePayload.arb_id = String(arbId);
                             const { error: e2 } = await secureDbClient.from('arb_profiles').insert(profilePayload);
                             if (e2) throw e2;
@@ -1564,12 +1373,8 @@
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
-                // Get profile ID
                 const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-                if (profRes.error) {
-                    popToast('Profile not found. Please create profile first.', 'err');
-                    return;
-                }
+                if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                 const profileId = profRes.data.id;
 
                 const tagTypes = [
@@ -1594,34 +1399,13 @@
                 const formHtml = `
                     <form id="tagArbForm">
                         <div class="form-grid">
-                            <div class="form-group">
-                                <label for="tagType">Tag Type</label>
-                                <select id="tagType" name="tag_type" required>
-                                    ${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="tagStatus">Status</label>
-                                <select id="tagStatus" name="status"></select>
-                            </div>
-                            <div class="form-group full">
-                                <label for="tagCaseRef">Case Reference No.</label>
-                                <input id="tagCaseRef" name="case_reference_no">
-                            </div>
-                            <div class="form-group full">
-                                <label for="tagCaseDetails">Case Details / Reason</label>
-                                <textarea id="tagCaseDetails" name="case_details"></textarea>
-                            </div>
-                            <div class="form-group full" id="heirSection" style="display:none;">
-                                <label>Heirs (for Transfer Action)</label>
-                                <div id="heirList"></div>
-                                <button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button>
-                            </div>
+                            <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}</select></div>
+                            <div class="form-group"><label for="tagStatus">Status</label><select id="tagStatus" name="status"></select></div>
+                            <div class="form-group full"><label for="tagCaseRef">Case Reference No.</label><input id="tagCaseRef" name="case_reference_no"></div>
+                            <div class="form-group full"><label for="tagCaseDetails">Case Details / Reason</label><textarea id="tagCaseDetails" name="case_details"></textarea></div>
+                            <div class="form-group full" id="heirSection" style="display:none;"><label>Heirs (for Transfer Action)</label><div id="heirList"></div><button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button></div>
                         </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Tag</button>
-                        </div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Tag</button></div>
                     </form>
                 `;
                 showModal('Tag ARB', formHtml);
@@ -1753,10 +1537,7 @@
             try {
                 const profRes = await secureDbClient.from('arb_profiles').select('id, sequence_no, generated_arb_ic').eq('arb_id', String(arbId)).single();
                 let profile = profRes.data;
-                if (!profile) {
-                    popToast('Profile not found. Please create profile first.', 'err');
-                    return;
-                }
+                if (!profile) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                 let seq = profile.sequence_no;
                 if (!seq) {
                     const { count } = await secureDbClient.from('arb_profiles').select('*', { count: 'exact', head: true });
@@ -1770,27 +1551,19 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Upload Photo --------
+        // -------- Upload Photo (file + webcam) --------
         async function openPhotoUpload(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
                 <form id="photoForm">
-                    <div class="form-group">
-                        <label>Upload 1x1 Photo</label>
-                        <input type="file" id="photoFileInput" accept="image/*">
-                    </div>
-                    <div class="form-group">
-                        <label>Or capture from webcam</label>
-                        <button type="button" class="btn btn-primary" id="startWebcamBtn">Start Webcam</button>
+                    <div class="form-group"><label>Upload 1x1 Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
+                    <div class="form-group"><label>Or capture from webcam</label><button type="button" class="btn btn-primary" id="startWebcamBtn">Start Webcam</button>
                         <video id="webcamVideo" autoplay style="width:100%;max-width:320px;border:1px solid #ccc;border-radius:6px;margin-top:6px;display:none;"></video>
                         <canvas id="webcamCanvas" style="display:none;"></canvas>
                         <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;">Capture</button>
                     </div>
                     <div id="photoPreview"></div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelPhotoBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Photo</button>
-                    </div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
                 </form>
             `;
             showModal('Upload ARB Photo', formHtml);
@@ -1852,16 +1625,10 @@
                     const hidden = document.getElementById('photoData');
                     if (hidden) imageData = hidden.value;
                 }
-                if (!imageData) {
-                    popToast('No photo selected or captured.', 'warn');
-                    return;
-                }
+                if (!imageData) { popToast('No photo selected or captured.', 'warn'); return; }
                 try {
                     const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-                    if (profRes.error) {
-                        popToast('Profile not found. Please create profile first.', 'err');
-                        return;
-                    }
+                    if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                     const profile = profRes.data;
                     const { error } = await secureDbClient.from('arb_profiles').update({
                         image_base64: imageData,
@@ -1889,17 +1656,8 @@
             const options = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
             const formHtml = `
                 <form id="assignArboForm">
-                    <div class="form-group">
-                        <label for="arboSelect">Select ARBO</label>
-                        <select id="arboSelect" name="arbo_id" required>
-                            <option value="">-- Choose --</option>
-                            ${options}
-                        </select>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Assign</button>
-                    </div>
+                    <div class="form-group"><label for="arboSelect">Select ARBO</label><select id="arboSelect" name="arbo_id" required><option value="">-- Choose --</option>${options}</select></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
                 </form>
             `;
             showModal('Assign ARB to ARBO', formHtml);
@@ -1923,18 +1681,8 @@
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
                 <form id="updateValForm">
-                    <div class="form-group">
-                        <label for="newValidationStatus">Validation Status</label>
-                        <select id="newValidationStatus" name="validation_status">
-                            <option value="Pending" ${currentStatus==='Pending'?'selected':''}>Pending</option>
-                            <option value="Validated" ${currentStatus==='Validated'?'selected':''}>Validated</option>
-                            <option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option>
-                        </select>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Update</button>
-                    </div>
+                    <div class="form-group"><label for="newValidationStatus">Validation Status</label><select id="newValidationStatus" name="validation_status"><option value="Pending" ${currentStatus==='Pending'?'selected':''}>Pending</option><option value="Validated" ${currentStatus==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option></select></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
                 </form>
             `;
             showModal('Update Validation Status', formHtml);
@@ -1952,7 +1700,7 @@
             });
         }
 
-        // -------- Search CCLOA --------
+        // -------- Search CCLOA (unchanged) --------
         async function openCcloaSearch() {
             showModal('Search CCLOA', `
                 <div class="search-row">
@@ -1979,15 +1727,7 @@
                 }
                 let html = `<table class="modal-table"><thead><tr><th>CCLOA No.</th><th>Landowner</th><th>Municipality</th><th>Barangay</th><th>SPLIT Status</th><th>Remarks</th><th>Action</th></tr></thead><tbody>`;
                 data.forEach(t => {
-                    html += `<tr>
-                        <td><strong>${safe(t.mother_title_no)}</strong></td>
-                        <td>${safe(t.landowner)}</td>
-                        <td>${safe(t.municipality)}</td>
-                        <td>${safe(t.barangay)}</td>
-                        <td>${safe(t.split_status)}</td>
-                        <td>${safe(t.remarks)}</td>
-                        <td><button class="btn btn-primary btn-sm show-members-btn" data-title-id="${t.id}">View ARBs</button></td>
-                    </tr>`;
+                    html += `<tr><td><strong>${safe(t.mother_title_no)}</strong></td><td>${safe(t.landowner)}</td><td>${safe(t.municipality)}</td><td>${safe(t.barangay)}</td><td>${safe(t.split_status)}</td><td>${safe(t.remarks)}</td><td><button class="btn btn-primary btn-sm show-members-btn" data-title-id="${t.id}">View ARBs</button></td></tr>`;
                 });
                 resultsEl.innerHTML = html + '</tbody></table>';
                 resultsEl.querySelectorAll('.show-members-btn').forEach(btn => btn.addEventListener('click', function() {
@@ -2013,14 +1753,7 @@
                 let html = `<p><strong>CCLOA:</strong> ${safe(title?.mother_title_no)} &nbsp; <strong>Landowner:</strong> ${safe(title?.landowner)}</p><table class="modal-table"><thead><tr><th>ARB</th><th>Validation</th><th>Life</th><th>Classification</th><th>e-Title</th><th>Action</th></tr></thead><tbody>`;
                 arbs?.forEach(arb => {
                     const prof = profiles.find(p => p.arb_id === String(arb.id)) || {};
-                    html += `<tr>
-                        <td>${safe(fullName(arb))}</td>
-                        <td>${safe(arb.validation_status)}</td>
-                        <td>${safe(prof.life_status)}</td>
-                        <td>${safe(prof.split_status)}</td>
-                        <td>${safe(prof.e_title_no)}</td>
-                        <td><a class="btn btn-primary btn-sm" href="arb-profile.html?id=${arb.id}">Open</a></td>
-                    </tr>`;
+                    html += `<tr><td>${safe(fullName(arb))}</td><td>${safe(arb.validation_status)}</td><td>${safe(prof.life_status)}</td><td>${safe(prof.split_status)}</td><td>${safe(prof.e_title_no)}</td><td><a class="btn btn-primary btn-sm" href="arb-profile.html?id=${arb.id}">Open</a></td></tr>`;
                 });
                 modalBodyEl.innerHTML = html + '</tbody></table>';
             } catch(e) { modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
