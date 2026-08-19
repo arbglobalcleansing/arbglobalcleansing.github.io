@@ -159,17 +159,37 @@
             justify-content: flex-end;
         }
 
-        /* -------- Profile Modal Styles -------- */
+        /* -------- NEW: FIXED MODAL UI WINDOW -------- */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; }
+        .modal.active { display: grid; }
+        .modal-content { background: #fff; width: 95%; max-width: 1100px; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transition: all 0.3s ease; }
+        
+        .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #0a3d62; color: #fff; border-bottom: 1px solid #082f4d; }
+        .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; }
+        .btn-close-win { background: #ff5f56; }
+        .btn-min-win { background: #ffbd2e; }
+        .btn-max-win { background: #27c93f; }
+        
+        .modal.maximized .modal-content { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; border-radius: 0; }
+        .modal.maximized .modal-body-scroll { max-height: calc(100vh - 50px); }
+        .modal.minimized .modal-content { width: 300px; height: auto; max-width: 300px; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
+        .modal.minimized .modal-body-scroll { display: none; }
+        .modal-body-scroll { padding: 20px; overflow-y: auto; max-height: 85vh; background: #fafafa; }
+
+
+        /* -------- Profile View Layout Inside Modal -------- */
         .profile-modal {
             display: flex;
             flex-direction: column;
-            max-height: 85vh;
             overflow: hidden;
         }
         .profile-modal .modal-body {
             display: flex;
             flex: 1;
             overflow: hidden;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .profile-sidebar {
             width: 260px;
@@ -446,13 +466,13 @@
         </div>
     </div>
 
-    <!-- Modal (reused for all popups) -->
+    <!-- UI Fixed Modal -->
     <div id="modal" class="modal">
-        <div class="modal-content wide" style="max-width:1100px; padding: 0;">
-            <button class="modal-close" id="closeModalBtn" style="position: absolute; right: 15px; top: 15px; background: white; border-radius: 50%; z-index: 10;">&times;</button>
-            <div id="modalBody" style="height: 100%;"><p class="empty-msg" style="padding: 40px;">Loading…</p></div>
+        <div class="modal-content" id="modalContentContainer">
+            <!-- Dynamically populated by JS to include custom OS-like header -->
         </div>
     </div>
+
 </div>
 <div id="toast"></div>
 
@@ -516,7 +536,7 @@
             return role === 'admin' || role === 'staff';
         }
 
-        // --- NEW FEATURE: Compress Image before saving ---
+        // --- FEATURE: Compress Image before saving ---
         function compressImage(dataUrl, maxWidth=400, quality=0.7) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -534,19 +554,40 @@
             });
         }
 
-        // -------- Modal controls --------
+        // -------- NEW: Improved Fixed Header Modal Controls --------
         const modalEl = document.getElementById('modal');
-        const modalBodyEl = document.getElementById('modalBody');
         function showModal(title, body) {
-            modalBodyEl.innerHTML = body;
+            const modalContent = document.getElementById('modalContentContainer');
+            modalContent.innerHTML = `
+                <div class="modal-header-bar">
+                    <h3 style="margin:0; font-size:1.05rem; font-weight:700;">${safe(title)}</h3>
+                    <div class="modal-window-controls" style="display:flex; gap:8px;">
+                        <button type="button" class="window-btn btn-min-win" id="winMinBtn" title="Minimize"></button>
+                        <button type="button" class="window-btn btn-max-win" id="winMaxBtn" title="Maximize"></button>
+                        <button type="button" class="window-btn btn-close-win" id="winCloseBtn" title="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body-scroll" style="flex:1;">
+                    ${body}
+                </div>
+            `;
+            
+            modalEl.classList.remove('maximized', 'minimized');
             modalEl.classList.add('active');
+
+            document.getElementById('winCloseBtn').addEventListener('click', hideModal);
+            document.getElementById('winMaxBtn').addEventListener('click', () => {
+                modalEl.classList.toggle('maximized');
+                modalEl.classList.remove('minimized');
+            });
+            document.getElementById('winMinBtn').addEventListener('click', () => {
+                modalEl.classList.toggle('minimized');
+            });
         }
         function hideModal() {
             modalEl.classList.remove('active');
-            modalBodyEl.innerHTML = '';
+            document.getElementById('modalContentContainer').innerHTML = '';
         }
-        document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
-        modalEl?.addEventListener('click', function(e) { if (e.target === modalEl) hideModal(); });
 
         // -------- Navigation --------
         async function buildNavbar(profile) {
@@ -615,7 +656,6 @@
             const searchField = document.getElementById('globalSearchField').value;
 
             try {
-                // -------- 1. Handle name+municipality combination: "Mark Basbas, Bula" --------
                 let namePart = searchTerm;
                 let municipalityPart = null;
                 if (searchTerm && searchField === 'name') {
@@ -626,8 +666,7 @@
                     }
                 }
 
-                // -------- 2. Get arbo_ids for town/barangay filters --------
-                let arboIds = null;
+                // -------- 1. Get arbo_ids for town/barangay filters (FIXED MAPPING) --------
                 let townBarangayArbIds = [];
                 let locationFilterActive = (town || barangay || municipalityPart);
 
@@ -643,12 +682,12 @@
                     if (arboErr) throw arboErr;
                     
                     if (arboData && arboData.length > 0) {
-                        arboIds = arboData.map(a => a.id);
+                        let arboIds = arboData.map(a => a.id);
                         const { data: arbsFromArbo } = await secureDbClient.from('arb').select('id').in('arbo_id', arboIds);
                         townBarangayArbIds = (arbsFromArbo || []).map(a => a.id);
                     }
 
-                    // FIX: Check `arb_landholdings` and strictly map id in arb_profiles to arb_profile_id in arb_landholdings
+                    // Check `arb_landholdings` and strictly map id in arb_profiles to arb_profile_id in arb_landholdings
                     let landQuery = secureDbClient.from('arb_landholdings').select('arb_profile_id');
                     if (town) landQuery = landQuery.eq('municipality', town);
                     if (barangay) landQuery = landQuery.eq('barangay', barangay);
@@ -680,7 +719,7 @@
                     }
                 }
 
-                // -------- 3. Query arb_profiles with profile filters --------
+                // -------- 2. Query arb_profiles with profile filters --------
                 let profileQuery = secureDbClient.from('arb_profiles').select('arb_id');
                 if (split) profileQuery = profileQuery.eq('split_status', split);
                 if (cocrom !== '') {
@@ -702,11 +741,10 @@
                 let profileArbIds = profiles.map(p => p.arb_id).filter(Boolean);
                 let profileFilterApplied = (split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField==='sequence'||searchField==='fb_name')));
 
-                // -------- 4. Landholding search (if searchField is 'landholding' and searchTerm provided) --------
+                // -------- 3. Landholding search (With fixed DB Fields & ASP NO) --------
                 let landholdingArbIds = null;
                 if (searchTerm && searchField === 'landholding') {
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                    // Expanded landholding columns
                     const landQuery = secureDbClient
                         .from('arb_landholdings')
                         .select('arb_profile_id')
@@ -721,7 +759,9 @@
                             title_type.ilike.${pattern},
                             cocrom_certificate_no.ilike.${pattern},
                             cocrom_reference_raw.ilike.${pattern},
-                            release_status.ilike.${pattern}
+                            release_status.ilike.${pattern},
+                            ep_cloa_serial_n.ilike.${pattern},
+                            original_mother_t.ilike.${pattern}
                         `);
                     
                     const { data: landData, error: landErr } = await landQuery;
@@ -743,7 +783,7 @@
                     }
                 }
 
-                // -------- 5. Combine profile and landholding filters --------
+                // -------- 4. Combine profile and landholding filters --------
                 let finalArbIds = null;
                 if (locationFilterActive) {
                     finalArbIds = townBarangayArbIds;
@@ -777,7 +817,7 @@
                     return;
                 }
 
-                // -------- 6. Query arb with pagination and filters --------
+                // -------- 5. Query arb with pagination and filters --------
                 let arbQuery = secureDbClient.from('arb').select(`
                     id,
                     first_name,
@@ -800,18 +840,15 @@
                 if (ali !== '') arbQuery = arbQuery.eq('with_ali_case', ali === 'true');
                 if (ta !== '') arbQuery = arbQuery.eq('with_ta', ta === 'true');
 
-                // -------- 7. Flexible name search (handles "Mark Basbas" or "Basbas Mark") --------
                 if (searchTerm && (searchField === 'name' || searchField === 'id')) {
                     if (searchField === 'id') {
                         arbQuery = arbQuery.eq('id', searchTerm);
                     } else {
-                        // Split the search term into tokens (ignore commas)
                         const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                         if (tokens.length === 1) {
                             const pattern = `%${tokens[0].replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                             arbQuery = arbQuery.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
                         } else {
-                            // Build OR conditions for each token in first and last
                             const conditions = tokens.map(token => {
                                 const p = `%${token.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                                 return `first_name.ilike.${p}, last_name.ilike.${p}`;
@@ -845,7 +882,6 @@
                         const profile = profileMap[String(arb.id)] || {};
                         const arbo = arb.arbo || {};
                         
-                        // Fallback Location logic:
                         let dispMunicipality = arbo.municipality;
                         let dispBarangay = arbo.barangay;
                         if (!dispMunicipality && profile.arb_landholdings && profile.arb_landholdings.length > 0) {
@@ -913,17 +949,15 @@
         // -------- Populate filter dropdowns --------
         async function populateFilterOptions() {
             try {
-                const { data: towns } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
-                const townSet = new Set(towns?.map(t => t.municipality).filter(Boolean) || []);
-                filterTownOptions = Array.from(townSet).sort();
-                const townSelect = document.getElementById('filterTown');
-                townSelect.innerHTML = '<option value="">All</option>' + filterTownOptions.map(t => `<option value="${safe(t)}">${safe(t)}</option>`).join('');
+                const { data: townsArbo } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
+                const { data: townsLand } = await secureDbClient.from('arb_landholdings').select('municipality').not('municipality','is',null);
+                const tSet = new Set([...(townsArbo||[]).map(t=>t.municipality), ...(townsLand||[]).map(t=>t.municipality)]);
+                document.getElementById('filterTown').innerHTML = '<option value="">All</option>' + Array.from(tSet).sort().map(t=>`<option value="${safe(t)}">${safe(t)}</option>`).join('');
 
-                const { data: barangays } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
-                const barangaySet = new Set(barangays?.map(b => b.barangay).filter(Boolean) || []);
-                filterBarangayOptions = Array.from(barangaySet).sort();
-                const barangaySelect = document.getElementById('filterBarangay');
-                barangaySelect.innerHTML = '<option value="">All</option>' + filterBarangayOptions.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+                const { data: barArbo } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
+                const { data: barLand } = await secureDbClient.from('arb_landholdings').select('barangay').not('barangay','is',null);
+                const bSet = new Set([...(barArbo||[]).map(b=>b.barangay), ...(barLand||[]).map(b=>b.barangay)]);
+                document.getElementById('filterBarangay').innerHTML = '<option value="">All</option>' + Array.from(bSet).sort().map(b=>`<option value="${safe(b)}">${safe(b)}</option>`).join('');
             } catch(e) { console.warn('Failed to load filter options:', e); }
         }
 
@@ -936,20 +970,18 @@
         }
 
         // ============================================================
-        //  OPEN ARB PROFILE (POP-UP MODAL) - IMAGE 5 VIEW
+        //  OPEN ARB PROFILE (POP-UP MODAL)
         // ============================================================
         async function openArbProfile(arbId) {
-            showModal('', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
+            showModal('ARB Profile', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
 
             try {
-                // Fetch arb and profile
                 const arbRes = await secureDbClient.from('arb').select(`
                     *, arbo:arbo_id ( id, name, municipality, barangay )
                 `).eq('id', arbId).single();
                 if (arbRes.error) throw arbRes.error;
                 const arb = arbRes.data;
 
-                // Get profile
                 let profile = {};
                 let profileId = null;
                 const profRes = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId)).single();
@@ -961,7 +993,6 @@
                     profile = { id: null };
                 }
 
-                // Fetch related data only if profile exists
                 let heirs = [], landholdings = [], tags = [], validations = [];
                 if (profileId) {
                     const [hRes, lRes, tRes, vRes] = await Promise.all([
@@ -978,7 +1009,6 @@
 
                 const arbo = arb.arbo || {};
 
-                // Build modal content utilizing the exact styling provided by the user in <style>
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
@@ -1011,23 +1041,18 @@
                                     <button data-tab="tags">Tags (${tags.length})</button>
                                     <button data-tab="validations">Validations (${validations.length})</button>
                                 </div>
-                                <!-- Overview Tab -->
                                 <div class="tab-content active" id="tab-overview">
                                     ${renderOverview(arb, profile, arbo)}
                                 </div>
-                                <!-- Landholdings Tab -->
                                 <div class="tab-content" id="tab-landholdings">
                                     ${renderLandholdings(landholdings)}
                                 </div>
-                                <!-- Heirs Tab -->
                                 <div class="tab-content" id="tab-heirs">
                                     ${renderHeirs(heirs)}
                                 </div>
-                                <!-- Tags Tab -->
                                 <div class="tab-content" id="tab-tags">
                                     ${renderTags(tags)}
                                 </div>
-                                <!-- Validations Tab -->
                                 <div class="tab-content" id="tab-validations">
                                     ${renderValidations(validations)}
                                 </div>
@@ -1036,9 +1061,8 @@
                     </div>
                 `;
 
-                showModal('', body);
+                showModal(`ARB Profile - ${fullName(arb)}`, body);
 
-                // Attach tab switching
                 document.querySelectorAll('.tab-nav button').forEach(btn => {
                     btn.addEventListener('click', function() {
                         document.querySelectorAll('.tab-nav button').forEach(b => b.classList.remove('active'));
@@ -1049,7 +1073,6 @@
                     });
                 });
 
-                // Attach sidebar actions
                 if (canEdit()) {
                     if (profileId) {
                         document.getElementById('profileEditBtn')?.addEventListener('click', () => { hideModal(); openEditArb(arbId); });
@@ -1071,15 +1094,14 @@
                                 hideModal();
                                 popToast('Profile created successfully. Re-open to edit.', 'ok');
                                 openArbProfile(arbId);
-                            } catch (e) {
-                                popToast(e.message, 'err');
-                            }
+                            } catch (e) { popToast(e.message, 'err'); }
                         });
                     }
                 }
 
             } catch (err) {
-                modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`;
+                const mBody = document.getElementById('modalBody');
+                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`;
                 popToast(err.message, 'err');
             }
         }
@@ -1091,7 +1113,7 @@
             return parts.map(p => p.charAt(0).toUpperCase()).join('');
         }
 
-        // -------- Render Overview (unchanged) --------
+        // -------- Render Overview (Removed "For Removal" flag & Reason) --------
         function renderOverview(arb, profile, arbo) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
@@ -1127,7 +1149,6 @@
                 { label: 'AO8', value: arb.ao8 },
                 { label: 'For Transfer Action', value: arb.for_ta },
                 { label: 'With Transfer Action', value: arb.with_ta },
-                { label: 'For Removal', value: arb.for_removal },
                 { label: 'For Disqualification', value: arb.for_disqualificati },
                 { label: 'With Existing Complain', value: arb.with_existing_con },
                 { label: 'With ALI Case', value: arb.with_ali_case },
@@ -1159,7 +1180,7 @@
             return html;
         }
 
-        // -------- Render Landholdings (unchanged) --------
+        // -------- Render Landholdings (Fixed Fields) --------
         function renderLandholdings(holdings) {
             if (!holdings || holdings.length === 0) {
                 return `<p class="empty-card">No landholding records found.</p>`;
@@ -1193,21 +1214,21 @@
                     <td>${displayValue(h.ccloa_area)}</td>
                     <td>${displayValue(h.title_type)}</td>
                     <td>${displayValue(h.title_no)}</td>
-                    <td>${displayValue(h.ep_cloa_serial_no)}</td>
+                    <td>${displayValue(h.ep_cloa_serial_n)}</td>
                     <td>${displayValue(h.cocrom_certificate_no)}</td>
                     <td>${displayValue(h.cocrom_reference_raw)}</td>
                     <td>${displayValue(h.cocrom_serial_no)}</td>
-                    <td>${displayValue(h.original_mother_title_no)}</td>
+                    <td>${displayValue(h.original_mother_t)}</td>
                     <td>${displayValue(h.municipality)}</td>
                     <td>${displayValue(h.barangay)}</td>
                     <td>${displayValue(h.landowner)}</td>
-                    <td>${displayValue(h.mode_of_acquisisi)}</td>
+                    <td>${displayValue(h.mode_of_acquisi)}</td>
                     <td>${formatDateValue(h.date_generated)}</td>
                     <td>${formatDateValue(h.date_registered)}</td>
                     <td>${formatDateValue(h.date_released)}</td>
                     <td>${displayValue(h.release_status)}</td>
                     <td>${displayValue(h.date_released_raw)}</td>
-                    <td>${formatDateValue(h.date_distributed_to_darmo)}</td>
+                    <td>${formatDateValue(h.date_distributed_)}</td>
                 </tr>`;
             });
             html += `</tbody></table></div>`;
@@ -1343,7 +1364,7 @@
             });
         }
 
-        // -------- Edit ARB (existing) --------
+        // -------- Edit ARB (Removed Removal Fields, Updated Disqualification) --------
         async function openEditArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1370,9 +1391,8 @@
                             <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
-                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_removal" ${arb.for_removal?'checked':''}> For Removal</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
-                            <div class="form-group full"><label for="editRemovalReason">Removal Reason</label><input id="editRemovalReason" name="removal_reason" value="${safe(arb.removal_reason||'')}"></div>
-                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><input id="editDisqualificationReason" name="disqualification_r" value="${safe(arb.disqualification_r||'')}"></div>
+                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
+                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option><option value="Others" ${arb.disqualification_r==='Others'?'selected':''}>Others</option></select></div>
                         </div>
                         <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
@@ -1391,10 +1411,8 @@
                         ao8: fd.get('ao8') === 'on',
                         for_ta: fd.get('for_ta') === 'on',
                         with_ta: fd.get('with_ta') === 'on',
-                        for_removal: fd.get('for_removal') === 'on',
                         for_disqualificati: fd.get('for_disqualificati') === 'on',
                         with_existing_con: fd.get('with_existing_con') === 'on',
-                        removal_reason: emptyToNull(fd.get('removal_reason')),
                         disqualification_r: emptyToNull(fd.get('disqualification_r')),
                         updated_at: new Date().toISOString()
                     };
@@ -1433,7 +1451,7 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Tag ARB --------
+        // -------- Tag ARB (Removed Removal) --------
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1445,7 +1463,6 @@
                     { value: 'ALI CASE', label: 'ALI Case' },
                     { value: 'TRANSFER ACTION', label: 'Transfer Action' },
                     { value: 'DISQUALIFICATION', label: 'Disqualification' },
-                    { value: 'REMOVAL', label: 'Removal' },
                     { value: 'DEAD', label: 'Mark as Dead' },
                     { value: 'ALIVE', label: 'Mark as Alive' },
                     { value: 'WITH COMPLAIN', label: 'With Existing Complain' }
@@ -1454,7 +1471,6 @@
                     'ALI CASE': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
                     'TRANSFER ACTION': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
                     'DISQUALIFICATION': ['FOR DISQUALIFICATION'],
-                    'REMOVAL': ['FOR REMOVAL'],
                     'DEAD': ['DECEASED'],
                     'ALIVE': ['ACTIVE'],
                     'WITH COMPLAIN': ['EXISTING']
@@ -1535,10 +1551,6 @@
                             arbUpdate.for_disqualificati = true;
                             arbUpdate.disqualification_r = caseDetails || status;
                             break;
-                        case 'REMOVAL':
-                            arbUpdate.for_removal = true;
-                            arbUpdate.removal_reason = caseDetails || status;
-                            break;
                         case 'DEAD':
                             lifeUpdate = 'Dead';
                             break;
@@ -1595,7 +1607,7 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- NEW FEATURE: Generate ARB ID (DAR-Camsur Format) --------
+        // -------- NEW FEATURE: Generate Standard ARB ID (DAR-Camsur Format) --------
         async function generateArbId(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1812,14 +1824,14 @@
         }
 
         async function showCcloaMembers(motherTitleId) {
-            modalTitleEl.textContent = 'ARBs under CCLOA';
-            modalBodyEl.innerHTML = '<p class="empty-msg">⏳ Loading...</p>';
+            showModal('ARBs under CCLOA', '<p class="empty-msg">⏳ Loading...</p>');
+            const mBody = document.getElementById('modalBody'); // Wait for template initialization
             try {
                 const { data: title } = await secureDbClient.from('mother_titles').select('*').eq('id', motherTitleId).single();
                 const { data: holdings } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').eq('mother_title_id', motherTitleId);
                 const profileIds = [...new Set(holdings?.map(h => h.arb_profile_id).filter(Boolean))];
                 if (!profileIds.length) {
-                    modalBodyEl.innerHTML = `<p>CCLOA: ${safe(title?.mother_title_no)}</p><p class="empty-msg">No ARBs found.</p>`;
+                    document.querySelector('.modal-body-scroll').innerHTML = `<p>CCLOA: ${safe(title?.mother_title_no)}</p><p class="empty-msg">No ARBs found.</p>`;
                     return;
                 }
                 const { data: profiles } = await secureDbClient.from('arb_profiles').select('arb_id, fb_name, life_status, split_status, e_title_no').in('id', profileIds);
@@ -1830,14 +1842,165 @@
                     const prof = profiles.find(p => p.arb_id === String(arb.id)) || {};
                     html += `<tr><td>${safe(fullName(arb))}</td><td>${safe(arb.validation_status)}</td><td>${safe(prof.life_status)}</td><td>${safe(prof.split_status)}</td><td>${safe(prof.e_title_no)}</td><td><a class="btn btn-primary btn-sm" href="arb-profile.html?id=${arb.id}">Open</a></td></tr>`;
                 });
-                modalBodyEl.innerHTML = html + '</tbody></table>';
-            } catch(e) { modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
+                document.querySelector('.modal-body-scroll').innerHTML = html + '</tbody></table>';
+            } catch(e) { document.querySelector('.modal-body-scroll').innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
+        }
+
+        // -------- Batch Validation --------
+        async function openBatchValidation() {
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            const { data: municipalities } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
+            const munSet = new Set(municipalities?.map(m => m.municipality).filter(Boolean) || []);
+            const munOptions = Array.from(munSet).sort();
+            const munSelect = munOptions.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
+
+            const formHtml = `
+                <form id="batchValForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="batchMunicipality">Municipality</label>
+                            <select id="batchMunicipality" name="municipality" required>
+                                <option value="">Select Municipality</option>
+                                ${munSelect}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchBarangay">Barangay</label>
+                            <select id="batchBarangay" name="barangay" required>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchValidationStatus">Validation Status</label>
+                            <select id="batchValidationStatus" name="validation_status" required>
+                                <option value="Pending">Pending</option>
+                                <option value="Validated">Validated</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchValidatorType">Validator Type</label>
+                            <select id="batchValidatorType" name="validator_type">
+                                <option value="Barangay">Barangay</option>
+                                <option value="DARMO">DARMO</option>
+                                <option value="PBDD">PBDD</option>
+                            </select>
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchValidatorName">Validator Name (optional)</label>
+                            <input id="batchValidatorName" name="validator_name" placeholder="If left blank, current user will be used">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchBarangayCaptain">Barangay Captain Name (if Barangay validation)</label>
+                            <input id="batchBarangayCaptain" name="barangay_captain">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchValidationBasis">Validation Basis (optional)</label>
+                            <input id="batchValidationBasis" name="validation_basis">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchSupportingDoc">Supporting Document Reference (optional)</label>
+                            <input id="batchSupportingDoc" name="supporting_document_reference">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-primary" id="cancelBatchBtn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Apply to All ARBs</button>
+                    </div>
+                </form>
+            `;
+            showModal('Batch Validate', formHtml);
+            document.getElementById('cancelBatchBtn').addEventListener('click', hideModal);
+
+            document.getElementById('batchMunicipality').addEventListener('change', async function() {
+                const mun = this.value;
+                const barangaySelect = document.getElementById('batchBarangay');
+                if (!mun) {
+                    barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+                    return;
+                }
+                const { data: arboBarangays } = await secureDbClient.from('arbo').select('barangay').eq('municipality', mun).not('barangay','is',null);
+                const { data: landBarangays } = await secureDbClient.from('arb_landholdings').select('barangay').eq('municipality', mun).not('barangay','is',null);
+                const combined = new Set();
+                (arboBarangays || []).forEach(b => { if (b.barangay) combined.add(b.barangay); });
+                (landBarangays || []).forEach(b => { if (b.barangay) combined.add(b.barangay); });
+                const options = Array.from(combined).sort().map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+                barangaySelect.innerHTML = `<option value="">Select Barangay</option>${options}`;
+            });
+
+            document.getElementById('batchValForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const municipality = fd.get('municipality');
+                const barangay = fd.get('barangay');
+                const validationStatus = fd.get('validation_status');
+                const validatorType = fd.get('validator_type');
+                const validatorName = emptyToNull(fd.get('validator_name')) || currentUserProfile?.full_name || currentUser?.email || 'System';
+                const barangayCaptain = emptyToNull(fd.get('barangay_captain'));
+                const validationBasis = emptyToNull(fd.get('validation_basis'));
+                const supportingDoc = emptyToNull(fd.get('supporting_document_reference'));
+
+                if (!municipality || !barangay) {
+                    popToast('Please select both Municipality and Barangay.', 'warn');
+                    return;
+                }
+
+                try {
+                    const { data: arboList } = await secureDbClient.from('arbo').select('id').eq('municipality', municipality).eq('barangay', barangay);
+                    const arboIds = arboList.map(a => a.id);
+                    let arbIds = [];
+                    if (arboIds.length > 0) {
+                        const { data: arbs } = await secureDbClient.from('arb').select('id').in('arbo_id', arboIds);
+                        arbIds = arbs.map(a => a.id);
+                    }
+                    const { data: landProfiles } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').eq('municipality', municipality).eq('barangay', barangay);
+                    const profileIds = landProfiles.map(l => l.arb_profile_id).filter(Boolean);
+                    let landArbIds = [];
+                    if (profileIds.length > 0) {
+                        const { data: profs } = await secureDbClient.from('arb_profiles').select('arb_id').in('id', profileIds);
+                        landArbIds = profs.map(p => p.arb_id).filter(Boolean);
+                    }
+                    const allArbIds = [...new Set([...arbIds, ...landArbIds])];
+                    if (allArbIds.length === 0) {
+                        popToast('No ARBs found in that municipality/barangay.', 'warn');
+                        return;
+                    }
+
+                    const today = new Date().toISOString().substring(0,10);
+                    const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
+                    const userId = currentUser?.id || null;
+
+                    for (const arbId of allArbIds) {
+                        await secureDbClient.from('arb').update({ validation_status: validationStatus }).eq('id', arbId);
+                        await secureDbClient.from('arb_validations').insert({
+                            arb_id: arbId,
+                            validator_type: validatorType,
+                            validator_name: validatorName,
+                            validator_barangay: barangay,
+                            validator_town: municipality,
+                            position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
+                            date_validated: today,
+                            validation_basis: validationBasis,
+                            supporting_document_reference: supportingDoc,
+                            recorded_by: userName,
+                            recorded_by_user_id: userId,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                    hideModal();
+                    popToast(`Batch validation applied to ${allArbIds.length} ARB(s).`, 'ok');
+                    loadArbs(currentPage);
+                } catch (err) {
+                    popToast(err.message, 'err');
+                }
+            });
         }
 
         // -------- Event listeners for toolbar buttons --------
         document.getElementById('searchCcloaBtn')?.addEventListener('click', openCcloaSearch);
         document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
         document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
+        document.getElementById('batchValidateBtn')?.addEventListener('click', openBatchValidation);
         document.getElementById('clearFiltersBtn')?.addEventListener('click', function() {
             document.querySelectorAll('#filterRow select').forEach(s => s.value = '');
             document.getElementById('globalSearchInput').value = '';
