@@ -579,7 +579,7 @@
             }
         } catch(e) { console.error('Supabase init error:', e); }
 
-        // -------- Load ARB list with filters (includes landholding search) --------
+        // -------- Load ARB list with filters (includes town/barangay from landholdings) --------
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
@@ -610,25 +610,63 @@
                     }
                 }
 
-                // -------- 2. Get arbo_ids for town/barangay filters --------
-                let arboIds = null;
-                if (town || barangay || municipalityPart) {
+                // -------- 2. Build set of ARB IDs that match Town/Barangay (from arbo AND landholdings) --------
+                let townBarangayArbIds = [];
+                let locationFilterActive = (town || barangay || municipalityPart);
+
+                if (locationFilterActive) {
+                    // 2a. Get ARB IDs from arbo table
                     let arboQuery = secureDbClient.from('arbo').select('id');
-                    if (town) arboQuery = arboQuery.eq('municipality', town);
-                    if (barangay) arboQuery = arboQuery.eq('barangay', barangay);
+                    if (town) arboQuery = arboQuery.ilike('municipality', `%${town}%`);
+                    if (barangay) arboQuery = arboQuery.ilike('barangay', `%${barangay}%`);
                     if (municipalityPart) {
                         arboQuery = arboQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
                     }
                     const { data: arboData, error: arboErr } = await arboQuery;
                     if (arboErr) throw arboErr;
-                    arboIds = arboData.map(a => a.id);
-                    if (arboIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBOs match the selected town/barangay.</td></tr>`;
+                    const arboIds = arboData.map(a => a.id);
+
+                    if (arboIds.length > 0) {
+                        const { data: arbsFromArbo, error: arbsErr } = await secureDbClient
+                            .from('arb')
+                            .select('id')
+                            .in('arbo_id', arboIds);
+                        if (arbsErr) throw arbsErr;
+                        townBarangayArbIds = arbsFromArbo.map(a => a.id);
+                    }
+
+                    // 2b. Get ARB IDs from landholdings table
+                    let landQuery = secureDbClient
+                        .from('arb_landholdings')
+                        .select('arb_profile_id');
+                    if (town) landQuery = landQuery.ilike('municipality', `%${town}%`);
+                    if (barangay) landQuery = landQuery.ilike('barangay', `%${barangay}%`);
+                    if (municipalityPart) {
+                        landQuery = landQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
+                    }
+                    const { data: landData, error: landErr } = await landQuery;
+                    if (landErr) throw landErr;
+                    if (landData && landData.length > 0) {
+                        const profileIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
+                        if (profileIds.length > 0) {
+                            const { data: profs, error: pErr } = await secureDbClient
+                                .from('arb_profiles')
+                                .select('arb_id')
+                                .in('id', profileIds);
+                            if (pErr) throw pErr;
+                            const landArbIds = profs.map(p => p.arb_id).filter(Boolean);
+                            townBarangayArbIds = [...new Set([...townBarangayArbIds, ...landArbIds])];
+                        }
+                    }
+
+                    // If after all that we have no ARB IDs, show empty
+                    if (townBarangayArbIds.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the selected town/barangay.</td></tr>`;
                         return;
                     }
                 }
 
-                // -------- 3. Query arb_profiles with profile filters --------
+                // -------- 3. Query arb_profiles with profile filters (split, cocrom, titleDist, sequence/fb_name) --------
                 let profileQuery = secureDbClient.from('arb_profiles').select('arb_id');
                 if (split) profileQuery = profileQuery.eq('split_status', split);
                 if (cocrom !== '') {
@@ -638,7 +676,6 @@
                 if (titleDist !== '') {
                     profileQuery = profileQuery.eq('is_title_distribute', titleDist === 'true');
                 }
-                // Search on sequence or fb_name
                 if (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')) {
                     const col = searchField === 'sequence' ? 'sequence_no' : 'fb_name';
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
@@ -654,7 +691,6 @@
                 let landholdingArbIds = null;
                 if (searchTerm && searchField === 'landholding') {
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                    // Expanded landholding columns
                     const landQuery = secureDbClient
                         .from('arb_landholdings')
                         .select('arb_profile_id')
@@ -676,8 +712,6 @@
                             date_released_raw.ilike.${pattern},
                             date_distributed_to_darmo::text.ilike.${pattern}
                         `);
-                    // Also search date fields by casting to text (if needed)
-                    // We'll also add mode_of_acquisisi for completeness
                     const { data: landData, error: landErr } = await landQuery;
                     if (landErr) throw landErr;
                     if (landData && landData.length > 0) {
@@ -697,9 +731,16 @@
                     }
                 }
 
-                // -------- 5. Combine profile and landholding filters --------
+                // -------- 5. Combine all filters into a final set of ARB IDs --------
                 let finalArbIds = null;
+                // Start with town/barangay set (if any)
+                if (locationFilterActive) {
+                    finalArbIds = townBarangayArbIds;
+                }
+
+                // Intersect with profile filters if applied
                 if (profileFilterApplied && profileArbIds.length === 0) {
+                    // If profile filter active but no profiles match, and we have landholding search, use that
                     if (landholdingArbIds && landholdingArbIds.length > 0) {
                         finalArbIds = landholdingArbIds;
                     } else {
@@ -707,19 +748,26 @@
                         return;
                     }
                 } else if (profileFilterApplied) {
-                    if (landholdingArbIds !== null) {
-                        finalArbIds = profileArbIds.filter(id => landholdingArbIds.includes(id));
+                    // Intersect profileArbIds with current finalArbIds (if any)
+                    if (finalArbIds !== null) {
+                        finalArbIds = finalArbIds.filter(id => profileArbIds.includes(id));
                     } else {
                         finalArbIds = profileArbIds;
                     }
-                } else {
-                    if (landholdingArbIds !== null) {
+                }
+
+                // Intersect with landholding search if applicable
+                if (landholdingArbIds !== null) {
+                    if (finalArbIds !== null) {
+                        finalArbIds = finalArbIds.filter(id => landholdingArbIds.includes(id));
+                    } else {
                         finalArbIds = landholdingArbIds;
                     }
                 }
 
-                if (finalArbIds !== null && finalArbIds.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the search.</td></tr>`;
+                // If finalArbIds is now empty (or null) but we have filters, show empty
+                if ((locationFilterActive || profileFilterApplied || landholdingArbIds !== null) && (!finalArbIds || finalArbIds.length === 0)) {
+                    tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the filters.</td></tr>`;
                     return;
                 }
 
@@ -739,12 +787,10 @@
                 .order('id', { ascending: true })
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
-                if (arboIds && arboIds.length > 0) {
-                    arbQuery = arbQuery.in('arbo_id', arboIds);
-                }
                 if (finalArbIds !== null && finalArbIds.length > 0) {
                     arbQuery = arbQuery.in('id', finalArbIds);
                 }
+
                 if (validation) arbQuery = arbQuery.eq('validation_status', validation);
                 if (ali !== '') arbQuery = arbQuery.eq('with_ali_case', ali === 'true');
                 if (ta !== '') arbQuery = arbQuery.eq('with_ta', ta === 'true');
@@ -754,13 +800,11 @@
                     if (searchField === 'id') {
                         arbQuery = arbQuery.eq('id', searchTerm);
                     } else {
-                        // Split the search term into tokens (ignore commas)
                         const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                         if (tokens.length === 1) {
                             const pattern = `%${tokens[0].replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                             arbQuery = arbQuery.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
                         } else {
-                            // Build OR conditions for each token in first and last
                             const conditions = tokens.map(token => {
                                 const p = `%${token.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
                                 return `first_name.ilike.${p}, last_name.ilike.${p}`;
@@ -847,14 +891,20 @@
         // -------- Populate filter dropdowns --------
         async function populateFilterOptions() {
             try {
+                // We'll still populate from arbo for simplicity, but user can type any town in search.
                 const { data: towns } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
                 const townSet = new Set(towns?.map(t => t.municipality).filter(Boolean) || []);
+                // Also add towns from landholdings for completeness
+                const { data: landTowns } = await secureDbClient.from('arb_landholdings').select('municipality').not('municipality','is',null);
+                (landTowns || []).forEach(l => { if (l.municipality) townSet.add(l.municipality); });
                 filterTownOptions = Array.from(townSet).sort();
                 const townSelect = document.getElementById('filterTown');
                 townSelect.innerHTML = '<option value="">All</option>' + filterTownOptions.map(t => `<option value="${safe(t)}">${safe(t)}</option>`).join('');
 
                 const { data: barangays } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
                 const barangaySet = new Set(barangays?.map(b => b.barangay).filter(Boolean) || []);
+                const { data: landBarangays } = await secureDbClient.from('arb_landholdings').select('barangay').not('barangay','is',null);
+                (landBarangays || []).forEach(l => { if (l.barangay) barangaySet.add(l.barangay); });
                 filterBarangayOptions = Array.from(barangaySet).sort();
                 const barangaySelect = document.getElementById('filterBarangay');
                 barangaySelect.innerHTML = '<option value="">All</option>' + filterBarangayOptions.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
@@ -892,7 +942,6 @@
                     profile = profRes.data;
                     profileId = profile.id;
                 } else {
-                    // Profile missing – show message and allow creating
                     profile = { id: null };
                 }
 
@@ -1771,7 +1820,7 @@
             loadArbs(currentPage);
         });
         document.getElementById('prevPageBtn')?.addEventListener('click', () => { if (currentPage > 0) { currentPage--; loadArbs(currentPage); } });
-        document.getElementById('nextPageBtn')?.addEventListener('click', () => { currentPage++; loadArbs(currentPage); });
+        document.getElementById('nextPageBtn')?.addEventListener('click', () => { currentPage++; loadArbs(currentPage); } );
         document.getElementById('globalSearchBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
         document.getElementById('globalSearchInput')?.addEventListener('keydown', function(e) { if (e.key==='Enter') { currentPage = 0; loadArbs(currentPage); } });
 
