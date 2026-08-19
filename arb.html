@@ -3,787 +3,690 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ARB Management System Dashboard</title>
+    <title>Enterprise ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
 
     <style>
-        /* Dashboard Layout */
-        .dashboard-layout { display: flex; flex-direction: column; gap: 20px; }
+        /* =========================================================
+           CORE ENTERPRISE UI STYLES
+           ========================================================= */
+        :root {
+            --primary: #0f172a; --secondary: #1e293b; --accent: #0284c7;
+            --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+            --text-main: #334155; --text-muted: #64748b;
+            --success: #16a34a; --danger: #dc2626; --warning: #d97706;
+        }
+
+        body { margin: 0; background: var(--bg); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; }
+        .hidden { display: none !important; }
         
-        /* Filter Panel */
-        .filter-panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
-        
-        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        /* View Manager */
+        .view-section { display: none; animation: fadeIn 0.3s ease; }
+        .view-section.active { display: flex; flex-direction: column; gap: 20px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Panels & Cards */
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card-header { border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .card-header h3 { margin: 0; color: var(--primary); font-size: 1.2rem;}
+
+        /* Forms & Inputs */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: 1 / -1; }
-        .form-group label { font-weight: 600; color: #334155; font-size: 0.85rem; text-transform: uppercase;}
-        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; box-sizing: border-box; font-family: inherit;}
-        .form-group textarea { min-height: 80px; resize: vertical; }
+        .form-group label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 0.95rem; background: var(--surface); transition: border-color 0.2s;}
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.1); }
+        .checkbox-group { display: flex; align-items: center; gap: 8px; padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
+        .checkbox-group label { font-size: 0.9rem; font-weight: 600; text-transform: none; color: var(--primary); cursor: pointer;}
         
-        /* Data Grid */
-        .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; min-height: 400px;}
-        .data-table { width: 100%; border-collapse: collapse; }
-        .data-table th, .data-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; text-align: left; vertical-align: top;}
-        .data-table th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 5;}
-        .data-table tbody tr:hover { background-color: #f8fafc; cursor: pointer; }
-        .row-checkbox { cursor: pointer; width: 18px; height: 18px; }
+        /* Data Tables */
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .data-table th, .data-table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+        .data-table th { background: var(--bg); font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 0.8rem; position: sticky; top: 0;}
+        .data-table tbody tr:hover { background: #f1f5f9; cursor: pointer; }
 
-        /* Bulk Action Bar */
-        .bulk-action-bar { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 15px 25px; border-radius: 50px; display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: bottom 0.3s ease; z-index: 1000; }
-        .bulk-action-bar.visible { bottom: 30px; }
-        .bulk-count { font-weight: 700; font-size: 1.1rem; }
+        /* Buttons & Badges */
+        .btn { padding: 8px 16px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px;}
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--secondary); }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--primary); }
+        .btn-outline:hover { background: var(--bg); }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }
+        .badge-green { background: #dcfce7; color: #166534; }
+        .badge-red { background: #fee2e2; color: #991b1b; }
+        .badge-blue { background: #e0f2fe; color: #075985; }
+        .badge-amber { background: #fef9c3; color: #854d0e; }
 
-        /* Slide-over Drawer */
-        .drawer-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; opacity: 0; transition: opacity 0.3s ease;}
-        .drawer { position: fixed; top: 0; right: -850px; width: 100%; max-width: 850px; height: 100vh; background: white; z-index: 2001; box-shadow: -5px 0 25px rgba(0,0,0,0.1); overflow-y: auto; transition: right 0.3s ease; display: flex; flex-direction: column; }
-        .drawer.open { right: 0; }
-        .drawer-overlay.open { display: block; opacity: 1; }
-        .drawer-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; position: sticky; top: 0; z-index: 10;}
-        .drawer-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 25px;}
-        .close-drawer { background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #64748b; line-height: 1;}
-        .close-drawer:hover { color: #0f172a; }
+        /* Workspace Header */
+        .workspace-header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 25px; border-radius: 10px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02);}
+        .workspace-title { display: flex; align-items: center; gap: 15px;}
+        .workspace-title h2 { margin: 0; font-size: 1.5rem; color: var(--primary); }
+        .workspace-actions { display: flex; gap: 10px; }
 
-        /* Profile Cards */
-        .profile-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; background: #ffffff; }
-        .profile-card h3 { margin-top: 0; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;}
+        /* Image Capture UI */
+        .photo-module { display: flex; flex-direction: column; align-items: center; gap: 15px; padding: 20px; border: 2px dashed var(--border); border-radius: 10px; background: var(--bg);}
+        .photo-frame { width: 150px; height: 150px; border-radius: 8px; border: 4px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #cbd5e1; overflow: hidden; display: flex; justify-content: center; align-items: center; position: relative;}
+        .photo-frame img, .photo-frame video { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0;}
         
-        .arb-avatar-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px dashed #cbd5e1;}
-        .arb-avatar { width: 120px; height: 120px; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 50%; background: linear-gradient(145deg, #0a3d62, #1d6fa5); display: flex; justify-content: center; align-items: center; color: white; font-size: 2rem; font-weight: bold; background-size: cover; background-position: center; overflow: hidden;}
-        #webcamVideo { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; display: none; }
-        #webcamCanvas { display: none; }
-
-        .checkbox-row { display: flex; gap: 15px; flex-wrap: wrap; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;}
-        .checkbox-row label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.9rem; text-transform: none;}
-        .checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
-
-        .audit-info { font-size: 0.75rem; color: #64748b; font-style: italic; display: block; margin-top: 4px; }
-
         /* Modals */
-        .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); z-index: 3000; align-items:center; justify-content:center; padding: 20px;}
+        .modal { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); z-index: 5000; align-items: center; justify-content: center; padding: 20px; backdrop-filter: blur(2px);}
         .modal.active { display: flex; }
-        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-        .modal-content h3 { margin-top: 0; }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0;}
+        .modal-content { background: var(--surface); padding: 30px; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
 
-        /* Utilities */
-        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #0f172a; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;}
-        .btn-outline:hover { background: #f1f5f9; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-block; white-space: nowrap;}
-        .badge-success { background: #dcfce7; color: #166534; }
-        .badge-warning { background: #fef9c3; color: #854d0e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .badge-info { background: #e0f2fe; color: #075985; }
-        .section-note { color: #64748b; font-size: 0.85rem; margin: 0 0 10px 0; font-style: italic;}
-        
-        .list-table { width: 100%; border-collapse: collapse; font-size: 0.9rem;}
-        .list-table th, .list-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: left; }
-        .list-table th { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.8rem;}
+        /* =========================================================
+           PRINT ENGINE: ID CARD STYLES
+           ========================================================= */
+        @media print {
+            body * { visibility: hidden; }
+            #printWorkspace, #printWorkspace * { visibility: visible; }
+            #printWorkspace { position: absolute; left: 0; top: 0; display: flex !important; justify-content: center; width: 100%; }
+            
+            /* Standard CR80 ID Card dimensions: 3.375" x 2.125" */
+            .id-card-layout {
+                width: 3.375in; height: 2.125in;
+                border: 2px solid #000;
+                background: white !important;
+                border-radius: 10px;
+                padding: 0.15in;
+                box-sizing: border-box;
+                display: flex; gap: 0.15in;
+                align-items: center;
+                position: relative;
+                overflow: hidden;
+            }
+            .id-card-layout::before {
+                content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 0.4in; background: #0f172a !important; -webkit-print-color-adjust: exact;
+            }
+            .id-card-photo { width: 0.9in; height: 0.9in; border-radius: 6px; border: 2px solid #0f172a; object-fit: cover; z-index: 1;}
+            .id-card-details { flex: 1; z-index: 1; margin-top: 0.25in;}
+            .id-card-title { font-size: 10pt; font-weight: 800; color: white !important; position: absolute; top: 0.1in; left: 0.15in; z-index: 2; -webkit-print-color-adjust: exact;}
+            .id-card-name { font-size: 11pt; font-weight: 800; text-transform: uppercase; color: #000; margin-bottom: 2px;}
+            .id-card-id { font-size: 8pt; font-weight: 600; color: #dc2626 !important; font-family: monospace; -webkit-print-color-adjust: exact;}
+            .id-card-arbo { font-size: 7pt; color: #334155; margin-top: 5px; line-height: 1.2;}
+        }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <h1>
-            🏛️ Comprehensive ARB Management
-            <small>Search, Audit, Edit Profiles, and Bulk Tagging</small>
-        </h1>
 
-        <nav class="nav" id="mainNav"></nav>
+    <div class="container" id="mainContainer">
+        <!-- TOP NAVIGATION -->
+        <h1 class="no-print">🏛️ Integrated ARB System <small>Master Profiling & Auditing</small></h1>
+        <nav class="nav no-print" id="mainNav"></nav>
 
-        <div class="dashboard-layout">
-            <!-- FILTER PANEL -->
-            <div class="filter-panel">
-                <div class="filter-grid">
-                    <div class="form-group">
-                        <label>Global Search</label>
-                        <input type="text" id="fltSearch" placeholder="Name, Sequence, ARB ID...">
+        <!-- ==============================================================
+             VIEW 1: MASTER GRID & FILTERS
+             ============================================================== -->
+        <div id="viewDashboard" class="view-section active no-print">
+            <div class="card">
+                <div class="card-header">
+                    <h3>🔎 Advanced Fleet Filters</h3>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-outline" id="btnClearFilters">Clear</button>
+                        <button class="btn btn-primary" id="btnSearch">Apply Filters</button>
                     </div>
-                    <div class="form-group">
-                        <label>Life Status</label>
-                        <select id="fltLife">
-                            <option value="">All Statuses</option>
-                            <option value="Active">Active</option>
-                            <option value="Dead">Dead</option>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Smart Search</label><input type="text" id="fltSearch" placeholder="Name, ID, Seq..."></div>
+                    <div class="form-group"><label>Municipality</label><input type="text" id="fltTown" placeholder="Town..."></div>
+                    <div class="form-group"><label>Barangay</label><input type="text" id="fltBrgy" placeholder="Barangay..."></div>
+                    <div class="form-group"><label>Life Status</label><select id="fltLife"><option value="">All</option><option value="Active">Active</option><option value="Dead">Dead</option></select></div>
+                    <div class="form-group"><label>Validation</label><select id="fltValidation"><option value="">All</option><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
+                    <div class="form-group"><label>SPLIT Status</label><select id="fltSplit"><option value="">All</option><option value="SPLIT">SPLIT</option><option value="NON-SPLIT">NON-SPLIT</option></select></div>
+                    <div class="form-group"><label>Title Distributed</label><select id="fltDistributed"><option value="">All</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+                    <div class="form-group"><label>Has COCROM</label><select id="fltCocrom"><option value="">All</option><option value="Yes">Yes</option><option value="No">No</option></select></div>
+                    <div class="form-group"><label>TA Case Tracker</label><select id="fltTa"><option value="">All</option><option value="Yes">With TA Case</option><option value="No">No TA Case</option></select></div>
+                    <div class="form-group"><label>ALI Case Tracker</label><select id="fltAli"><option value="">All</option><option value="Yes">With ALI Case</option><option value="No">No ALI Case</option></select></div>
+                    <div class="form-group"><label>Exact Case Status</label>
+                        <select id="fltCaseStatus">
+                            <option value="">All Statuses...</option>
+                            <option value="AT DARPO">AT DARPO</option>
+                            <option value="AT DARMO WITH MEMO">AT DARMO WITH MEMO</option>
+                            <option value="AT LEGAL">AT LEGAL</option>
+                            <option value="EXECUTED">EXECUTED</option>
+                            <!-- Add other statuses as needed -->
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>Validation Status</label>
-                        <select id="fltValidation">
-                            <option value="">All</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Validated">Validated</option>
-                            <option value="Rejected">Rejected</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Issue / Case Flag</label>
+                    <div class="form-group"><label>Red Flags</label>
                         <select id="fltFlags">
-                            <option value="">All Flags</option>
-                            <option value="for_disqualification">Subject to Disqualification</option>
-                            <option value="for_removal">Subject to Removal</option>
-                            <option value="with_existing_complain">With Existing Complain</option>
-                            <option value="for_ta">Subject for Transfer Action (TA)</option>
-                            <option value="with_ta">With Transfer Action Case</option>
+                            <option value="">All</option>
+                            <option value="for_disqualification">For Disqualification</option>
+                            <option value="for_removal">For Removal</option>
+                            <option value="with_existing_complain">With Complain</option>
+                            <option value="ao8">Under AO8</option>
                         </select>
                     </div>
                 </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button class="btn btn-outline" id="btnClearFilters">Clear Filters</button>
-                    <button class="btn btn-primary" id="btnSearch">🔎 Search ARBs</button>
-                </div>
             </div>
 
-            <!-- DATA GRID -->
-            <div class="table-container">
-                <table class="data-table" id="arbTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 40px;"><input type="checkbox" id="chkSelectAll" class="row-checkbox"></th>
-                            <th>ARB ID / Seq</th>
-                            <th>Full Name</th>
-                            <th>ARBO Assignment</th>
-                            <th>Life Status</th>
-                            <th>Validation</th>
-                            <th>Active Cases & Flags</th>
-                        </tr>
-                    </thead>
-                    <tbody id="arbTableBody">
-                        <tr><td colspan="7" style="text-align: center; padding: 40px; color:#64748b;">Enter search criteria to load ARBs</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
-                <span id="pageInfo" style="font-weight: 600; color: #475569;">Showing 0 records</span>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn btn-outline" id="btnPrev">Previous</button>
-                    <button class="btn btn-outline" id="btnNext">Next</button>
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ARB ID / Sequence</th>
+                                <th>Full Name</th>
+                                <th>Location & ARBO</th>
+                                <th>Core Status</th>
+                                <th>Legal / Issues</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="arbTableBody">
+                            <tr><td colspan="6" style="text-align:center; padding:30px;">Load data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding: 15px 20px; display:flex; justify-content:space-between; align-items:center; background: white;">
+                    <span id="pageInfo" style="font-size:0.9rem; font-weight:600;">Showing 0 records</span>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn btn-outline" id="btnPrev">Previous</button>
+                        <button class="btn btn-outline" id="btnNext">Next</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- BULK ACTION TOOLBAR -->
-    <div class="bulk-action-bar" id="bulkActionBar">
-        <div class="bulk-count"><span id="selectedCount">0</span> ARBs Selected</div>
-        <button class="btn btn-primary" style="background: white; color: #0f172a;" id="btnOpenBulkTag">⚖️ Bulk Add Legal/ALI Tag</button>
-        <button class="btn-outline" style="color: white; border-color: white;" id="btnClearSelection">Cancel Selection</button>
-    </div>
-
-    <!-- SLIDE-OVER DRAWER (ARB PROFILE EDITOR) -->
-    <div class="drawer-overlay" id="drawerOverlay"></div>
-    <div class="drawer" id="profileDrawer">
-        <div class="drawer-header">
-            <div>
-                <h2 id="drawerTitle" style="margin:0; color:#0a3d62;">ARB Profile & Master Editor</h2>
-                <span id="drawerSubtitle" style="font-size:0.9rem; color:#64748b;">Loading...</span>
-            </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button class="btn btn-primary" id="btnSaveDrawer">💾 Save All Changes</button>
-                <button class="close-drawer" id="btnCloseDrawer">&times;</button>
-            </div>
-        </div>
-        <div class="drawer-body" id="drawerBody">
-            <div id="drawerLoader" style="text-align:center; padding:50px;">⏳ Loading profile data...</div>
+        <!-- ==============================================================
+             VIEW 2: ARB PROFILE WORKSPACE
+             ============================================================== -->
+        <div id="viewProfile" class="view-section no-print">
             
-            <form id="drawerForm" style="display:none; display:flex; flex-direction:column; gap:25px;">
+            <div class="workspace-header">
+                <div class="workspace-title">
+                    <button class="btn btn-outline" onclick="App.showDashboard()" title="Back to Grid">← Back</button>
+                    <div>
+                        <h2 id="ws_fullName">Loading Profile...</h2>
+                        <span id="ws_arbId" style="font-family:monospace; color:var(--text-muted);"></span>
+                    </div>
+                </div>
+                <div class="workspace-actions">
+                    <button class="btn btn-outline" onclick="App.triggerPrint()">🖨️ Print ID Card</button>
+                    <button class="btn btn-primary" onclick="App.saveProfile()">💾 Save Master Record</button>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 2fr; gap:20px;">
                 
-                <!-- Personal & ARBO Info -->
-                <div class="profile-card">
-                    <h3>👤 Personal Information</h3>
-                    <div class="arb-avatar-container">
-                        <div class="arb-avatar" id="avatarPreviewBox">
+                <!-- Left Column: Multimedia & ID -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div class="card photo-module">
+                        <div class="photo-frame">
                             <video id="webcamVideo" autoplay playsinline></video>
-                            <span id="avatarInitials"></span>
+                            <img id="profileImagePreview" src="" style="display:none;">
+                            <canvas id="webcamCanvas" style="display:none;"></canvas>
                         </div>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <button type="button" class="btn btn-outline" id="btnWebcam">📷 Capture Webcam</button>
-                            <button type="button" class="btn btn-primary" id="btnCapture" style="display:none;">📸 Capture Frame</button>
-                            <span style="font-size:0.8rem; color:#cbd5e1;">or</span>
-                            <input type="file" id="imageUpload" accept="image/*" style="font-size:0.8rem; width:180px;">
+                        <input type="hidden" id="ws_imageBase64">
+                        <div style="display:flex; gap:10px; width:100%;">
+                            <button class="btn btn-primary" id="btnCamera" style="flex:1; justify-content:center;">📷 Camera</button>
+                            <button class="btn btn-success hidden" id="btnCapture" style="flex:1; justify-content:center; background:var(--success); color:white; border:none;">📸 Capture</button>
                         </div>
-                        <canvas id="webcamCanvas"></canvas>
-                        <input type="hidden" id="imageBase64" name="image_base64">
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group full">
+                        <span style="font-size:0.75rem; color:var(--text-muted);">or upload file:</span>
+                        <input type="file" id="imageUpload" accept="image/*" style="font-size:0.8rem; width:100%;">
+                        
+                        <hr style="width:100%; border:0; border-top:1px solid var(--border); margin: 10px 0;">
+                        
+                        <div class="form-group" style="width:100%;">
                             <label>Generated ARB ID</label>
-                            <div style="display:flex; gap:10px;">
-                                <input type="text" id="drw_generated_id" name="generated_arb_id" readonly style="background:#f8fafc; flex:1;">
-                                <button type="button" class="btn btn-outline" id="btnGenId">Generate ID</button>
+                            <div style="display:flex; gap:5px;">
+                                <input type="text" id="ws_genId" readonly style="background:#f1f5f9; flex:1; font-family:monospace;">
+                                <button class="btn btn-outline" onclick="document.getElementById('ws_genId').value = 'ARB-'+new Date().getFullYear()+'-'+Math.floor(100000+Math.random()*900000)">Gen</button>
                             </div>
                         </div>
-                        <div class="form-group"><label>First Name</label><input type="text" id="drw_fname" name="first_name" disabled></div>
-                        <div class="form-group"><label>Last Name</label><input type="text" id="drw_lname" name="last_name" disabled></div>
-                        <div class="form-group"><label>Sequence No.</label><input type="text" id="drw_seq" name="sequence_no" disabled></div>
-                        
-                        <div class="form-group full">
-                            <label>ARBO Assignment</label>
-                            <select id="drw_arbo" name="arbo_id">
-                                <option value="">-- No ARBO Assigned --</option>
-                            </select>
-                        </div>
-                        <div class="form-group"><label>Life Status</label><select id="drw_life" name="life_status"><option value="Pending">Pending</option><option value="Active">Active</option><option value="Dead">Dead</option></select></div>
-                        <div class="form-group"><label>Validation</label><select id="drw_validation" name="validation_status"><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
-                    </div>
-                </div>
-
-                <!-- Legal & Process Flags -->
-                <div class="profile-card">
-                    <h3>🚩 Status Flags & Issues</h3>
-                    <div class="checkbox-row">
-                        <label><input type="checkbox" id="chk_manual"> Has Manual File Record</label>
-                        <label><input type="checkbox" id="chk_ao8"> AO8</label>
-                        <label><input type="checkbox" id="chk_for_ta"> Subject for Transfer Action</label>
-                        <label><input type="checkbox" id="chk_with_ta"> With Transfer Action Case</label>
                     </div>
 
-                    <!-- Monitored Action Flags -->
-                    <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top:15px;">
-                        
-                        <div class="form-group full" style="background:#fff1f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
-                            <label><input type="checkbox" id="chk_disqualify"> For Disqualification</label>
-                            <span id="disq_audit" class="audit-info"></span>
-                            <div id="div_disq_reason" style="display:none; margin-top:8px;">
-                                <textarea id="drw_disq_reason" placeholder="Enter Disqualification Reason..." style="min-height:50px; border-color:#fca5a5;"></textarea>
+                    <div class="card">
+                        <div class="card-header"><h3>🚩 Legal Red Flags</h3></div>
+                        <div style="display:flex; flex-direction:column; gap:15px;">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="chk_disq"> <label for="chk_disq">Subject to Disqualification</label>
                             </div>
-                        </div>
-
-                        <div class="form-group full" style="background:#fff1f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
-                            <label><input type="checkbox" id="chk_remove"> For Removal</label>
-                            <span id="rem_audit" class="audit-info"></span>
-                            <div id="div_rem_reason" style="display:none; margin-top:8px;">
-                                <textarea id="drw_rem_reason" placeholder="Enter Removal Reason..." style="min-height:50px; border-color:#fca5a5;"></textarea>
+                            <div class="form-group hidden" id="div_disq_reason">
+                                <textarea id="ws_disq_reason" placeholder="State reason..." style="border-color:var(--danger);"></textarea>
+                                <span class="audit-info" id="aud_disq"></span>
                             </div>
-                        </div>
 
-                        <div class="form-group full" style="background:#fefce8; padding:10px; border-radius:8px; border: 1px solid #fef08a;">
-                            <label><input type="checkbox" id="chk_complain"> With Existing Complain</label>
-                            <span id="comp_audit" class="audit-info"></span>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="chk_rem"> <label for="chk_rem">Subject to Removal</label>
+                            </div>
+                            <div class="form-group hidden" id="div_rem_reason">
+                                <textarea id="ws_rem_reason" placeholder="State reason..." style="border-color:var(--danger);"></textarea>
+                                <span class="audit-info" id="aud_rem"></span>
+                            </div>
+
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="chk_comp"> <label for="chk_comp">With Existing Complain</label>
+                            </div>
+                            <span class="audit-info" id="aud_comp" style="margin-top:-10px;"></span>
+
+                            <div class="checkbox-group"><input type="checkbox" id="chk_ao8"> <label for="chk_ao8">Under AO8</label></div>
+                            <div class="checkbox-group"><input type="checkbox" id="chk_manual"> <label for="chk_manual">Has Manual File Record</label></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Sub-Records (Tags, Validations, Heirs) -->
-                <div class="profile-card">
-                    <h3>⚖️ Legal & ALI Tags <button type="button" class="btn btn-outline" id="btnShowAddTag" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Tag</button></h3>
-                    <div id="drw_tags_container"><p class="empty-card">No tags recorded.</p></div>
-                </div>
+                <!-- Right Column: Data Form -->
+                <div style="display:flex; flex-direction:column; gap:20px;">
+                    <div class="card">
+                        <div class="card-header"><h3>Basic Profiling</h3></div>
+                        <div class="form-grid">
+                            <div class="form-group"><label>First Name</label><input type="text" id="ws_fname" disabled></div>
+                            <div class="form-group"><label>Last Name</label><input type="text" id="ws_lname" disabled></div>
+                            <div class="form-group full"><label>ARBO Assignment</label><select id="ws_arbo"></select></div>
+                            <div class="form-group"><label>Life Status</label><select id="ws_life"><option value="Pending">Pending</option><option value="Active">Active</option><option value="Dead">Dead</option></select></div>
+                            <div class="form-group"><label>Validation Status</label><select id="ws_val"><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
+                        </div>
+                    </div>
 
-                <div class="profile-card">
-                    <h3>✅ Validation Records <button type="button" class="btn btn-outline" id="btnShowAddValidation" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Validation</button></h3>
-                    <div id="drw_vals_container"><p class="empty-card">No validations recorded.</p></div>
-                </div>
+                    <div class="card">
+                        <div class="card-header"><h3>Title & Distribution</h3></div>
+                        <div class="form-grid">
+                            <div class="form-group"><label>SPLIT Status</label><select id="ws_split"><option value="PENDING VALIDATION">PENDING VALIDATION</option><option value="SPLIT">SPLIT</option><option value="NON-SPLIT">NON-SPLIT</option></select></div>
+                            <div class="form-group"><label>Title Distributed?</label><select id="ws_dist"><option value="false">No</option><option value="true">Yes</option></select></div>
+                            <div class="form-group"><label>Individual e-Title No.</label><input type="text" id="ws_etitle"></div>
+                            <div class="form-group"><label>CoCROM No.</label><input type="text" id="ws_cocrom"></div>
+                        </div>
+                    </div>
 
-                <div class="profile-card">
-                    <h3>👪 Heir Records <button type="button" class="btn btn-outline" id="btnShowAddHeir" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Heir</button></h3>
-                    <div id="drw_heirs_container"><p class="empty-card">No heirs recorded.</p></div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>⚖️ Case Tracking & Validations</h3>
+                            <button class="btn btn-outline" onclick="App.openTagModal()">+ Log Case/Tag</button>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="data-table">
+                                <thead><tr><th>Category</th><th>Status</th><th>Reference</th><th>Audited By</th></tr></thead>
+                                <tbody id="ws_tags_table"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            </form>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ==============================================================
+         VIEW 3: PRINT ENGINE (Hidden by default, triggered via JS)
+         ============================================================== -->
+    <div id="printWorkspace" class="hidden">
+        <div class="id-card-layout">
+            <div class="id-card-title">DAR ARB IDENTITY</div>
+            <img id="print_photo" class="id-card-photo" src="">
+            <div class="id-card-details">
+                <div class="id-card-name" id="print_name">JUAN DELA CRUZ</div>
+                <div class="id-card-id" id="print_id">ARB-2026-000000</div>
+                <div class="id-card-arbo" id="print_arbo">Tigaon Agrarian Reform Beneficiaries Org.</div>
+            </div>
         </div>
     </div>
 
-    <!-- MODALS -->
-    <!-- Tag Modal -->
+    <!-- ==============================================================
+         MODALS
+         ============================================================== -->
     <div class="modal" id="modalTag">
         <div class="modal-content">
-            <h3>Add Legal / ALI Case Tag</h3>
-            <p class="section-note">Tagging will record your name and the current timestamp automatically.</p>
-            <form id="formTag">
+            <h3>Log Legal / ALI Case Action</h3>
+            <form id="formTag" onsubmit="App.saveTag(event)">
                 <div class="form-grid">
                     <div class="form-group full">
-                        <label>SPLIT or REGULAR Categorization</label>
+                        <label>Action Category</label>
                         <select name="tag_type" required>
                             <option value="">Select Category...</option>
                             <option value="REGULAR ALI CASE">REGULAR ALI CASE</option>
                             <option value="SPLIT ALI CASE">SPLIT ALI CASE</option>
                             <option value="SUBJECT FOR TRANSFER ACTION">SUBJECT FOR TRANSFER ACTION</option>
                             <option value="WITH TRANSFER ACTION CASE">WITH TRANSFER ACTION CASE</option>
-                            <option value="AO8">AO8</option>
                         </select>
                     </div>
                     <div class="form-group full">
-                        <label>Exact Case Status</label>
+                        <label>Current Status</label>
                         <select name="status" required>
                             <option value="">Select Status...</option>
                             <option value="AT DARPO">AT DARPO</option>
                             <option value="AT DARMO WITH MEMO">AT DARMO WITH MEMO</option>
                             <option value="AT DARPO WITH COMPLIANCE - COMPLETE">AT DARPO WITH COMPLIANCE - COMPLETE</option>
-                            <option value="AT DARPO WITH COMPLIANCE - INCOMPLETE">AT DARPO WITH COMPLIANCE - INCOMPLETE</option>
                             <option value="AT LEGAL">AT LEGAL</option>
                             <option value="FORWARDED TO REGION">FORWARDED TO REGION</option>
                             <option value="WITH ORDER - GRANTED">WITH ORDER - GRANTED</option>
                             <option value="WITH ORDER - DENIED">WITH ORDER - DENIED</option>
-                            <option value="WITH MR">WITH MR</option>
-                            <option value="WITH ORDER OF FINALITY">WITH ORDER OF FINALITY</option>
-                            <option value="FORWARDED TO ROD">FORWARDED TO ROD</option>
                             <option value="EXECUTED">EXECUTED</option>
                         </select>
                     </div>
-                    <div class="form-group full"><label>Case Reference No.</label><input type="text" name="case_reference_no"></div>
-                    <div class="form-group full"><label>Details</label><textarea name="case_details" style="min-height:50px;"></textarea></div>
+                    <div class="form-group full"><label>Case Ref No.</label><input type="text" name="case_reference_no"></div>
+                    <div class="form-group full"><label>Remarks</label><textarea name="case_details"></textarea></div>
                 </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Case Tag</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Validation Modal -->
-    <div class="modal" id="modalValidation">
-        <div class="modal-content">
-            <h3>Add Validation Record</h3>
-            <form id="formValidation">
-                <div class="form-grid">
-                    <div class="form-group"><label>Validator Level</label><select name="validator_type" required><option value="Barangay">Barangay</option><option value="DARMO">DARMO</option><option value="PBDD">PBDD</option></select></div>
-                    <div class="form-group"><label>New Status</label><select name="validation_status" required><option value="Validated">Validated</option><option value="Rejected">Rejected</option><option value="Pending">Pending</option></select></div>
-                    <div class="form-group full"><label>Actual Validator Name</label><input type="text" name="validator_name" required></div>
-                    <div class="form-group"><label>Position</label><input type="text" name="position" required></div>
-                    <div class="form-group"><label>Date Validated</label><input type="date" name="date_validated" required id="valToday"></div>
-                    <div class="form-group full"><label>Basis / Remarks</label><input type="text" name="validation_basis"></div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Validation</button>
+                <div class="workspace-actions" style="margin-top:20px; justify-content:flex-end;">
+                    <button type="button" class="btn btn-outline" onclick="document.getElementById('modalTag').classList.remove('active')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Action</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Heir Modal -->
-    <div class="modal" id="modalHeir">
-        <div class="modal-content">
-            <h3>Add Heir Record</h3>
-            <form id="formHeir">
-                <div class="form-grid">
-                    <div class="form-group full"><label>Heir Name</label><input type="text" name="heir_name" required></div>
-                    <div class="form-group"><label>Relationship</label><input type="text" name="heir_relation"></div>
-                    <div class="form-group"><label>Contact</label><input type="text" name="heir_contact"></div>
-                    <div class="form-group full">
-                        <label>Heir Target Flags</label>
-                        <div class="checkbox-row" style="background:#fee2e2;">
-                            <label><input type="checkbox" name="subject_for_ta" style="accent-color: red;"> Target Heir for Transfer Action</label>
-                        </div>
-                        <div class="checkbox-row" style="margin-top: 10px;">
-                            <label><input type="checkbox" name="is_verified"> Verified Heir</label>
-                            <label><input type="checkbox" name="is_selected"> Set as Primary Heir</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Heir</button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div id="toast" style="position:fixed; bottom:20px; right:20px; padding:15px 25px; border-radius:8px; color:white; font-weight:600; opacity:0; transition:opacity 0.3s; z-index:9999; pointer-events:none;"></div>
 
-    <div id="toast"></div>
-
+    <!-- ==============================================================
+         ENTERPRISE JS CONTROLLER
+         ============================================================== -->
     <script>
-        (async function () {
-            let secureDbClient = window.supabase?.createClient(
-                window.SUPABASE_CONFIG?.url || 'YOUR_SUPABASE_URL',
-                window.SUPABASE_CONFIG?.anonKey || 'YOUR_ANON_KEY'
-            );
-            
-            let currentUser = null;
-            let currentUserName = null;
-            let currentArbs = [];
-            let globalArboList = [];
-            let selectedArbIds = new Set();
-            let currentPage = 0;
-            const pageSize = 100;
-            
-            let activeArbId = null;
-            let activeProfileId = null;
+        const App = (function() {
+            // State
+            let db = window.supabase?.createClient(window.SUPABASE_CONFIG?.url || '', window.SUPABASE_CONFIG?.anonKey || '');
+            let state = {
+                user: null, userName: null, arbs: [], arbos: [], selectedArbIds: new Set(),
+                currentPage: 0, pageSize: 100, activeArb: null, activeProfile: null, stream: null
+            };
 
-            function popToast(msg, type = 'info') {
-                const el = document.getElementById('toast');
-                el.textContent = msg; el.style.background = type === 'err' ? '#f87171' : '#4ade80';
-                el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 4000);
+            // Utils
+            const safe = v => String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+            const getVal = id => document.getElementById(id)?.value?.trim() || null;
+            const getChk = id => document.getElementById(id)?.checked || false;
+            const setVal = (id, val) => { if(document.getElementById(id)) document.getElementById(id).value = val || ''; }
+            const setChk = (id, bool) => { if(document.getElementById(id)) document.getElementById(id).checked = bool || false; }
+            const formatAudit = (by, at) => by ? `Logged by ${safe(by)} on ${new Date(at).toLocaleString()}` : '';
+
+            function popToast(msg, isErr = false) {
+                const t = document.getElementById('toast');
+                t.textContent = msg; t.style.background = isErr ? '#dc2626' : '#16a34a';
+                t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 3000);
             }
-            function safe(v) { return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
-            function getVal(id) { return document.getElementById(id)?.value?.trim() || null; }
-            function getChk(id) { return document.getElementById(id)?.checked || false; }
-            function formatAudit(by, at) { return by ? `Recorded by ${safe(by)} on ${new Date(at).toLocaleString()}` : ''; }
 
-            // INIT
-            try {
-                const { data } = await secureDbClient.auth.getUser();
-                currentUser = data?.user || null;
-                if(!currentUser) { window.location.href = 'login.html'; return; }
-                
-                const { data: prof } = await secureDbClient.from('profiles').select('full_name').eq('id', currentUser.id).single();
-                currentUserName = prof?.full_name || currentUser.email;
+            // Init
+            async function init() {
+                try {
+                    const { data } = await db.auth.getUser();
+                    if(!data?.user) return window.location.href = 'login.html';
+                    state.user = data.user;
+                    const { data: prof } = await db.from('profiles').select('full_name').eq('id', state.user.id).single();
+                    state.userName = prof?.full_name || state.user.email;
 
-                document.getElementById('mainNav').innerHTML = `<a href="dashboard.html">📊 Dashboard</a> <a href="#" class="active">👤 ARB Management</a> <span style="margin-left:auto; color:#b91c1c; cursor:pointer;" onclick="secureDbClient.auth.signOut(); window.location.href='login.html'">🚪 Logout</span>`;
-                
-                const { data: arbos } = await secureDbClient.from('arbo').select('id, name').order('name');
-                if(arbos) {
-                    globalArboList = arbos;
-                    document.getElementById('drw_arbo').innerHTML += arbos.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
+                    document.getElementById('mainNav').innerHTML = `<a href="dashboard.html">📊 Dashboard</a> <a href="#" class="active">👤 ARB Workspace</a> <span style="margin-left:auto; color:var(--danger); cursor:pointer;" onclick="db.auth.signOut(); window.location.href='login.html'">🚪 Logout</span>`;
+                    
+                    const { data: arbos } = await db.from('arbo').select('id, name').order('name');
+                    if(arbos) {
+                        state.arbos = arbos;
+                        document.getElementById('ws_arbo').innerHTML += arbos.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
+                    }
+
+                    bindEvents();
+                    loadGrid();
+                } catch(e) { popToast('Init error', true); }
+            }
+
+            function bindEvents() {
+                // Grid Filters
+                document.getElementById('btnSearch').addEventListener('click', () => { state.currentPage = 0; loadGrid(); });
+                document.getElementById('btnClearFilters').addEventListener('click', () => {
+                    document.querySelectorAll('.filter-grid input, .filter-grid select').forEach(el => el.value = '');
+                    state.currentPage = 0; loadGrid();
+                });
+                document.getElementById('fltSearch').addEventListener('keydown', e => { if(e.key === 'Enter') loadGrid(); });
+                document.getElementById('btnPrev').addEventListener('click', () => { if(state.currentPage > 0) { state.currentPage--; loadGrid(); } });
+                document.getElementById('btnNext').addEventListener('click', () => { state.currentPage++; loadGrid(); });
+
+                // Red Flags Listeners
+                document.getElementById('chk_disq').addEventListener('change', e => document.getElementById('div_disq_reason').classList.toggle('hidden', !e.target.checked));
+                document.getElementById('chk_rem').addEventListener('change', e => document.getElementById('div_rem_reason').classList.toggle('hidden', !e.target.checked));
+
+                // Camera Logic
+                const vid = document.getElementById('webcamVideo');
+                const can = document.getElementById('webcamCanvas');
+                const img = document.getElementById('profileImagePreview');
+                const b64 = document.getElementById('ws_imageBase64');
+                const btnCam = document.getElementById('btnCamera');
+                const btnCap = document.getElementById('btnCapture');
+
+                btnCam.addEventListener('click', async () => {
+                    try {
+                        state.stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        vid.srcObject = state.stream;
+                        img.style.display = 'none'; vid.style.display = 'block';
+                        btnCam.classList.add('hidden'); btnCap.classList.remove('hidden');
+                    } catch(e) { popToast('Camera access denied', true); }
+                });
+
+                btnCap.addEventListener('click', () => {
+                    can.width = vid.videoWidth; can.height = vid.videoHeight;
+                    can.getContext('2d').drawImage(vid, 0, 0);
+                    const dataUrl = can.toDataURL('image/jpeg', 0.8);
+                    img.src = dataUrl; b64.value = dataUrl;
+                    stopCam();
+                });
+
+                document.getElementById('imageUpload').addEventListener('change', e => {
+                    const f = e.target.files[0];
+                    if(f) {
+                        const r = new FileReader();
+                        r.onload = ev => { img.src = evt.target.result; b64.value = evt.target.result; stopCam(); };
+                        r.readAsDataURL(f);
+                    }
+                });
+
+                function stopCam() {
+                    if(state.stream) { state.stream.getTracks().forEach(t => t.stop()); state.stream = null; }
+                    vid.style.display = 'none'; img.style.display = 'block';
+                    btnCap.classList.add('hidden'); btnCam.classList.remove('hidden'); btnCam.innerHTML = '📷 Retake';
                 }
+            }
+
+            // --- VIEW ROUTING ---
+            function showDashboard() {
+                document.getElementById('viewProfile').classList.remove('active');
+                document.getElementById('viewDashboard').classList.add('active');
+                loadGrid(); // Refresh data
+            }
+
+            async function openProfile(arbId) {
+                document.getElementById('viewDashboard').classList.remove('active');
+                document.getElementById('viewProfile').classList.add('active');
                 
-                document.getElementById('valToday').value = new Date().toISOString().substring(0, 10);
-                loadGrid(); 
-            } catch (err) { popToast('Setup Error', 'err'); }
+                try {
+                    const { data: arb } = await db.from('arb').select('*, arbo:arbo_id(name), arb_profiles(*)').eq('id', arbId).single();
+                    state.activeArb = arb;
+                    state.activeProfile = arb.arb_profiles[0] || {};
 
-            // GRID SEARCH
-            document.getElementById('btnSearch').addEventListener('click', () => { currentPage = 0; loadGrid(); });
-            document.getElementById('btnClearFilters').addEventListener('click', () => {
-                ['fltSearch','fltLife','fltValidation','fltFlags'].forEach(id => document.getElementById(id).value = '');
-                currentPage = 0; loadGrid();
-            });
-            document.getElementById('fltSearch').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ currentPage=0; loadGrid(); }});
-            document.getElementById('btnPrev').addEventListener('click', () => { if(currentPage > 0) { currentPage--; loadGrid(); } });
-            document.getElementById('btnNext').addEventListener('click', () => { currentPage++; loadGrid(); });
+                    const { data: tags } = await db.from('arb_tags').select('*').eq('arb_profile_id', state.activeProfile.id).order('created_at', {ascending:false});
 
+                    // Populate UI
+                    document.getElementById('ws_fullName').textContent = `${safe(arb.last_name)}, ${safe(arb.first_name)}`;
+                    document.getElementById('ws_arbId').textContent = arb.generated_arb_id || arb.id;
+                    
+                    setVal('ws_genId', arb.generated_arb_id);
+                    setVal('ws_fname', arb.first_name);
+                    setVal('ws_lname', arb.last_name);
+                    setVal('ws_seq', state.activeProfile.sequence_no);
+                    setVal('ws_arbo', arb.arbo_id);
+                    setVal('ws_life', arb.life_status || 'Pending');
+                    setVal('ws_val', arb.validation_status || 'Pending');
+                    
+                    setVal('ws_split', state.activeProfile.split_status);
+                    setVal('ws_dist', state.activeProfile.is_title_distributed ? 'true' : 'false');
+                    setVal('ws_etitle', state.activeProfile.e_title_no);
+                    setVal('ws_cocrom', state.activeProfile.cocrom_no);
+
+                    setChk('chk_manual', state.activeProfile.has_manual_file);
+                    setChk('chk_ao8', arb.ao8);
+                    
+                    const isDisq = arb.for_disqualification;
+                    setChk('chk_disq', isDisq);
+                    document.getElementById('div_disq_reason').classList.toggle('hidden', !isDisq);
+                    setVal('ws_disq_reason', arb.disqualification_reason);
+                    document.getElementById('aud_disq').textContent = isDisq ? formatAudit(arb.disqualification_tagged_by, arb.disqualification_tagged_at) : '';
+
+                    const isRem = arb.for_removal;
+                    setChk('chk_rem', isRem);
+                    document.getElementById('div_rem_reason').classList.toggle('hidden', !isRem);
+                    setVal('ws_rem_reason', arb.removal_reason);
+                    document.getElementById('aud_rem').textContent = isRem ? formatAudit(arb.removal_tagged_by, arb.removal_tagged_at) : '';
+
+                    const isComp = arb.with_existing_complain;
+                    setChk('chk_comp', isComp);
+                    document.getElementById('aud_comp').textContent = isComp ? formatAudit(arb.complain_tagged_by, arb.complain_tagged_at) : '';
+
+                    // Photo
+                    const img = document.getElementById('profileImagePreview');
+                    setVal('ws_imageBase64', state.activeProfile.image_base64);
+                    if(state.activeProfile.image_base64) {
+                        img.src = state.activeProfile.image_base64; img.style.display = 'block';
+                    } else { img.style.display = 'none'; }
+
+                    // Tags Table
+                    const tbl = document.getElementById('ws_tags_table');
+                    if(!tags || tags.length===0) tbl.innerHTML = '<tr><td colspan="4" style="text-align:center;">No tags recorded.</td></tr>';
+                    else tbl.innerHTML = tags.map(t => `<tr><td><span class="badge badge-blue">${safe(t.tag_type)}</span></td><td>${safe(t.status)}</td><td>${safe(t.case_reference_no)}</td><td><span class="audit-info">${formatAudit(t.tagged_by, t.created_at)}</span></td></tr>`).join('');
+
+                } catch(e) { popToast('Error loading profile workspace', true); }
+            }
+
+            // --- GRID DATA FETCHING ---
             async function loadGrid() {
                 const tbody = document.getElementById('arbTableBody');
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">⏳ Loading data...</td></tr>`;
-                selectedArbIds.clear(); updateBulkActionBar(); document.getElementById('chkSelectAll').checked = false;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">⏳ Fetching records...</td></tr>`;
+                
+                const search = getVal('fltSearch'); const town = getVal('fltTown'); const brgy = getVal('fltBrgy');
+                const life = getVal('fltLife'); const val = getVal('fltValidation'); const split = getVal('fltSplit');
+                const dist = getVal('fltDistributed'); const cocrom = getVal('fltCocrom'); const ta = getVal('fltTa');
+                const ali = getVal('fltAli'); const stat = getVal('fltCaseStatus'); const flag = getVal('fltFlags');
 
-                const search = document.getElementById('fltSearch').value.trim();
-                const life = document.getElementById('fltLife').value;
-                const validation = document.getElementById('fltValidation').value;
-                const flag = document.getElementById('fltFlags').value;
+                const arboJoin = (town || brgy) ? 'arbo!inner(name, municipality, barangay)' : 'arbo:arbo_id(name, municipality, barangay)';
+                let q = db.from('arb').select(`id, generated_arb_id, first_name, last_name, life_status, validation_status, ao8, for_ta, with_ta, ta_status, with_ali_case, ali_case_status, with_existing_complain, for_disqualification, for_removal, ${arboJoin}, arb_profiles!inner(sequence_no, split_status, cocrom_no, is_title_distributed)`, { count: 'exact' });
 
-                let query = secureDbClient.from('arb').select(`id, generated_arb_id, first_name, last_name, life_status, validation_status, ao8, for_ta, with_existing_complain, for_disqualification, for_removal, arbo:arbo_id(name), arb_profiles!inner(sequence_no)`, { count: 'exact' });
+                if (search) q = q.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,generated_arb_id.ilike.%${search}%,arb_profiles.sequence_no.ilike.%${search}%`);
+                if (town) q = q.ilike('arbo.municipality', `%${town}%`);
+                if (brgy) q = q.ilike('arbo.barangay', `%${brgy}%`);
+                if (life) q = q.eq('life_status', life);
+                if (val) q = q.eq('validation_status', val);
+                if (split) q = q.eq('arb_profiles.split_status', split);
+                if (dist === 'Yes') q = q.eq('arb_profiles.is_title_distributed', true);
+                if (dist === 'No') q = q.eq('arb_profiles.is_title_distributed', false);
+                if (cocrom === 'Yes') q = q.not('arb_profiles.cocrom_no', 'is', null).neq('arb_profiles.cocrom_no', '');
+                if (cocrom === 'No') q = q.is('arb_profiles.cocrom_no', null);
+                if (ali === 'Yes') q = q.eq('with_ali_case', true);
+                if (ta === 'Yes') q = q.eq('with_ta', true);
+                if (stat) q = q.or(`ta_status.eq.${stat},ali_case_status.eq.${stat}`);
+                if (flag) q = q.eq(flag, true);
 
-                if (search) query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,generated_arb_id.ilike.%${search}%,arb_profiles.sequence_no.ilike.%${search}%`);
-                if (life) query = query.eq('life_status', life);
-                if (validation) query = query.eq('validation_status', validation);
-                if (flag) query = query.eq(flag, true);
+                const { data, count, error } = await q.order('last_name').range(state.currentPage * state.pageSize, (state.currentPage * state.pageSize) + state.pageSize - 1);
+                
+                if (error) return tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Error</td></tr>`;
+                
+                document.getElementById('pageInfo').textContent = `Showing ${data.length} of ${count} records`;
+                if(data.length === 0) return tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No records found.</td></tr>`;
 
-                const { data, count, error } = await query.order('last_name').range(currentPage * pageSize, (currentPage * pageSize) + pageSize - 1);
-                if (error) { tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error loading data.</td></tr>`; return; }
-
-                currentArbs = data || [];
-                document.getElementById('pageInfo').textContent = `Showing ${currentArbs.length} of ${count} records (Page ${currentPage + 1})`;
-                if(currentArbs.length === 0) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No ARBs match your search.</td></tr>`; return; }
-
-                tbody.innerHTML = currentArbs.map(arb => {
+                tbody.innerHTML = data.map(arb => {
+                    const p = arb.arb_profiles[0] || {};
                     const flags = [];
-                    if(arb.ao8) flags.push('<span class="badge badge-warning">AO8</span>');
-                    if(arb.for_ta) flags.push('<span class="badge badge-danger">TA</span>');
-                    if(arb.for_disqualification) flags.push('<span class="badge badge-danger">Disqualify</span>');
-                    if(arb.for_removal) flags.push('<span class="badge badge-danger">Removal</span>');
-                    if(arb.with_existing_complain) flags.push('<span class="badge badge-warning">Complaint</span>');
-                    
+                    if(arb.ao8) flags.push('<span class="badge badge-amber">AO8</span>');
+                    if(arb.with_ta) flags.push('<span class="badge badge-red">TA Case</span>');
+                    if(arb.with_ali_case) flags.push('<span class="badge badge-blue">ALI Case</span>');
+                    if(arb.for_disqualification) flags.push('<span class="badge badge-red">Disqualify</span>');
+                    if(arb.for_removal) flags.push('<span class="badge badge-red">Removal</span>');
+                    if(arb.with_existing_complain) flags.push('<span class="badge badge-amber">Complaint</span>');
+
                     return `
-                        <tr class="arb-row">
+                        <tr onclick="App.openProfile('${arb.id}')">
                             <td onclick="event.stopPropagation();"><input type="checkbox" class="row-checkbox" value="${arb.id}"></td>
-                            <td onclick="openDrawer('${arb.id}')"><strong>${safe(arb.generated_arb_id || arb.id)}</strong><br><span class="section-note">Seq: ${safe(arb.arb_profiles?.[0]?.sequence_no || '-')}</span></td>
-                            <td onclick="openDrawer('${arb.id}')"><strong>${safe(arb.last_name)}, ${safe(arb.first_name)}</strong></td>
-                            <td onclick="openDrawer('${arb.id}')">${safe(arb.arbo?.name || '-')}</td>
-                            <td onclick="openDrawer('${arb.id}')"><span class="badge ${arb.life_status==='Active'?'badge-success':(arb.life_status==='Dead'?'badge-danger':'badge-warning')}">${arb.life_status || 'Pending'}</span></td>
-                            <td onclick="openDrawer('${arb.id}')"><span class="badge ${arb.validation_status==='Validated'?'badge-success':'badge-warning'}">${arb.validation_status || 'Pending'}</span></td>
-                            <td onclick="openDrawer('${arb.id}')">${flags.join(' ') || '-'}</td>
+                            <td><strong>${safe(arb.generated_arb_id || arb.id)}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">Seq: ${safe(p.sequence_no)}</span></td>
+                            <td><strong>${safe(arb.last_name)}, ${safe(arb.first_name)}</strong></td>
+                            <td>${safe(arb.arbo?.name)}<br><span style="font-size:0.75rem; color:var(--text-muted);">${safe(arb.arbo?.barangay)}, ${safe(arb.arbo?.municipality)}</span></td>
+                            <td>
+                                <span class="badge ${arb.life_status==='Active'?'badge-green':(arb.life_status==='Dead'?'badge-red':'badge-amber')}">${arb.life_status || 'Pending'}</span>
+                                <span class="badge ${arb.validation_status==='Validated'?'badge-green':'badge-amber'}">${arb.validation_status || 'Pending'}</span><br>
+                                <span style="font-size:0.75rem; color:var(--text-muted);">Dist: ${p.is_title_distributed ? 'Yes':'No'} | SPLIT: ${safe(p.split_status)}</span>
+                            </td>
+                            <td>${flags.join(' ') || '<span class="section-note">No Flags</span>'}</td>
                         </tr>
                     `;
                 }).join('');
-
-                document.querySelectorAll('.row-checkbox').forEach(chk => {
-                    chk.addEventListener('change', (e) => {
-                        if(e.target.checked) selectedArbIds.add(e.target.value); else selectedArbIds.delete(e.target.value);
-                        updateBulkActionBar();
-                    });
-                });
             }
 
-            // BULK ACTIONS
-            document.getElementById('chkSelectAll').addEventListener('change', (e) => {
-                const isChecked = e.target.checked;
-                document.querySelectorAll('.row-checkbox').forEach(chk => { chk.checked = isChecked; if(isChecked) selectedArbIds.add(chk.value); else selectedArbIds.delete(chk.value); });
-                updateBulkActionBar();
-            });
-
-            function updateBulkActionBar() {
-                const bar = document.getElementById('bulkActionBar');
-                document.getElementById('selectedCount').textContent = selectedArbIds.size;
-                if(selectedArbIds.size > 0) bar.classList.add('visible'); else bar.classList.remove('visible');
-            }
-
-            document.getElementById('btnClearSelection').addEventListener('click', () => {
-                selectedArbIds.clear(); document.querySelectorAll('.row-checkbox').forEach(chk => chk.checked = false); document.getElementById('chkSelectAll').checked = false; updateBulkActionBar();
-            });
-
-            let isBulkTagging = false;
-            document.getElementById('btnOpenBulkTag').addEventListener('click', () => {
-                isBulkTagging = true;
-                document.getElementById('formTag').reset();
-                document.getElementById('modalTag').classList.add('active');
-            });
-
-            // DRAWER LOGIC
-            const drawer = document.getElementById('profileDrawer');
-            const overlay = document.getElementById('drawerOverlay');
-
-            document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
-            overlay.addEventListener('click', closeDrawer);
-            function closeDrawer() { drawer.classList.remove('open'); overlay.classList.remove('open'); stopWebcam(); }
-
-            document.getElementById('chk_disqualify').addEventListener('change', e => document.getElementById('div_disq_reason').style.display = e.target.checked ? 'flex' : 'none');
-            document.getElementById('chk_remove').addEventListener('change', e => document.getElementById('div_rem_reason').style.display = e.target.checked ? 'flex' : 'none');
-
-            document.getElementById('btnGenId').addEventListener('click', () => { document.getElementById('drw_generated_id').value = `ARB-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`; });
-
-            window.openDrawer = async function(arbId) {
-                activeArbId = arbId;
-                overlay.classList.add('open'); drawer.classList.add('open');
-                document.getElementById('drawerLoader').style.display = 'block';
-                document.getElementById('drawerForm').style.display = 'none';
-
+            // --- SAVING DATA ---
+            async function saveProfile() {
                 try {
-                    const { data: arb } = await secureDbClient.from('arb').select('*, arb_profiles(*)').eq('id', arbId).single();
-                    const profile = arb.arb_profiles[0] || {};
-                    activeProfileId = profile.id;
-
-                    const [tagsRes, valsRes, heirsRes] = await Promise.all([
-                        secureDbClient.from('arb_tags').select('*').eq('arb_profile_id', profile.id).order('created_at',{ascending:false}),
-                        secureDbClient.from('arb_validations').select('*').eq('arb_id', arbId).order('date_validated',{ascending:false}),
-                        secureDbClient.from('arb_heirs').select('*').eq('arb_profile_id', profile.id).order('created_at',{ascending:true})
-                    ]);
-
-                    document.getElementById('drawerSubtitle').textContent = `System ID: ${arb.id}`;
-                    document.getElementById('drw_generated_id').value = arb.generated_arb_id || '';
-                    document.getElementById('drw_fname').value = arb.first_name || '';
-                    document.getElementById('drw_lname').value = arb.last_name || '';
-                    document.getElementById('drw_seq').value = profile.sequence_no || '';
-                    document.getElementById('drw_arbo').value = arb.arbo_id || '';
-                    document.getElementById('drw_life').value = arb.life_status || 'Pending';
-                    document.getElementById('drw_validation').value = arb.validation_status || 'Pending';
-                    
-                    document.getElementById('chk_manual').checked = profile.has_manual_file || false;
-                    document.getElementById('chk_ao8').checked = arb.ao8 || false;
-                    document.getElementById('chk_for_ta').checked = arb.for_ta || false;
-                    document.getElementById('chk_with_ta').checked = arb.with_ta || false;
-                    
-                    // Disqualify Audit
-                    const isDisq = arb.for_disqualification || false;
-                    document.getElementById('chk_disqualify').checked = isDisq;
-                    document.getElementById('div_disq_reason').style.display = isDisq ? 'flex' : 'none';
-                    document.getElementById('drw_disq_reason').value = arb.disqualification_reason || '';
-                    document.getElementById('disq_audit').textContent = isDisq ? formatAudit(arb.disqualification_tagged_by, arb.disqualification_tagged_at) : '';
-
-                    // Removal Audit
-                    const isRem = arb.for_removal || false;
-                    document.getElementById('chk_remove').checked = isRem;
-                    document.getElementById('div_rem_reason').style.display = isRem ? 'flex' : 'none';
-                    document.getElementById('drw_rem_reason').value = arb.removal_reason || '';
-                    document.getElementById('rem_audit').textContent = isRem ? formatAudit(arb.removal_tagged_by, arb.removal_tagged_at) : '';
-
-                    // Complain Audit
-                    const isComp = arb.with_existing_complain || false;
-                    document.getElementById('chk_complain').checked = isComp;
-                    document.getElementById('comp_audit').textContent = isComp ? formatAudit(arb.complain_tagged_by, arb.complain_tagged_at) : '';
-
-                    // Handle Image
-                    const previewBox = document.getElementById('avatarPreviewBox');
-                    const initialSpan = document.getElementById('avatarInitials');
-                    document.getElementById('imageBase64').value = profile.image_base64 || '';
-                    if(profile.image_base64) {
-                        previewBox.style.backgroundImage = `url('${profile.image_base64}')`;
-                        initialSpan.textContent = '';
-                    } else {
-                        previewBox.style.backgroundImage = 'none';
-                        initialSpan.textContent = (arb.first_name?.[0]||'') + (arb.last_name?.[0]||'');
-                    }
-
-                    // Render Sub-lists
-                    const renderList = (id, dta, ths, rowf) => document.getElementById(id).innerHTML = dta.length===0?'<p class="empty-card">No records.</p>':`<table class="list-table"><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${dta.map(d=>`<tr>${rowf(d)}</tr>`).join('')}</tbody></table>`;
-                    
-                    renderList('drw_tags_container', tagsRes.data, ['Type/Status', 'Reference', 'Audit Trail'], t => `<td><strong>${safe(t.tag_type)}</strong><br><span class="badge badge-info">${safe(t.status)}</span></td><td>${safe(t.case_reference_no)}<br><span class="section-note">${safe(t.case_details)}</span></td><td><span class="audit-info">${formatAudit(t.tagged_by, t.created_at)}</span></td>`);
-                    renderList('drw_vals_container', valsRes.data, ['Validator', 'Status', 'Date'], v => `<td><strong>${safe(v.validator_name)}</strong><br><span class="section-note">${safe(v.validator_type)} - ${safe(v.position)}</span></td><td><span class="badge badge-success">${safe(v.validation_status)}</span></td><td>${safe(v.date_validated)}</td>`);
-                    renderList('drw_heirs_container', heirsRes.data, ['Name/Contact', 'Relation', 'TA Target'], h => `<td><strong>${safe(h.heir_name)}</strong><br><span class="section-note">${safe(h.heir_contact)}</span></td><td>${safe(h.heir_relation)}</td><td>${h.subject_for_ta?'<span class="badge badge-danger">For TA</span>':'-'}</td>`);
-
-                    document.getElementById('drawerLoader').style.display = 'none';
-                    document.getElementById('drawerForm').style.display = 'flex';
-                } catch(err) { document.getElementById('drawerBody').innerHTML = '<p>Error loading profile.</p>'; }
-            };
-
-            // SAVE DRAWER
-            document.getElementById('btnSaveDrawer').addEventListener('click', async () => {
-                if(!activeArbId) return;
-                try {
-                    // Logic to detect if we just checked a box to generate timestamps
-                    const { data: oldArb } = await secureDbClient.from('arb').select('for_disqualification, for_removal, with_existing_complain').eq('id', activeArbId).single();
-                    
-                    const isDisq = getChk('chk_disqualify');
-                    const isRem = getChk('chk_remove');
-                    const isComp = getChk('chk_complain');
                     const nowISO = new Date().toISOString();
-
+                    const isDisq = getChk('chk_disq'); const isRem = getChk('chk_rem'); const isComp = getChk('chk_comp');
+                    
                     const arbPayload = {
-                        generated_arb_id: getVal('drw_generated_id'),
-                        arbo_id: getVal('drw_arbo'),
-                        life_status: getVal('drw_life'),
-                        validation_status: getVal('drw_validation'),
-                        ao8: getChk('chk_ao8'),
-                        for_ta: getChk('chk_for_ta'),
-                        with_ta: getChk('chk_with_ta'),
-                        for_disqualification: isDisq,
-                        disqualification_reason: isDisq ? getVal('drw_disq_reason') : null,
-                        for_removal: isRem,
-                        removal_reason: isRem ? getVal('drw_rem_reason') : null,
-                        with_existing_complain: isComp,
-                        updated_at: nowISO
+                        generated_arb_id: getVal('ws_genId'), arbo_id: getVal('ws_arbo'),
+                        life_status: getVal('ws_life'), validation_status: getVal('ws_val'),
+                        ao8: getChk('chk_ao8'), for_disqualification: isDisq, disqualification_reason: isDisq ? getVal('ws_disq_reason') : null,
+                        for_removal: isRem, removal_reason: isRem ? getVal('ws_rem_reason') : null,
+                        with_existing_complain: isComp, updated_at: nowISO
                     };
 
-                    // Add who/when tracking dynamically
-                    if(isDisq && !oldArb.for_disqualification) { arbPayload.disqualification_tagged_by = currentUserName; arbPayload.disqualification_tagged_at = nowISO; }
-                    if(!isDisq) { arbPayload.disqualification_tagged_by = null; arbPayload.disqualification_tagged_at = null; }
+                    if(isDisq && !state.activeArb.for_disqualification) { arbPayload.disqualification_tagged_by = state.userName; arbPayload.disqualification_tagged_at = nowISO; }
+                    if(isRem && !state.activeArb.for_removal) { arbPayload.removal_tagged_by = state.userName; arbPayload.removal_tagged_at = nowISO; }
+                    if(isComp && !state.activeArb.with_existing_complain) { arbPayload.complain_tagged_by = state.userName; arbPayload.complain_tagged_at = nowISO; }
 
-                    if(isRem && !oldArb.for_removal) { arbPayload.removal_tagged_by = currentUserName; arbPayload.removal_tagged_at = nowISO; }
-                    if(!isRem) { arbPayload.removal_tagged_by = null; arbPayload.removal_tagged_at = null; }
-
-                    if(isComp && !oldArb.with_existing_complain) { arbPayload.complain_tagged_by = currentUserName; arbPayload.complain_tagged_at = nowISO; }
-                    if(!isComp) { arbPayload.complain_tagged_by = null; arbPayload.complain_tagged_at = null; }
-
-                    await secureDbClient.from('arb').update(arbPayload).eq('id', activeArbId);
-
-                    if(activeProfileId) {
-                        await secureDbClient.from('arb_profiles').update({ has_manual_file: getChk('chk_manual'), image_base64: getVal('imageBase64'), updated_at: nowISO }).eq('id', activeProfileId);
+                    await db.from('arb').update(arbPayload).eq('id', state.activeArb.id);
+                    
+                    if(state.activeProfile.id) {
+                        await db.from('arb_profiles').update({
+                            has_manual_file: getChk('chk_manual'), is_title_distributed: getVal('ws_dist') === 'true',
+                            e_title_no: getVal('ws_etitle'), cocrom_no: getVal('ws_cocrom'), split_status: getVal('ws_split'),
+                            image_base64: getVal('ws_imageBase64'), updated_at: nowISO
+                        }).eq('id', state.activeProfile.id);
                     }
+                    popToast('Master Record Saved');
+                    openProfile(state.activeArb.id); // reload
+                } catch(e) { popToast('Error saving record', true); }
+            }
 
-                    popToast('Profile Saved successfully', 'ok');
-                    loadGrid(); 
-                    window.openDrawer(activeArbId); // Refresh timestamps
-                } catch(err) { popToast('Failed to save profile', 'err'); }
-            });
-
-            // MODALS (TAG, VALIDATION, HEIR)
-            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', e => e.target.closest('.modal').classList.remove('active')));
-
-            document.getElementById('btnShowAddTag').addEventListener('click', () => { isBulkTagging=false; document.getElementById('formTag').reset(); document.getElementById('modalTag').classList.add('active'); });
-            document.getElementById('btnShowAddValidation').addEventListener('click', () => { document.getElementById('formValidation').reset(); document.getElementById('modalValidation').classList.add('active'); });
-            document.getElementById('btnShowAddHeir').addEventListener('click', () => { document.getElementById('formHeir').reset(); document.getElementById('modalHeir').classList.add('active'); });
-
-            // Tag Form (Records WHO and WHEN)
-            document.getElementById('formTag').addEventListener('submit', async (e) => {
+            async function saveTag(e) {
                 e.preventDefault();
                 const fd = new FormData(e.target);
-                const tagType = fd.get('tag_type');
-                const nowISO = new Date().toISOString();
+                const tagType = fd.get('tag_type'); const tagStatus = fd.get('status'); const nowISO = new Date().toISOString();
                 
                 try {
-                    if (isBulkTagging) {
-                        const { data: profiles } = await secureDbClient.from('arb_profiles').select('id, arb_id').in('arb_id', Array.from(selectedArbIds));
-                        const tags = profiles.map(p => ({
-                            arb_profile_id: p.id, tag_type: tagType, status: fd.get('status'), case_reference_no: emptyToNull(fd.get('case_reference_no')), case_details: emptyToNull(fd.get('case_details')), tagged_by: currentUserName, tagged_by_user_id: currentUser.id, created_at: nowISO, updated_at: nowISO
-                        }));
-                        await secureDbClient.from('arb_tags').insert(tags);
-                        
-                        const arbUpdate = {};
-                        if(tagType === 'AO8') arbUpdate.ao8 = true;
-                        if(tagType === 'SUBJECT FOR TRANSFER ACTION') arbUpdate.for_ta = true;
-                        if(tagType === 'WITH TRANSFER ACTION CASE') arbUpdate.with_ta = true;
-                        if(Object.keys(arbUpdate).length > 0) await secureDbClient.from('arb').update(arbUpdate).in('id', Array.from(selectedArbIds));
-                        
-                        popToast(`Bulk Tagged ${selectedArbIds.size} ARBs!`, 'ok');
-                        document.getElementById('btnClearSelection').click();
-                    } else {
-                        if(!activeProfileId) throw new Error("No profile active");
-                        await secureDbClient.from('arb_tags').insert({
-                            arb_profile_id: activeProfileId, tag_type: tagType, status: fd.get('status'), case_reference_no: emptyToNull(fd.get('case_reference_no')), case_details: emptyToNull(fd.get('case_details')), tagged_by: currentUserName, tagged_by_user_id: currentUser.id, created_at: nowISO, updated_at: nowISO
-                        });
+                    const arbUpdate = {};
+                    if(tagType === 'SUBJECT FOR TRANSFER ACTION' || tagType === 'WITH TRANSFER ACTION CASE') { arbUpdate.with_ta = true; arbUpdate.ta_status = tagStatus; arbUpdate.for_ta = true;}
+                    if(tagType === 'REGULAR ALI CASE' || tagType === 'SPLIT ALI CASE') { arbUpdate.with_ali_case = true; arbUpdate.ali_case_status = tagStatus; }
 
-                        const arbUpdate = {};
-                        if(tagType === 'AO8') arbUpdate.ao8 = true;
-                        if(tagType === 'SUBJECT FOR TRANSFER ACTION') arbUpdate.for_ta = true;
-                        if(tagType === 'WITH TRANSFER ACTION CASE') arbUpdate.with_ta = true;
-                        if(Object.keys(arbUpdate).length > 0) await secureDbClient.from('arb').update(arbUpdate).eq('id', activeArbId);
-
-                        popToast('Tag Added successfully!', 'ok');
-                        window.openDrawer(activeArbId); 
-                    }
-                    e.target.closest('.modal').classList.remove('active');
-                } catch(err) { popToast(err.message, 'err'); }
-            });
-
-            // Validation Form
-            document.getElementById('formValidation').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                if(!activeArbId) return;
-                const fd = new FormData(e.target);
-                try {
-                    await secureDbClient.from('arb_validations').insert({
-                        arb_id: activeArbId, validator_type: fd.get('validator_type'), validator_name: fd.get('validator_name'), position: fd.get('position'), date_validated: fd.get('date_validated'), validation_basis: emptyToNull(fd.get('validation_basis')), validation_status: fd.get('validation_status'), recorded_by: currentUserName, recorded_by_user_id: currentUser.id
+                    await db.from('arb_tags').insert({
+                        arb_profile_id: state.activeProfile.id, tag_type: tagType, status: tagStatus, 
+                        case_reference_no: emptyToNull(fd.get('case_reference_no')), case_details: emptyToNull(fd.get('case_details')), 
+                        tagged_by: state.userName, tagged_by_user_id: state.user.id, created_at: nowISO, updated_at: nowISO
                     });
-                    await secureDbClient.from('arb').update({ validation_status: fd.get('validation_status') }).eq('id', activeArbId);
-                    e.target.closest('.modal').classList.remove('active'); popToast('Validation saved!', 'ok'); window.openDrawer(activeArbId); 
-                } catch(err) { popToast('Error saving validation', 'err'); }
-            });
+                    if(Object.keys(arbUpdate).length > 0) await db.from('arb').update(arbUpdate).eq('id', state.activeArb.id);
 
-            // Heir Form (With Subject for TA targeting)
-            document.getElementById('formHeir').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                if(!activeProfileId) return;
-                const fd = new FormData(e.target);
-                const isSelected = fd.get('is_selected') === 'on';
-                try {
-                    if (isSelected) await secureDbClient.from('arb_heirs').update({ is_selected: false }).eq('arb_profile_id', activeProfileId);
-                    await secureDbClient.from('arb_heirs').insert({
-                        arb_profile_id: activeProfileId, heir_name: fd.get('heir_name'), heir_relation: emptyToNull(fd.get('heir_relation')), heir_contact: emptyToNull(fd.get('heir_contact')), subject_for_ta: fd.get('subject_for_ta') === 'on', is_verified: fd.get('is_verified') === 'on', is_selected: isSelected, created_by: currentUserName
-                    });
-                    e.target.closest('.modal').classList.remove('active'); popToast('Heir added!', 'ok'); window.openDrawer(activeArbId); 
-                } catch(err) { popToast('Error adding heir', 'err'); }
-            });
+                    document.getElementById('modalTag').classList.remove('active');
+                    popToast('Action Logged'); openProfile(state.activeArb.id);
+                } catch(err) { popToast('Error logging action', true); }
+            }
+            function emptyToNull(v) { return v && v.trim() !== '' ? v : null; }
 
-            // WEBCAM CAPTURE
-            let localStream = null;
-            const video = document.getElementById('webcamVideo');
-            const canvas = document.getElementById('webcamCanvas');
-            const previewBox = document.getElementById('avatarPreviewBox');
-            const base64Input = document.getElementById('imageBase64');
-            const btnCam = document.getElementById('btnWebcam');
-            const btnCap = document.getElementById('btnCapture');
-
-            function stopWebcam() {
-                if(localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-                video.style.display = 'none'; btnCap.style.display = 'none'; btnCam.style.display = 'block'; btnCam.textContent = "📷 Capture Webcam";
+            // --- PRINT ENGINE ---
+            function triggerPrint() {
+                if(!state.activeArb) return;
+                // Set Print DOM elements
+                document.getElementById('print_photo').src = getVal('ws_imageBase64') || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='; // Blank fallback
+                document.getElementById('print_name').textContent = `${safe(state.activeArb.last_name)}, ${safe(state.activeArb.first_name)}`;
+                document.getElementById('print_id').textContent = getVal('ws_genId') || 'NO ID GENERATED';
+                document.getElementById('print_arbo').textContent = state.arbos.find(a => a.id === getVal('ws_arbo'))?.name || 'NO ARBO';
+                
+                // Hide main app, show print div, call print
+                document.getElementById('mainContainer').classList.add('hidden');
+                document.getElementById('printWorkspace').classList.remove('hidden');
+                
+                window.print();
+                
+                // Restore
+                document.getElementById('printWorkspace').classList.add('hidden');
+                document.getElementById('mainContainer').classList.remove('hidden');
             }
 
-            btnCam.addEventListener('click', async () => {
-                try {
-                    localStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    video.srcObject = localStream;
-                    previewBox.style.backgroundImage = 'none'; document.getElementById('avatarInitials').textContent='';
-                    video.style.display = 'block'; btnCam.style.display = 'none'; btnCap.style.display = 'block';
-                } catch (err) { popToast('Webcam not accessible.', 'warn'); }
-            });
-
-            btnCap.addEventListener('click', () => {
-                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                previewBox.style.backgroundImage = `url('${dataUrl}')`;
-                base64Input.value = dataUrl;
-                stopWebcam();
-            });
-
-            document.getElementById('imageUpload').addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (evt) => {
-                        previewBox.style.backgroundImage = `url('${evt.target.result}')`;
-                        document.getElementById('avatarInitials').textContent='';
-                        base64Input.value = evt.target.result;
-                        stopWebcam();
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-
+            return {
+                init, showDashboard, openProfile, saveProfile, saveTag, triggerPrint,
+                openTagModal: () => { document.getElementById('formTag').reset(); document.getElementById('modalTag').classList.add('active'); }
+            };
         })();
+
+        document.addEventListener('DOMContentLoaded', App.init);
     </script>
 </body>
 </html>
