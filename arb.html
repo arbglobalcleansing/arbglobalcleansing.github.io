@@ -13,6 +13,7 @@
     <script src="common.js"></script>
 
     <style>
+        /* --- YOUR EXACT ORIGINAL STYLES --- */
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
         .profile-header h2 { margin: 0; }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -32,7 +33,7 @@
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
         .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; }
+        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; font-style: italic;}
         .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
         .search-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
         .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
@@ -43,16 +44,15 @@
         .arb-quick-search { display: flex; align-items: center; gap: 10px; margin: 18px 0 12px; padding: 12px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05); }
         .arb-quick-search input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 7px; color: #0f172a; background: #f8fafc; }
         .arb-quick-search input:focus { outline: none; border-color: #0a3d62; box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.10); background: #ffffff; }
-        
         .profile-grid.arb-editor-grid { grid-template-columns: 0.9fr 1.15fr 1.15fr; gap: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08); }
-        .profile-grid.arb-editor-grid > .profile-card { margin: 0; border: 0; border-right: 1px solid #e2e8f0; border-radius: 0; box-shadow: none; padding:20px;}
+        .profile-grid.arb-editor-grid > .profile-card { margin: 0; border: 0; border-right: 1px solid #e2e8f0; border-radius: 0; box-shadow: none; padding: 20px;}
         .profile-grid.arb-editor-grid > .profile-card:last-child { border-right: 0; }
         
-        /* Fixed Avatar UI */
         .arb-avatar { display: grid; place-items: center; width: 104px; height: 104px; margin: 4px auto 18px; border: 5px solid #f1f5f9; border-radius: 50%; color: #ffffff; background: linear-gradient(145deg, #0a3d62, #1d6fa5); font-size: 1.65rem; font-weight: 800; letter-spacing: 0.05em; background-size: cover; background-position: center;}
-        
-        .profile-grid.arb-editor-grid .field { padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
+        .profile-grid.arb-editor-grid .field { padding: 9px 0; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column;}
         .profile-grid.arb-editor-grid .field:last-child { border-bottom: 0; }
+        .field .label { font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;}
+        .field .value { font-weight: 500; color: #0f172a;}
 
         @media (max-width: 700px) {
             .profile-grid, .form-grid, .filter-grid { grid-template-columns: 1fr; }
@@ -65,14 +65,18 @@
             .arb-quick-search { align-items: stretch; flex-direction: column; }
         }
 
-        /* --- NEW STYLES --- */
-        .audit-info { display: block; font-size: 0.8rem; color: #64748b; font-style: italic; margin-top: 4px; }
+        /* --- ADDED CAPABILITIES STYLES --- */
+        .audit-info { display: block; font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 4px; }
         .webcam-container { display: flex; flex-direction: column; align-items: center; gap: 10px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; }
         #webcamVideo { width: 150px; height: 150px; background: #000; border-radius: 8px; object-fit: cover; display: none;}
         #capturedPreview { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; display: none; border: 3px solid #0a3d62;}
         .badge-info { background: #e0f2fe; color: #075985; }
+        
+        .modal-table { width: 100%; border-collapse: collapse; font-size: 0.9rem;}
+        .modal-table th, .modal-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        .modal-table th { background: #f8fafc; color: #475569; position: sticky; top: 0; }
 
-        /* ID CARD PRINT ENGINE */
+        /* ID CARD PRINT ENGINE (CR80 Standard) */
         @media print {
             body * { visibility: hidden; }
             #printWorkspace, #printWorkspace * { visibility: visible; }
@@ -103,7 +107,6 @@
         </div>
     </div>
 
-    <!-- MAIN APP WRAPPER -->
     <div class="container" id="mainContainer">
         <h1 class="no-print">
             🏛️ ARB Global Cleansing
@@ -115,7 +118,7 @@
         <div class="arb-quick-search no-print">
             <input
                 id="quickArbSearchInput"
-                placeholder="Search ARB name, sequence number, or ARB ID"
+                placeholder="IntelliSearch: Type any Name, ID, or Sequence (e.g. 'Dela Cruz Juan')"
                 autocomplete="off"
                 aria-label="Search ARB"
             >
@@ -126,7 +129,7 @@
 
         <div class="management-toolbar no-print">
             <button type="button" class="btn btn-primary" id="searchCcloaBtn">🔎 Search CCLOA</button>
-            <button type="button" class="btn btn-primary" id="viewArbsBtn">📋 View / Filter ARBs</button>
+            <button type="button" class="btn btn-primary" id="viewArbsBtn">📋 Advanced View / Filter ARBs</button>
         </div>
 
         <div id="profileContent" class="no-print">
@@ -136,7 +139,7 @@
         </div>
 
         <div id="modal" class="modal no-print">
-            <div class="modal-content wide">
+            <div class="modal-content wide" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
                 <button class="modal-close" id="closeModalBtn">&times;</button>
                 <h2 id="modalTitle">ARB Profile Management</h2>
                 <div id="modalBody">
@@ -203,6 +206,8 @@
                 const date = new Date(`${value}T00:00:00`);
                 return Number.isNaN(date.getTime()) ? safe(value) : date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
             }
+            function formatAudit(by, at) { return by ? `Recorded by ${safe(by)} on ${new Date(at).toLocaleString()}` : ''; }
+
             function badge(value, kind = 'warning') {
                 const cls = kind === 'success' ? 'badge-success' : kind === 'danger' ? 'badge-danger' : kind === 'info' ? 'badge-info' : 'badge-warning';
                 return `<span class="badge ${cls}">${displayValue(value)}</span>`;
@@ -213,7 +218,6 @@
                 const number = Number(value);
                 return Number.isFinite(number) ? number.toLocaleString('en-PH', { maximumFractionDigits: 8 }) : safe(value);
             }
-            function formatAudit(by, at) { return by ? `Recorded by ${safe(by)} on ${new Date(at).toLocaleString()}` : ''; }
 
             function qualityFlagsHtml(flags) {
                 let values = flags;
@@ -222,7 +226,7 @@
                 return `<br><span class="section-note">Review: ${values.map(flag => safe(typeof flag === 'string' ? flag : JSON.stringify(flag))).join(', ')}</span>`;
             }
 
-            // --- ID CARD PRINT ENGINE ---
+            // Print Action Hook
             window.printIdCard = function() {
                 if (!currentArb) return;
                 const photo = currentArbProfile?.image_base64 || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
@@ -251,7 +255,7 @@
                                 <th>Contact</th>
                                 <th>Target for TA</th>
                                 <th>Verified</th>
-                                <th>Selected</th>
+                                <th>Selected Primary</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -366,7 +370,13 @@
 
             function emptyToNull(value) { const text = String(value ?? '').trim(); return text === '' ? null : text; }
             function canEdit() { const role = String(currentUserProfile?.role || '').toLowerCase(); return (role === 'admin' || role === 'staff'); }
-            function showModal(title, body) { modalTitleEl.textContent = title; modalBodyEl.innerHTML = body; modalEl.classList.add('active'); }
+
+            function showModal(title, body) {
+                modalTitleEl.textContent = title;
+                modalBodyEl.innerHTML = body;
+                modalEl.classList.add('active');
+            }
+
             function hideModal() { modalEl.classList.remove('active'); modalBodyEl.innerHTML = ''; }
 
             document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
@@ -646,7 +656,7 @@
                             <div class="field"><span class="label">Heir Name</span><span class="value">${displayValue(profile?.heir_name)}</span></div>
                             <div class="field"><span class="label">Relationship</span><span class="value">${displayValue(profile?.heir_relation)}</span></div>
                             
-                            <h3 style="margin-top: 20px;">⚖️ Legal Flags</h3>
+                            <h3 style="margin-top: 20px;">⚖️ Legal Flags & Issues</h3>
                             <div class="field"><span class="label">Manual File Record</span><span class="value">${boolBadge(profile?.has_manual_file)}</span></div>
                             <div class="field"><span class="label">AO8</span><span class="value">${boolBadge(arb.ao8)}</span></div>
                             
@@ -747,7 +757,7 @@
                 document.getElementById('aspForm')?.addEventListener('submit', async function (event) {
                     event.preventDefault();
                     const form = new FormData(event.currentTarget);
-                    const userName = currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null;
+                    const userName = currentUserName || null;
                     try {
                         const { error } = await secureDbClient.from('arb_landholdings').update({ asp_no: emptyToNull(form.get('asp_no')), updated_at: new Date().toISOString(), updated_by: userName }).eq('id', holding.id);
                         if (error) throw error;
@@ -768,10 +778,13 @@
                             <div class="form-group"><label for="newHeirEmail">Email</label><input id="newHeirEmail" name="heir_email" type="email"></div>
                             <div class="form-group"><label for="newHeirDocument">Supporting Document Reference</label><input id="newHeirDocument" name="supporting_document_reference"></div>
                             <div class="form-group full">
-                                <div class="checkbox-row">
-                                    <label><input type="checkbox" name="subject_for_ta"> Target Heir for TA</label>
-                                    <label><input type="checkbox" name="is_verified"> Verified</label>
-                                    <label><input type="checkbox" name="is_selected"> Selected primary heir</label>
+                                <label>Heir Target Flags</label>
+                                <div class="checkbox-row" style="background:#fee2e2; border-radius:6px; border:1px solid #fecaca; padding:10px;">
+                                    <label style="color:#b91c1c;"><input type="checkbox" name="subject_for_ta"> Target Heir for Transfer Action</label>
+                                </div>
+                                <div class="checkbox-row" style="margin-top:5px;">
+                                    <label><input type="checkbox" name="is_verified"> Verified Heir</label>
+                                    <label><input type="checkbox" name="is_selected"> Set as Primary Selected Heir</label>
                                 </div>
                             </div>
                         </div>
@@ -787,7 +800,7 @@
                 event.preventDefault();
                 const form = new FormData(event.currentTarget);
                 const isSelected = form.get('is_selected') === 'on';
-                const userName = currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null;
+                const userName = currentUserName || null;
 
                 const payload = {
                     arb_profile_id: currentArbProfile.id, heir_name: emptyToNull(form.get('heir_name')), heir_relation: emptyToNull(form.get('heir_relation')), heir_address: emptyToNull(form.get('heir_address')), heir_contact: emptyToNull(form.get('heir_contact')), heir_email: emptyToNull(form.get('heir_email')), supporting_document_reference: emptyToNull(form.get('supporting_document_reference')), subject_for_ta: form.get('subject_for_ta') === 'on', is_verified: form.get('is_verified') === 'on', is_selected: isSelected, created_by: userName, updated_by: userName, updated_at: new Date().toISOString()
@@ -838,7 +851,7 @@
                                     <label for="generatedArbId">Generated ARB ID</label>
                                     <div style="display:flex; gap:10px;">
                                         <input id="generatedArbId" name="generated_arb_id" value="${safe(currentArb.generated_arb_id || '')}" style="flex:1; background:#f8fafc;" readonly>
-                                        <button type="button" class="btn btn-primary" id="btnGenId">Generate</button>
+                                        <button type="button" class="btn btn-primary" id="btnGenId">Generate ID</button>
                                     </div>
                                 </div>
                                 
@@ -860,7 +873,8 @@
                                         </div>
                                         <div style="display:flex; flex-direction:column; gap:10px;">
                                             <button type="button" class="btn btn-primary" id="btnStartWebcam">📷 Start Camera</button>
-                                            <button type="button" class="btn btn-primary" id="btnCaptureWebcam" style="display:none; background:#16a34a; border:none; color:white;">📸 Capture</button>
+                                            <button type="button" class="btn btn-primary" id="btnCaptureWebcam" style="display:none; background:#16a34a; border:none; color:white;">📸 Capture Frame</button>
+                                            <span style="font-size:0.8rem; color:#64748b;">or upload file:</span>
                                             <input type="file" id="imageUpload" accept="image/*" style="max-width:200px;">
                                             <input type="hidden" id="imageBase64" name="image_base64" value="${safe(profile.image_base64 || '')}">
                                         </div>
@@ -892,10 +906,9 @@
                                 
                                 <!-- Red Flags / Issues Toggles -->
                                 <div class="form-group full" style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 10px;">
-                                    <label>Flags & Actions</label>
+                                    <label>Flags & Actions (Audited)</label>
                                     <div class="checkbox-row" style="background:#f8fafc; padding: 10px; border-radius: 8px;">
                                         <label><input type="checkbox" name="ao8" ${currentArb.ao8 ? 'checked' : ''}> AO8</label>
-                                        <label><input type="checkbox" name="for_ta" ${currentArb.for_ta ? 'checked' : ''}> Subject for Transfer Action</label>
                                         <label><input type="checkbox" id="chkDisqualify" name="for_disqualification" ${currentArb.for_disqualification ? 'checked' : ''}> For Disqualification</label>
                                         <label><input type="checkbox" id="chkRemoval" name="for_removal" ${currentArb.for_removal ? 'checked' : ''}> For Removal</label>
                                         <label><input type="checkbox" name="with_existing_complain" ${currentArb.with_existing_complain ? 'checked' : ''}> With Existing Complain</label>
@@ -1041,7 +1054,6 @@
                         heir_type: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_type')) : null,
                         heir_name: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_name')) : null,
                         heir_relation: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_relation')) : null,
-                        subject_for_transfer: form.get('for_ta') === 'on',
                         updated_at: new Date().toISOString(),
                         updated_by: currentUserName
                     };
@@ -1065,8 +1077,6 @@
                         generated_arb_id: emptyToNull(form.get('generated_arb_id')),
                         arbo_id: emptyToNull(form.get('arbo_id')),
                         ao8: form.get('ao8') === 'on',
-                        for_ta: form.get('for_ta') === 'on',
-                        subject_for_transfer: form.get('for_ta') === 'on',
                         for_disqualification: isDisq,
                         disqualification_reason: isDisq ? emptyToNull(form.get('disqualification_reason')) : null,
                         for_removal: isRem,
@@ -1264,12 +1274,10 @@
             async function openPagedArbFilters(initialTerm = '') {
                 let currentPage = 0; const pageSize = 100;
                 const startingTerm = String(initialTerm || '').trim();
-                const startingType = /^\d+$/.test(startingTerm) ? 'arb_id' : /^CS/i.test(startingTerm) ? 'sequence' : 'name';
 
                 showModal('View / Filter ARBs', `
                     <div class="filter-grid">
-                        <div class="form-group"><label for="serverSearchType">Search Field</label><select id="serverSearchType"><option value="name" ${startingType === 'name' ? 'selected' : ''}>ARB Name</option><option value="fb_name">FB / Source Name</option><option value="sequence" ${startingType === 'sequence' ? 'selected' : ''}>Sequence No.</option><option value="arb_id" ${startingType === 'arb_id' ? 'selected' : ''}>ARB ID</option><option value="district">District</option></select></div>
-                        <div class="form-group"><label for="serverSearchTerm">Search Value</label><input id="serverSearchTerm" placeholder="Leave blank to browse" value="${safe(startingTerm)}"></div>
+                        <div class="form-group full"><label for="serverSearchTerm">IntelliSearch (Name, ID, Seq)</label><input id="serverSearchTerm" placeholder="e.g., 'Dela Cruz Juan' or 'ARB-2026...'" value="${safe(startingTerm)}"></div>
                         <div class="form-group"><label for="filterTown">Town</label><input type="text" id="filterTown" placeholder="Municipality..."></div>
                         <div class="form-group"><label for="filterBarangay">Barangay</label><input type="text" id="filterBarangay" placeholder="Barangay..."></div>
                         <div class="form-group"><label for="serverLifeFilter">Life Status</label><select id="serverLifeFilter"><option value="">All</option><option value="Active">Active</option><option value="Dead">Dead</option></select></div>
@@ -1291,7 +1299,6 @@
                     if (!resultsEl) return;
                     resultsEl.innerHTML = `<p class="empty-msg">⏳ Loading ARB records...</p>`;
 
-                    const searchType = document.getElementById('serverSearchType').value;
                     const term = String(document.getElementById('serverSearchTerm').value || '').trim();
                     const town = String(document.getElementById('filterTown').value || '').trim();
                     const brgy = String(document.getElementById('filterBarangay').value || '').trim();
@@ -1307,19 +1314,21 @@
 
                     try {
                         let arbs = []; let profiles = []; let totalRows = 0;
-                        const arboJoin = (town || brgy) ? 'arbo!inner(id, name, barangay, municipality)' : 'arbo:arbo_id(id, name, barangay, municipality)';
                         
-                        let arbQuery = secureDbClient.from('arb').select(`id, generated_arb_id, first_name, middle_name, last_name, life_status, validation_status, with_ali_case, with_ta, ${arboJoin}, arb_profiles!inner(*)`, { count: 'exact' }).order('last_name', { ascending: true }).range(from, to);
+                        // Smart Joins: filter parent via child conditionally
+                        const arboJoin = (town || brgy) ? 'arbo!inner(id, name, barangay, municipality)' : 'arbo:arbo_id(id, name, barangay, municipality)';
+                        const profJoin = (split || dist || cocrom || term) ? 'arb_profiles!inner(*)' : 'arb_profiles(*)';
+                        
+                        let arbQuery = secureDbClient.from('arb').select(`id, generated_arb_id, first_name, middle_name, last_name, life_status, validation_status, with_ali_case, with_ta, ${arboJoin}, ${profJoin}`, { count: 'exact' }).order('last_name', { ascending: true }).range(from, to);
 
-                        if (searchType === 'arb_id' && term) arbQuery = arbQuery.eq('id', term);
-                        if (searchType === 'name' && term) {
-                            const token = term.split(/[(),]/).map(item => item.trim()).filter(Boolean)[0] || term;
-                            const pattern = `%${token.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
-                            arbQuery = arbQuery.or(`first_name.ilike.${pattern},middle_name.ilike.${pattern},last_name.ilike.${pattern}`);
+                        // IntelliSearch: split terms by space, search all relevant fields for EACH term
+                        if (term) {
+                            const terms = term.split(/\s+/).filter(Boolean);
+                            terms.forEach(t => {
+                                const pattern = `%${t.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
+                                arbQuery = arbQuery.or(`first_name.ilike.${pattern},last_name.ilike.${pattern},middle_name.ilike.${pattern},generated_arb_id.ilike.${pattern},arb_profiles.sequence_no.ilike.${pattern}`);
+                            });
                         }
-                        if (searchType === 'sequence' && term) arbQuery = arbQuery.ilike('arb_profiles.sequence_no', `%${term.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`);
-                        if (searchType === 'district' && term) arbQuery = arbQuery.ilike('arb_profiles.district', `%${term.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`);
-                        if (searchType === 'fb_name' && term) arbQuery = arbQuery.ilike('arb_profiles.fb_name', `%${term.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`);
 
                         if (town) arbQuery = arbQuery.ilike('arbo.municipality', `%${town}%`);
                         if (brgy) arbQuery = arbQuery.ilike('arbo.barangay', `%${brgy}%`);
