@@ -3,307 +3,384 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-    <title>ARB Global Cleansing – ARB Profile Management</title>
-
+    <title>ARB Management System Dashboard</title>
     <link rel="stylesheet" href="styles.css">
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
 
     <style>
-        .profile-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #e2e8f0;
-        }
-
-        .profile-header h2 { margin: 0; }
-
-        .profile-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .profile-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        .validator-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .validator-item {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #0a3d62;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-        }
-
-        .validator-item .type-badge {
-            display: inline-block;
-            background: #dbeafe;
-            color: #0a3d62;
-            padding: 2px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-
-        .validator-item .name { font-weight: 700; font-size: 1.05rem; }
-        .validator-item .detail { font-size: 0.9rem; color: #334155; }
-
-        .management-toolbar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 25px;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
+        /* Dashboard Layout */
+        .dashboard-layout { display: flex; flex-direction: column; gap: 20px; }
+        
+        /* Filter Panel */
+        .filter-panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
         .form-group.full { grid-column: 1 / -1; }
+        .form-group label { font-weight: 600; color: #334155; font-size: 0.85rem; text-transform: uppercase;}
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; width: 100%; box-sizing: border-box; font-family: inherit;}
+        .form-group textarea { min-height: 80px; resize: vertical; }
+        
+        /* Data Grid */
+        .table-container { background: white; border-radius: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow-x: auto; min-height: 400px;}
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 12px 15px; border-bottom: 1px solid #f1f5f9; text-align: left; vertical-align: top;}
+        .data-table th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 5;}
+        .data-table tbody tr:hover { background-color: #f8fafc; cursor: pointer; }
+        .row-checkbox { cursor: pointer; width: 18px; height: 18px; }
 
-        .form-group label { font-weight: 700; color: #334155; }
+        /* Bulk Action Bar */
+        .bulk-action-bar { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 15px 25px; border-radius: 50px; display: flex; gap: 20px; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transition: bottom 0.3s ease; z-index: 1000; }
+        .bulk-action-bar.visible { bottom: 30px; }
+        .bulk-count { font-weight: 700; font-size: 1.1rem; }
 
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            background: white;
-            color: #0f172a;
-        }
+        /* Slide-over Drawer */
+        .drawer-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: none; opacity: 0; transition: opacity 0.3s ease;}
+        .drawer { position: fixed; top: 0; right: -850px; width: 100%; max-width: 850px; height: 100vh; background: white; z-index: 2001; box-shadow: -5px 0 25px rgba(0,0,0,0.1); overflow-y: auto; transition: right 0.3s ease; display: flex; flex-direction: column; }
+        .drawer.open { right: 0; }
+        .drawer-overlay.open { display: block; opacity: 1; }
+        .drawer-header { padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; position: sticky; top: 0; z-index: 10;}
+        .drawer-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 25px;}
+        .close-drawer { background: none; border: none; font-size: 1.8rem; cursor: pointer; color: #64748b; line-height: 1;}
+        .close-drawer:hover { color: #0f172a; }
 
-        .form-group textarea { min-height: 90px; resize: vertical; }
-
-        .checkbox-row {
-            display: flex;
-            gap: 18px;
-            flex-wrap: wrap;
-            padding: 8px 0;
-        }
-
-        .checkbox-row label {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            font-weight: 600;
-        }
-
-        .modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; }
-
-        .search-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 18px;
-        }
-
-        .search-row input {
-            flex: 1;
-            padding: 10px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-        }
-
-        .filter-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-
-        .tag-list { width: 100%; border-collapse: collapse; }
-
-        .tag-list th, .tag-list td {
-            padding: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            text-align: left;
-            vertical-align: top;
-        }
-
-        .tag-list th { color: #334155; background: #f8fafc; }
-
-        .empty-card { color: #64748b; font-style: italic; }
-
-        .arb-quick-search {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin: 18px 0 12px;
-            padding: 12px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
-        }
-
-        .arb-quick-search input {
-            flex: 1;
-            min-width: 0;
-            padding: 11px 14px;
-            border: 1px solid #cbd5e1;
-            border-radius: 7px;
-            color: #0f172a;
-            background: #f8fafc;
-        }
-
-        .arb-quick-search input:focus {
-            outline: none;
-            border-color: #0a3d62;
-            box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.10);
-            background: #ffffff;
-        }
-
-        .profile-grid.arb-editor-grid {
-            grid-template-columns: 0.9fr 1.15fr 1.15fr;
-            gap: 0;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            background: #ffffff;
-            box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08);
-        }
-
-        .profile-grid.arb-editor-grid > .profile-card {
-            margin: 0;
-            border: 0;
-            border-right: 1px solid #e2e8f0;
-            border-radius: 0;
-            box-shadow: none;
-            padding: 20px;
-        }
-
-        .profile-grid.arb-editor-grid > .profile-card:last-child { border-right: 0; }
-
-        .arb-avatar {
-            display: grid;
-            place-items: center;
-            width: 104px;
-            height: 104px;
-            margin: 4px auto 18px;
-            border: 5px solid #f1f5f9;
-            border-radius: 50%;
-            color: #ffffff;
-            background: linear-gradient(145deg, #0a3d62, #1d6fa5);
-            font-size: 1.65rem;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .profile-grid.arb-editor-grid .field {
-            padding: 9px 0;
-            border-bottom: 1px solid #f1f5f9;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .profile-grid.arb-editor-grid .field:last-child { border-bottom: 0; }
-        .field .label { font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;}
-        .field .value { font-weight: 500; color: #0f172a;}
-
-        /* Webcam styling */
-        .webcam-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            background: #f8fafc;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px dashed #cbd5e1;
-        }
-        #webcamVideo { width: 150px; height: 150px; background: #000; border-radius: 8px; object-fit: cover;}
+        /* Profile Cards */
+        .profile-card { border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; background: #ffffff; }
+        .profile-card h3 { margin-top: 0; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;}
+        
+        .arb-avatar-container { display: flex; flex-direction: column; align-items: center; gap: 15px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 10px; border: 1px dashed #cbd5e1;}
+        .arb-avatar { width: 120px; height: 120px; border: 4px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 50%; background: linear-gradient(145deg, #0a3d62, #1d6fa5); display: flex; justify-content: center; align-items: center; color: white; font-size: 2rem; font-weight: bold; background-size: cover; background-position: center; overflow: hidden;}
+        #webcamVideo { width: 120px; height: 120px; object-fit: cover; border-radius: 50%; display: none; }
         #webcamCanvas { display: none; }
-        #capturedPreview { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; display: none; border: 3px solid #0a3d62;}
 
-        @media (max-width: 700px) {
-            .profile-grid, .form-grid, .filter-grid { grid-template-columns: 1fr; }
-            .profile-grid.arb-editor-grid { grid-template-columns: 1fr; }
-            .profile-grid.arb-editor-grid > .profile-card { border-right: 0; border-bottom: 1px solid #e2e8f0; }
-            .profile-grid.arb-editor-grid > .profile-card:last-child { border-bottom: 0; }
-            .profile-header { flex-direction: column; align-items: stretch; gap: 12px; }
-            .form-group.full { grid-column: auto; }
-            .search-row { flex-direction: column; }
-            .arb-quick-search { align-items: stretch; flex-direction: column; }
-        }
+        .checkbox-row { display: flex; gap: 15px; flex-wrap: wrap; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0;}
+        .checkbox-row label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 0.9rem; text-transform: none;}
+        .checkbox-row input[type="checkbox"] { width: auto; margin: 0; }
+
+        .audit-info { font-size: 0.75rem; color: #64748b; font-style: italic; display: block; margin-top: 4px; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.6); z-index: 3000; align-items:center; justify-content:center; padding: 20px;}
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+        .modal-content h3 { margin-top: 0; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e2e8f0;}
+
+        /* Utilities */
+        .btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #0f172a; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;}
+        .btn-outline:hover { background: #f1f5f9; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; display: inline-block; white-space: nowrap;}
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef9c3; color: #854d0e; }
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #e0f2fe; color: #075985; }
+        .section-note { color: #64748b; font-size: 0.85rem; margin: 0 0 10px 0; font-style: italic;}
+        
+        .list-table { width: 100%; border-collapse: collapse; font-size: 0.9rem;}
+        .list-table th, .list-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+        .list-table th { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.8rem;}
     </style>
 </head>
 
 <body>
     <div class="container">
         <h1>
-            🏛️ ARB Global Cleansing
-            <small>ARB Profile Management</small>
+            🏛️ Comprehensive ARB Management
+            <small>Search, Audit, Edit Profiles, and Bulk Tagging</small>
         </h1>
 
         <nav class="nav" id="mainNav"></nav>
 
-        <div class="arb-quick-search">
-            <input
-                id="quickArbSearchInput"
-                placeholder="Search ARB name, sequence number, or ARB ID"
-                autocomplete="off"
-                aria-label="Search ARB"
-            >
-            <button type="button" class="btn btn-primary" id="quickArbSearchBtn">
-                🔎 Search ARB
-            </button>
-        </div>
-
-        <div class="management-toolbar">
-            <button type="button" class="btn btn-primary" id="searchCcloaBtn">🔎 Search CCLOA</button>
-            <button type="button" class="btn btn-primary" id="viewArbsBtn">📋 View / Filter ARBs</button>
-        </div>
-
-        <div id="profileContent">
-            <p style="text-align:center; padding:40px;">Loading profile...</p>
-        </div>
-
-        <div id="modal" class="modal">
-            <div class="modal-content wide">
-                <button class="modal-close" id="closeModalBtn">&times;</button>
-                <h2 id="modalTitle">ARB Profile Management</h2>
-                <div id="modalBody">
-                    <p class="empty-msg">Loading…</p>
+        <div class="dashboard-layout">
+            <!-- FILTER PANEL -->
+            <div class="filter-panel">
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label>Global Search</label>
+                        <input type="text" id="fltSearch" placeholder="Name, Sequence, ARB ID...">
+                    </div>
+                    <div class="form-group">
+                        <label>Life Status</label>
+                        <select id="fltLife">
+                            <option value="">All Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Dead">Dead</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Validation Status</label>
+                        <select id="fltValidation">
+                            <option value="">All</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Validated">Validated</option>
+                            <option value="Rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Issue / Case Flag</label>
+                        <select id="fltFlags">
+                            <option value="">All Flags</option>
+                            <option value="for_disqualification">Subject to Disqualification</option>
+                            <option value="for_removal">Subject to Removal</option>
+                            <option value="with_existing_complain">With Existing Complain</option>
+                            <option value="for_ta">Subject for Transfer Action (TA)</option>
+                            <option value="with_ta">With Transfer Action Case</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="btn btn-outline" id="btnClearFilters">Clear Filters</button>
+                    <button class="btn btn-primary" id="btnSearch">🔎 Search ARBs</button>
                 </div>
             </div>
+
+            <!-- DATA GRID -->
+            <div class="table-container">
+                <table class="data-table" id="arbTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"><input type="checkbox" id="chkSelectAll" class="row-checkbox"></th>
+                            <th>ARB ID / Seq</th>
+                            <th>Full Name</th>
+                            <th>ARBO Assignment</th>
+                            <th>Life Status</th>
+                            <th>Validation</th>
+                            <th>Active Cases & Flags</th>
+                        </tr>
+                    </thead>
+                    <tbody id="arbTableBody">
+                        <tr><td colspan="7" style="text-align: center; padding: 40px; color:#64748b;">Enter search criteria to load ARBs</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 10px;">
+                <span id="pageInfo" style="font-weight: 600; color: #475569;">Showing 0 records</span>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" id="btnPrev">Previous</button>
+                    <button class="btn btn-outline" id="btnNext">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BULK ACTION TOOLBAR -->
+    <div class="bulk-action-bar" id="bulkActionBar">
+        <div class="bulk-count"><span id="selectedCount">0</span> ARBs Selected</div>
+        <button class="btn btn-primary" style="background: white; color: #0f172a;" id="btnOpenBulkTag">⚖️ Bulk Add Legal/ALI Tag</button>
+        <button class="btn-outline" style="color: white; border-color: white;" id="btnClearSelection">Cancel Selection</button>
+    </div>
+
+    <!-- SLIDE-OVER DRAWER (ARB PROFILE EDITOR) -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <div class="drawer" id="profileDrawer">
+        <div class="drawer-header">
+            <div>
+                <h2 id="drawerTitle" style="margin:0; color:#0a3d62;">ARB Profile & Master Editor</h2>
+                <span id="drawerSubtitle" style="font-size:0.9rem; color:#64748b;">Loading...</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn btn-primary" id="btnSaveDrawer">💾 Save All Changes</button>
+                <button class="close-drawer" id="btnCloseDrawer">&times;</button>
+            </div>
+        </div>
+        <div class="drawer-body" id="drawerBody">
+            <div id="drawerLoader" style="text-align:center; padding:50px;">⏳ Loading profile data...</div>
+            
+            <form id="drawerForm" style="display:none; display:flex; flex-direction:column; gap:25px;">
+                
+                <!-- Personal & ARBO Info -->
+                <div class="profile-card">
+                    <h3>👤 Personal Information</h3>
+                    <div class="arb-avatar-container">
+                        <div class="arb-avatar" id="avatarPreviewBox">
+                            <video id="webcamVideo" autoplay playsinline></video>
+                            <span id="avatarInitials"></span>
+                        </div>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <button type="button" class="btn btn-outline" id="btnWebcam">📷 Capture Webcam</button>
+                            <button type="button" class="btn btn-primary" id="btnCapture" style="display:none;">📸 Capture Frame</button>
+                            <span style="font-size:0.8rem; color:#cbd5e1;">or</span>
+                            <input type="file" id="imageUpload" accept="image/*" style="font-size:0.8rem; width:180px;">
+                        </div>
+                        <canvas id="webcamCanvas"></canvas>
+                        <input type="hidden" id="imageBase64" name="image_base64">
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group full">
+                            <label>Generated ARB ID</label>
+                            <div style="display:flex; gap:10px;">
+                                <input type="text" id="drw_generated_id" name="generated_arb_id" readonly style="background:#f8fafc; flex:1;">
+                                <button type="button" class="btn btn-outline" id="btnGenId">Generate ID</button>
+                            </div>
+                        </div>
+                        <div class="form-group"><label>First Name</label><input type="text" id="drw_fname" name="first_name" disabled></div>
+                        <div class="form-group"><label>Last Name</label><input type="text" id="drw_lname" name="last_name" disabled></div>
+                        <div class="form-group"><label>Sequence No.</label><input type="text" id="drw_seq" name="sequence_no" disabled></div>
+                        
+                        <div class="form-group full">
+                            <label>ARBO Assignment</label>
+                            <select id="drw_arbo" name="arbo_id">
+                                <option value="">-- No ARBO Assigned --</option>
+                            </select>
+                        </div>
+                        <div class="form-group"><label>Life Status</label><select id="drw_life" name="life_status"><option value="Pending">Pending</option><option value="Active">Active</option><option value="Dead">Dead</option></select></div>
+                        <div class="form-group"><label>Validation</label><select id="drw_validation" name="validation_status"><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
+                    </div>
+                </div>
+
+                <!-- Legal & Process Flags -->
+                <div class="profile-card">
+                    <h3>🚩 Status Flags & Issues</h3>
+                    <div class="checkbox-row">
+                        <label><input type="checkbox" id="chk_manual"> Has Manual File Record</label>
+                        <label><input type="checkbox" id="chk_ao8"> AO8</label>
+                        <label><input type="checkbox" id="chk_for_ta"> Subject for Transfer Action</label>
+                        <label><input type="checkbox" id="chk_with_ta"> With Transfer Action Case</label>
+                    </div>
+
+                    <!-- Monitored Action Flags -->
+                    <div class="form-grid" style="margin-top: 15px; border-top: 1px solid #e2e8f0; padding-top:15px;">
+                        
+                        <div class="form-group full" style="background:#fff1f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
+                            <label><input type="checkbox" id="chk_disqualify"> For Disqualification</label>
+                            <span id="disq_audit" class="audit-info"></span>
+                            <div id="div_disq_reason" style="display:none; margin-top:8px;">
+                                <textarea id="drw_disq_reason" placeholder="Enter Disqualification Reason..." style="min-height:50px; border-color:#fca5a5;"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-group full" style="background:#fff1f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
+                            <label><input type="checkbox" id="chk_remove"> For Removal</label>
+                            <span id="rem_audit" class="audit-info"></span>
+                            <div id="div_rem_reason" style="display:none; margin-top:8px;">
+                                <textarea id="drw_rem_reason" placeholder="Enter Removal Reason..." style="min-height:50px; border-color:#fca5a5;"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-group full" style="background:#fefce8; padding:10px; border-radius:8px; border: 1px solid #fef08a;">
+                            <label><input type="checkbox" id="chk_complain"> With Existing Complain</label>
+                            <span id="comp_audit" class="audit-info"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sub-Records (Tags, Validations, Heirs) -->
+                <div class="profile-card">
+                    <h3>⚖️ Legal & ALI Tags <button type="button" class="btn btn-outline" id="btnShowAddTag" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Tag</button></h3>
+                    <div id="drw_tags_container"><p class="empty-card">No tags recorded.</p></div>
+                </div>
+
+                <div class="profile-card">
+                    <h3>✅ Validation Records <button type="button" class="btn btn-outline" id="btnShowAddValidation" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Validation</button></h3>
+                    <div id="drw_vals_container"><p class="empty-card">No validations recorded.</p></div>
+                </div>
+
+                <div class="profile-card">
+                    <h3>👪 Heir Records <button type="button" class="btn btn-outline" id="btnShowAddHeir" style="padding:4px 8px; font-size:0.8rem; float:right;">+ Add Heir</button></h3>
+                    <div id="drw_heirs_container"><p class="empty-card">No heirs recorded.</p></div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODALS -->
+    <!-- Tag Modal -->
+    <div class="modal" id="modalTag">
+        <div class="modal-content">
+            <h3>Add Legal / ALI Case Tag</h3>
+            <p class="section-note">Tagging will record your name and the current timestamp automatically.</p>
+            <form id="formTag">
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>SPLIT or REGULAR Categorization</label>
+                        <select name="tag_type" required>
+                            <option value="">Select Category...</option>
+                            <option value="REGULAR ALI CASE">REGULAR ALI CASE</option>
+                            <option value="SPLIT ALI CASE">SPLIT ALI CASE</option>
+                            <option value="SUBJECT FOR TRANSFER ACTION">SUBJECT FOR TRANSFER ACTION</option>
+                            <option value="WITH TRANSFER ACTION CASE">WITH TRANSFER ACTION CASE</option>
+                            <option value="AO8">AO8</option>
+                        </select>
+                    </div>
+                    <div class="form-group full">
+                        <label>Exact Case Status</label>
+                        <select name="status" required>
+                            <option value="">Select Status...</option>
+                            <option value="AT DARPO">AT DARPO</option>
+                            <option value="AT DARMO WITH MEMO">AT DARMO WITH MEMO</option>
+                            <option value="AT DARPO WITH COMPLIANCE - COMPLETE">AT DARPO WITH COMPLIANCE - COMPLETE</option>
+                            <option value="AT DARPO WITH COMPLIANCE - INCOMPLETE">AT DARPO WITH COMPLIANCE - INCOMPLETE</option>
+                            <option value="AT LEGAL">AT LEGAL</option>
+                            <option value="FORWARDED TO REGION">FORWARDED TO REGION</option>
+                            <option value="WITH ORDER - GRANTED">WITH ORDER - GRANTED</option>
+                            <option value="WITH ORDER - DENIED">WITH ORDER - DENIED</option>
+                            <option value="WITH MR">WITH MR</option>
+                            <option value="WITH ORDER OF FINALITY">WITH ORDER OF FINALITY</option>
+                            <option value="FORWARDED TO ROD">FORWARDED TO ROD</option>
+                            <option value="EXECUTED">EXECUTED</option>
+                        </select>
+                    </div>
+                    <div class="form-group full"><label>Case Reference No.</label><input type="text" name="case_reference_no"></div>
+                    <div class="form-group full"><label>Details</label><textarea name="case_details" style="min-height:50px;"></textarea></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Case Tag</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Validation Modal -->
+    <div class="modal" id="modalValidation">
+        <div class="modal-content">
+            <h3>Add Validation Record</h3>
+            <form id="formValidation">
+                <div class="form-grid">
+                    <div class="form-group"><label>Validator Level</label><select name="validator_type" required><option value="Barangay">Barangay</option><option value="DARMO">DARMO</option><option value="PBDD">PBDD</option></select></div>
+                    <div class="form-group"><label>New Status</label><select name="validation_status" required><option value="Validated">Validated</option><option value="Rejected">Rejected</option><option value="Pending">Pending</option></select></div>
+                    <div class="form-group full"><label>Actual Validator Name</label><input type="text" name="validator_name" required></div>
+                    <div class="form-group"><label>Position</label><input type="text" name="position" required></div>
+                    <div class="form-group"><label>Date Validated</label><input type="date" name="date_validated" required id="valToday"></div>
+                    <div class="form-group full"><label>Basis / Remarks</label><input type="text" name="validation_basis"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Validation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Heir Modal -->
+    <div class="modal" id="modalHeir">
+        <div class="modal-content">
+            <h3>Add Heir Record</h3>
+            <form id="formHeir">
+                <div class="form-grid">
+                    <div class="form-group full"><label>Heir Name</label><input type="text" name="heir_name" required></div>
+                    <div class="form-group"><label>Relationship</label><input type="text" name="heir_relation"></div>
+                    <div class="form-group"><label>Contact</label><input type="text" name="heir_contact"></div>
+                    <div class="form-group full">
+                        <label>Heir Target Flags</label>
+                        <div class="checkbox-row" style="background:#fee2e2;">
+                            <label><input type="checkbox" name="subject_for_ta" style="accent-color: red;"> Target Heir for Transfer Action</label>
+                        </div>
+                        <div class="checkbox-row" style="margin-top: 10px;">
+                            <label><input type="checkbox" name="is_verified"> Verified Heir</label>
+                            <label><input type="checkbox" name="is_selected"> Set as Primary Heir</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-outline close-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Heir</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -311,1291 +388,401 @@
 
     <script>
         (async function () {
-            function logDebug(msg, type = 'info') { console.log(`[DBG] ${msg}`); }
+            let secureDbClient = window.supabase?.createClient(
+                window.SUPABASE_CONFIG?.url || 'YOUR_SUPABASE_URL',
+                window.SUPABASE_CONFIG?.anonKey || 'YOUR_ANON_KEY'
+            );
+            
+            let currentUser = null;
+            let currentUserName = null;
+            let currentArbs = [];
+            let globalArboList = [];
+            let selectedArbIds = new Set();
+            let currentPage = 0;
+            const pageSize = 100;
+            
+            let activeArbId = null;
+            let activeProfileId = null;
 
-            let toastTimer;
             function popToast(msg, type = 'info') {
                 const el = document.getElementById('toast');
-                if (!el) return;
-                const colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
-                el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
-                el.style.background = colors[type] || '#1e293b';
-                el.textContent = msg;
-                el.classList.add('show');
-                clearTimeout(toastTimer);
-                toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
+                el.textContent = msg; el.style.background = type === 'err' ? '#f87171' : '#4ade80';
+                el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 4000);
             }
+            function safe(v) { return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+            function getVal(id) { return document.getElementById(id)?.value?.trim() || null; }
+            function getChk(id) { return document.getElementById(id)?.checked || false; }
+            function formatAudit(by, at) { return by ? `Recorded by ${safe(by)} on ${new Date(at).toLocaleString()}` : ''; }
 
-            let secureDbClient = null;
+            // INIT
             try {
-                secureDbClient = window.secureDbClient || window.supabaseClient || window.dbClient || null;
-                if (!secureDbClient && window.supabase?.createClient) {
-                    const appConfig = window.SUPABASE_CONFIG || window.supabaseConfig || window.APP_CONFIG || {};
-                    secureDbClient = window.supabase.createClient(
-                        appConfig.url || appConfig.supabaseUrl || window.SUPABASE_URL || 'https://xnwttnpfzcjbszwxsgox.supabase.co',
-                        appConfig.publishableKey || appConfig.anonKey || appConfig.supabaseAnonKey || window.SUPABASE_ANON_KEY || 'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI'
-                    );
+                const { data } = await secureDbClient.auth.getUser();
+                currentUser = data?.user || null;
+                if(!currentUser) { window.location.href = 'login.html'; return; }
+                
+                const { data: prof } = await secureDbClient.from('profiles').select('full_name').eq('id', currentUser.id).single();
+                currentUserName = prof?.full_name || currentUser.email;
+
+                document.getElementById('mainNav').innerHTML = `<a href="dashboard.html">📊 Dashboard</a> <a href="#" class="active">👤 ARB Management</a> <span style="margin-left:auto; color:#b91c1c; cursor:pointer;" onclick="secureDbClient.auth.signOut(); window.location.href='login.html'">🚪 Logout</span>`;
+                
+                const { data: arbos } = await secureDbClient.from('arbo').select('id, name').order('name');
+                if(arbos) {
+                    globalArboList = arbos;
+                    document.getElementById('drw_arbo').innerHTML += arbos.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
                 }
-            } catch (err) { logDebug(`Setup Exception: ${err.message}`, 'err'); }
+                
+                document.getElementById('valToday').value = new Date().toISOString().substring(0, 10);
+                loadGrid(); 
+            } catch (err) { popToast('Setup Error', 'err'); }
 
-            let currentUser = null;
-            let currentUserProfile = null;
-            let currentArb = null;
-            let currentArbProfile = null;
-            let currentMotherTitle = null;
-            let currentMotherTitles = [];
-            let currentValidations = [];
-            let currentTags = [];
-            let currentHeirs = [];
-            let currentLandholdings = [];
-            let currentLegacyLandholdings = [];
-            let currentImportIssues = [];
-            let globalArboList = [];
+            // GRID SEARCH
+            document.getElementById('btnSearch').addEventListener('click', () => { currentPage = 0; loadGrid(); });
+            document.getElementById('btnClearFilters').addEventListener('click', () => {
+                ['fltSearch','fltLife','fltValidation','fltFlags'].forEach(id => document.getElementById(id).value = '');
+                currentPage = 0; loadGrid();
+            });
+            document.getElementById('fltSearch').addEventListener('keydown', (e) => { if(e.key === 'Enter'){ currentPage=0; loadGrid(); }});
+            document.getElementById('btnPrev').addEventListener('click', () => { if(currentPage > 0) { currentPage--; loadGrid(); } });
+            document.getElementById('btnNext').addEventListener('click', () => { currentPage++; loadGrid(); });
 
-            const modalEl = document.getElementById('modal');
-            const modalTitleEl = document.getElementById('modalTitle');
-            const modalBodyEl = document.getElementById('modalBody');
+            async function loadGrid() {
+                const tbody = document.getElementById('arbTableBody');
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">⏳ Loading data...</td></tr>`;
+                selectedArbIds.clear(); updateBulkActionBar(); document.getElementById('chkSelectAll').checked = false;
 
-            function safe(value) {
-                return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
-            }
+                const search = document.getElementById('fltSearch').value.trim();
+                const life = document.getElementById('fltLife').value;
+                const validation = document.getElementById('fltValidation').value;
+                const flag = document.getElementById('fltFlags').value;
 
-            function displayValue(value) {
-                if (value === null || value === undefined || String(value).trim() === '') return '—';
-                return safe(value);
-            }
+                let query = secureDbClient.from('arb').select(`id, generated_arb_id, first_name, last_name, life_status, validation_status, ao8, for_ta, with_existing_complain, for_disqualification, for_removal, arbo:arbo_id(name), arb_profiles!inner(sequence_no)`, { count: 'exact' });
 
-            function formatDateValue(value) {
-                if (!value) return '—';
-                const date = new Date(`${value}T00:00:00`);
-                return Number.isNaN(date.getTime()) ? safe(value) : date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
-            }
+                if (search) query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,generated_arb_id.ilike.%${search}%,arb_profiles.sequence_no.ilike.%${search}%`);
+                if (life) query = query.eq('life_status', life);
+                if (validation) query = query.eq('validation_status', validation);
+                if (flag) query = query.eq(flag, true);
 
-            function badge(value, kind = 'warning') {
-                const cls = kind === 'success' ? 'badge-success' : kind === 'danger' ? 'badge-danger' : 'badge-warning';
-                return `<span class="badge ${cls}">${displayValue(value)}</span>`;
-            }
+                const { data, count, error } = await query.order('last_name').range(currentPage * pageSize, (currentPage * pageSize) + pageSize - 1);
+                if (error) { tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">Error loading data.</td></tr>`; return; }
 
-            function boolBadge(value) { return value ? badge('Yes', 'warning') : badge('No', 'success'); }
+                currentArbs = data || [];
+                document.getElementById('pageInfo').textContent = `Showing ${currentArbs.length} of ${count} records (Page ${currentPage + 1})`;
+                if(currentArbs.length === 0) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No ARBs match your search.</td></tr>`; return; }
 
-            function numberValue(value) {
-                if (value === null || value === undefined || String(value).trim() === '') return '—';
-                const number = Number(value);
-                return Number.isFinite(number) ? number.toLocaleString('en-PH', { maximumFractionDigits: 8 }) : safe(value);
-            }
+                tbody.innerHTML = currentArbs.map(arb => {
+                    const flags = [];
+                    if(arb.ao8) flags.push('<span class="badge badge-warning">AO8</span>');
+                    if(arb.for_ta) flags.push('<span class="badge badge-danger">TA</span>');
+                    if(arb.for_disqualification) flags.push('<span class="badge badge-danger">Disqualify</span>');
+                    if(arb.for_removal) flags.push('<span class="badge badge-danger">Removal</span>');
+                    if(arb.with_existing_complain) flags.push('<span class="badge badge-warning">Complaint</span>');
+                    
+                    return `
+                        <tr class="arb-row">
+                            <td onclick="event.stopPropagation();"><input type="checkbox" class="row-checkbox" value="${arb.id}"></td>
+                            <td onclick="openDrawer('${arb.id}')"><strong>${safe(arb.generated_arb_id || arb.id)}</strong><br><span class="section-note">Seq: ${safe(arb.arb_profiles?.[0]?.sequence_no || '-')}</span></td>
+                            <td onclick="openDrawer('${arb.id}')"><strong>${safe(arb.last_name)}, ${safe(arb.first_name)}</strong></td>
+                            <td onclick="openDrawer('${arb.id}')">${safe(arb.arbo?.name || '-')}</td>
+                            <td onclick="openDrawer('${arb.id}')"><span class="badge ${arb.life_status==='Active'?'badge-success':(arb.life_status==='Dead'?'badge-danger':'badge-warning')}">${arb.life_status || 'Pending'}</span></td>
+                            <td onclick="openDrawer('${arb.id}')"><span class="badge ${arb.validation_status==='Validated'?'badge-success':'badge-warning'}">${arb.validation_status || 'Pending'}</span></td>
+                            <td onclick="openDrawer('${arb.id}')">${flags.join(' ') || '-'}</td>
+                        </tr>
+                    `;
+                }).join('');
 
-            function qualityFlagsHtml(flags) {
-                let values = flags;
-                if (typeof values === 'string') {
-                    try { values = JSON.parse(values); } catch (error) { values = values.trim() ? [values.trim()] : []; }
-                }
-                if (!Array.isArray(values) || values.length === 0) return '';
-                return `<br><span class="section-note">Review: ${values.map(flag => safe(typeof flag === 'string' ? flag : JSON.stringify(flag))).join(', ')}</span>`;
-            }
-
-            // Global logic to pre-fetch ARBOs
-            async function fetchArboList() {
-                if(secureDbClient) {
-                    const { data } = await secureDbClient.from('arbo').select('id, name');
-                    globalArboList = data || [];
-                }
-            }
-
-            function generateArbId() {
-                const year = new Date().getFullYear();
-                const randomPart = Math.floor(100000 + Math.random() * 900000); 
-                return `ARB-${year}-${randomPart}`;
-            }
-
-            function renderHeirsTable() {
-                if (currentHeirs.length === 0) return `<p class="empty-card">No separate heir record has been encoded.</p>`;
-                return `
-                    <table class="tag-list">
-                        <thead>
-                            <tr>
-                                <th>Heir</th>
-                                <th>Relation</th>
-                                <th>Contact</th>
-                                <th>Supporting Document</th>
-                                <th>Subject to TA</th>
-                                <th>Verified</th>
-                                <th>Selected</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${currentHeirs.map(heir => `
-                                <tr>
-                                    <td><strong>${displayValue(heir.heir_name)}</strong><br><span class="section-note">${displayValue(heir.heir_address)}</span></td>
-                                    <td>${displayValue(heir.heir_relation)}</td>
-                                    <td>${displayValue(heir.heir_contact)}<br><span class="section-note">${displayValue(heir.heir_email)}</span></td>
-                                    <td>${displayValue(heir.supporting_document_reference)}</td>
-                                    <td>${boolBadge(heir.subject_for_ta)}</td>
-                                    <td>${boolBadge(heir.is_verified)}</td>
-                                    <td>${boolBadge(heir.is_selected)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-
-            function renderLandholdingsTable() {
-                if (currentLandholdings.length === 0) return `<p class="empty-card">No EPCLOAIS landholding record is linked to this ARB profile.</p>`;
-                return `
-                    <table class="tag-list">
-                        <thead>
-                            <tr>
-                                <th>Source Row</th>
-                                <th>Claim / LHID</th>
-                                <th>Survey / ASP / Lot</th>
-                                <th>Location</th>
-                                <th>Areas</th>
-                                <th>Title</th>
-                                <th>CoCROM</th>
-                                <th>Dates</th>
-                                ${canEdit() ? '<th>Action</th>' : ''}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${currentLandholdings.map(holding => `
-                                <tr>
-                                    <td>${displayValue(holding.source_file)}<br><span class="section-note">${displayValue(holding.source_sheet)} · Row ${displayValue(holding.source_row_no)} · Seq ${displayValue(holding.sequence_no)}</span>${qualityFlagsHtml(holding.data_quality_flags)}</td>
-                                    <td>Claim: ${displayValue(holding.claim_no)}<br>LHID: ${displayValue(holding.lhid)}</td>
-                                    <td>Survey: ${displayValue(holding.survey_no)}<br>ASP: ${displayValue(holding.asp_no)}<br>Lot: ${displayValue(holding.lot_no)}</td>
-                                    <td>${displayValue(holding.barangay)}, ${displayValue(holding.municipality)}</td>
-                                    <td>Landholding: ${numberValue(holding.landholding_area)}<br>ARB Share: ${numberValue(holding.arb_share_area)}<br>CCLOA: ${numberValue(holding.ccloa_area)}</td>
-                                    <td>${displayValue(holding.title_type)}<br>No.: ${displayValue(holding.title_no)}<br>Serial: ${displayValue(holding.ep_cloa_serial_no)}</td>
-                                    <td>Certificate: ${displayValue(holding.cocrom_certificate_no)}<br>Serial: ${displayValue(holding.cocrom_serial_no)}</td>
-                                    <td>Generated: ${formatDateValue(holding.date_generated || holding.date_generated_raw)}<br>Registered: ${formatDateValue(holding.date_registered || holding.date_registered_raw)}<br>Released: ${formatDateValue(holding.date_released || holding.date_released_raw)}<br>DARMO: ${formatDateValue(holding.date_distributed_to_darmo || holding.date_distributed_to_darmo_raw)}<br>Distributed: ${formatDateValue(holding.date_distributed || holding.date_distributed_raw)}</td>
-                                    ${canEdit() ? `<td><button type="button" class="btn btn-primary edit-asp-btn" data-landholding-id="${safe(holding.id)}">Update ASP</button></td>` : ''}
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-
-            function renderLegacyLandholdingsTable() {
-                if (currentLegacyLandholdings.length === 0) return `<p class="empty-card">No legacy land_holding record is linked to this ARB profile.</p>`;
-                return `
-                    <table class="tag-list">
-                        <thead>
-                            <tr>
-                                <th>Claim</th>
-                                <th>Source / LHID</th>
-                                <th>Survey / Lot</th>
-                                <th>Area / Share</th>
-                                <th>Title</th>
-                                <th>Milestone Dates</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${currentLegacyLandholdings.map(holding => `
-                                <tr>
-                                    <td>${displayValue(holding.claim_no)}</td>
-                                    <td>${displayValue(holding.source)}<br>LHID: ${displayValue(holding.lhid)}</td>
-                                    <td>Survey: ${displayValue(holding.survey_no)}<br>Lot: ${displayValue(holding.lot_no)}</td>
-                                    <td>Area: ${numberValue(holding.area)}<br>Estimated Share: ${displayValue(holding.estimate_share)}</td>
-                                    <td>${displayValue(holding.type_of_title)}<br>${displayValue(holding.title_number)}</td>
-                                    <td>Generated: ${formatDateValue(holding.date_generated)}<br>Registered: ${formatDateValue(holding.date_registered)}<br>Released: ${formatDateValue(holding.date_released)}<br>Distributed: ${formatDateValue(holding.date_distributed)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-
-            function fullName(arb) {
-                if (!arb) return currentArbProfile?.fb_name || '—';
-                const formatted = [arb.last_name ? `${arb.last_name},` : '', arb.first_name || '', arb.middle_name || ''].filter(Boolean).join(' ').trim();
-                return formatted || currentArbProfile?.fb_name || '—';
-            }
-
-            function arbInitials(arb) {
-                const parts = [arb?.first_name, arb?.last_name].filter(Boolean);
-                if (parts.length === 0) {
-                    const fallback = String(currentArbProfile?.fb_name || 'ARB').trim();
-                    return fallback.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase() || 'AR';
-                }
-                return parts.map(part => String(part).charAt(0)).join('').toUpperCase();
-            }
-
-            function normalizedLifeStatus() {
-                const raw = String(currentArbProfile?.life_status || currentArb?.life_status || '').toLowerCase();
-                if (raw === 'dead' || raw === 'deceased') return 'Dead';
-                if (raw === 'active' || raw === 'alive') return 'Active';
-                return raw ? String(currentArbProfile?.life_status || currentArb?.life_status) : 'Pending';
-            }
-
-            function emptyToNull(value) {
-                const text = String(value ?? '').trim();
-                return text === '' ? null : text;
-            }
-
-            function canEdit() {
-                const role = String(currentUserProfile?.role || '').toLowerCase();
-                return role === 'admin' || role === 'staff';
-            }
-
-            function showModal(title, body) {
-                modalTitleEl.textContent = title;
-                modalBodyEl.innerHTML = body;
-                modalEl.classList.add('active');
-            }
-
-            function hideModal() {
-                modalEl.classList.remove('active');
-                modalBodyEl.innerHTML = '';
-            }
-
-            document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
-            modalEl?.addEventListener('click', function (event) { if (event.target === modalEl) hideModal(); });
-
-            async function buildNavbar(userProfile) {
-                // Preserved unchanged (just mock loading for brevity but executing identically)
-                const navEl = document.getElementById('mainNav');
-                if (!navEl) return;
-                const curPath = window.location.pathname;
-                let links = [{ label: 'Dashboard', url: '/dashboard.html', icon: '📊'}, { label: 'ARBO Management', url: '/arbo.html', icon: '🏢'}, { label: 'ARB Management', url: '/arb.html', icon: '👤'}, { label: 'Validators', url: '/validators.html', icon: '✅'}, { label: 'Reports', url: '/reports.html', icon: '📈'}];
-                let html = links.map(link => `<a href="${safe(link.url)}" class="${curPath.includes(link.url.replace('/', '')) && link.url.replace('/', '') !== '' ? 'active' : ''}">${safe(link.icon || '')} ${safe(link.label)}</a>`).join('');
-                if (userProfile) {
-                    const displayName = userProfile.full_name && userProfile.full_name.trim() !== '' ? userProfile.full_name : currentUser?.email || '—';
-                    html += `<span class="user-badge" style="margin-left:auto; color:#0a3d62; font-weight:600;">👤 ${safe(displayName)} (${safe(userProfile.role)})</span><span class="logout-link" id="navLogoutBtn" style="color:#b91c1c; font-weight:600; margin-left:10px; cursor:pointer;">🚪 Logout</span>`;
-                } else {
-                    html += `<span class="user-badge" style="margin-left:auto; color:#b91c1c;">⚠️ Not Logged In</span><span class="logout-link" style="color:#0a3d62; margin-left:10px; cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
-                }
-                navEl.innerHTML = html;
-                document.getElementById('navLogoutBtn')?.addEventListener('click', async function () {
-                    if (secureDbClient) await secureDbClient.auth.signOut();
-                    window.location.href = 'login.html';
+                document.querySelectorAll('.row-checkbox').forEach(chk => {
+                    chk.addEventListener('change', (e) => {
+                        if(e.target.checked) selectedArbIds.add(e.target.value); else selectedArbIds.delete(e.target.value);
+                        updateBulkActionBar();
+                    });
                 });
             }
 
-            async function fetchAllRows(table, selectColumns, orderColumn = null) {
-                let from = 0; let rows = []; const pageSize = 1000;
-                while (true) {
-                    let query = secureDbClient.from(table).select(selectColumns).range(from, from + pageSize - 1);
-                    if (orderColumn) query = query.order(orderColumn, { ascending: true });
-                    const { data, error } = await query;
-                    if (error) throw error;
-                    rows = rows.concat(data || []);
-                    if (!data || data.length < pageSize) break;
-                    from += pageSize;
-                }
-                return rows;
+            // BULK ACTIONS
+            document.getElementById('chkSelectAll').addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.row-checkbox').forEach(chk => { chk.checked = isChecked; if(isChecked) selectedArbIds.add(chk.value); else selectedArbIds.delete(chk.value); });
+                updateBulkActionBar();
+            });
+
+            function updateBulkActionBar() {
+                const bar = document.getElementById('bulkActionBar');
+                document.getElementById('selectedCount').textContent = selectedArbIds.size;
+                if(selectedArbIds.size > 0) bar.classList.add('visible'); else bar.classList.remove('visible');
             }
 
-            async function fetchRowsByEquality(table, selectColumns, column, match, orderColumn = null, maximumRows = 20000) {
-                let rows = []; const pageSize = 1000;
-                for (let from = 0; from < maximumRows; from += pageSize) {
-                    let query = secureDbClient.from(table).select(selectColumns).eq(column, match).range(from, from + pageSize - 1);
-                    if (orderColumn) query = query.order(orderColumn, { ascending: true });
-                    const result = await query;
-                    if (result.error) throw result.error;
-                    rows.push(...(result.data || []));
-                    if (!result.data || result.data.length < pageSize) break;
-                }
-                return rows;
-            }
+            document.getElementById('btnClearSelection').addEventListener('click', () => {
+                selectedArbIds.clear(); document.querySelectorAll('.row-checkbox').forEach(chk => chk.checked = false); document.getElementById('chkSelectAll').checked = false; updateBulkActionBar();
+            });
 
-            async function fetchRowsInChunks(table, selectColumns, column, values) {
-                const uniqueValues = [...new Set((values || []).filter(Boolean))]; const rows = [];
-                for (let index = 0; index < uniqueValues.length; index += 150) {
-                    const result = await secureDbClient.from(table).select(selectColumns).in(column, uniqueValues.slice(index, index + 150));
-                    if (result.error) throw result.error;
-                    rows.push(...(result.data || []));
-                }
-                return rows;
-            }
+            let isBulkTagging = false;
+            document.getElementById('btnOpenBulkTag').addEventListener('click', () => {
+                isBulkTagging = true;
+                document.getElementById('formTag').reset();
+                document.getElementById('modalTag').classList.add('active');
+            });
 
-            async function loadProfile(arbId) {
-                const container = document.getElementById('profileContent');
-                container.innerHTML = `<p style="text-align:center; padding:40px;">⏳ Loading ARB profile...</p>`;
+            // DRAWER LOGIC
+            const drawer = document.getElementById('profileDrawer');
+            const overlay = document.getElementById('drawerOverlay');
+
+            document.getElementById('btnCloseDrawer').addEventListener('click', closeDrawer);
+            overlay.addEventListener('click', closeDrawer);
+            function closeDrawer() { drawer.classList.remove('open'); overlay.classList.remove('open'); stopWebcam(); }
+
+            document.getElementById('chk_disqualify').addEventListener('change', e => document.getElementById('div_disq_reason').style.display = e.target.checked ? 'flex' : 'none');
+            document.getElementById('chk_remove').addEventListener('change', e => document.getElementById('div_rem_reason').style.display = e.target.checked ? 'flex' : 'none');
+
+            document.getElementById('btnGenId').addEventListener('click', () => { document.getElementById('drw_generated_id').value = `ARB-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`; });
+
+            window.openDrawer = async function(arbId) {
+                activeArbId = arbId;
+                overlay.classList.add('open'); drawer.classList.add('open');
+                document.getElementById('drawerLoader').style.display = 'block';
+                document.getElementById('drawerForm').style.display = 'none';
+
                 try {
-                    const { data: arb, error: arbErr } = await secureDbClient
-                        .from('arb').select(`*, arbo:arbo_id (id, name, barangay, municipality)`).eq('id', arbId).single();
-                    if (arbErr) throw new Error(arbErr.message || 'ARB not found');
+                    const { data: arb } = await secureDbClient.from('arb').select('*, arb_profiles(*)').eq('id', arbId).single();
+                    const profile = arb.arb_profiles[0] || {};
+                    activeProfileId = profile.id;
 
-                    const profileResult = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId)).limit(2);
-                    if (profileResult.error) throw profileResult.error;
-                    if ((profileResult.data || []).length > 1) throw new Error('Data integrity stop: more than one arb_profiles row is linked to ARB ID ' + arbId + '.');
-
-                    const arbProfile = profileResult.data?.[0] || null;
-                    currentArb = arb;
-                    currentArbProfile = arbProfile;
-
-                    if (!arbProfile?.id) throw new Error('ARB master record exists, but its ARB profile is missing.');
-
-                    const [validationResult, tagResult, heirResult, landholdingResult, legacyLandholdingResult] = await Promise.all([
-                        secureDbClient.from('arb_validations').select('*').eq('arb_id', arbId).order('date_validated', { ascending: false }),
-                        secureDbClient.from('arb_tags').select('*').eq('arb_profile_id', arbProfile.id).order('created_at', { ascending: false }),
-                        secureDbClient.from('arb_heirs').select('*').eq('arb_profile_id', arbProfile.id).order('created_at', { ascending: true }),
-                        secureDbClient.from('arb_landholdings').select('*').eq('arb_profile_id', arbProfile.id).order('is_primary', { ascending: false }).order('source_row_no', { ascending: true }),
-                        secureDbClient.from('land_holdings').select('*').eq('arb_profile_id', arbProfile.id).order('created_at', { ascending: true })
+                    const [tagsRes, valsRes, heirsRes] = await Promise.all([
+                        secureDbClient.from('arb_tags').select('*').eq('arb_profile_id', profile.id).order('created_at',{ascending:false}),
+                        secureDbClient.from('arb_validations').select('*').eq('arb_id', arbId).order('date_validated',{ascending:false}),
+                        secureDbClient.from('arb_heirs').select('*').eq('arb_profile_id', profile.id).order('created_at',{ascending:true})
                     ]);
 
-                    if (landholdingResult.error) throw landholdingResult.error;
-                    currentValidations = validationResult.error ? [] : validationResult.data || [];
-                    currentTags = tagResult.error ? [] : tagResult.data || [];
-                    currentHeirs = heirResult.error ? [] : heirResult.data || [];
-                    currentLandholdings = landholdingResult.data || [];
-                    currentLegacyLandholdings = legacyLandholdingResult.error ? [] : legacyLandholdingResult.data || [];
-
-                    const motherTitleIds = [arbProfile.mother_title_id, ...currentLandholdings.map(holding => holding.mother_title_id)].filter(Boolean);
-                    const uniqueMotherTitleIds = [...new Set(motherTitleIds)];
-                    currentMotherTitles = [];
-
-                    if (uniqueMotherTitleIds.length > 0) {
-                        const titleResult = await secureDbClient.from('mother_titles').select('*').in('id', uniqueMotherTitleIds).order('mother_title_no', { ascending: true });
-                        if (titleResult.error) throw titleResult.error;
-                        currentMotherTitles = titleResult.data || [];
-                    }
-
-                    currentMotherTitle = currentMotherTitles.find(title => title.id === arbProfile.mother_title_id) || currentMotherTitles[0] || null;
-                    currentImportIssues = [];
-                    const profileSequences = [arbProfile.sequence_no, ...currentLandholdings.map(holding => holding.sequence_no)].filter(Boolean);
-
-                    if (profileSequences.length > 0) {
-                        const issueResult = await secureDbClient.from('epcloais_import_issues').select('*').in('sequence_no', [...new Set(profileSequences)]).eq('source_file', 'EPCLOAIS_CS1(1).xlsx').order('source_row_no', { ascending: true });
-                        if (!issueResult.error) currentImportIssues = issueResult.data || [];
-                    }
-
-                    renderProfile();
-                } catch (err) {
-                    container.innerHTML = `<div style="text-align:center; padding:40px; color:#b91c1c;"><p>❌ ${safe(err.message)}</p><a href="arb.html" class="back-link">← Back to ARB Management</a></div>`;
-                    logDebug(err.message, 'err');
-                }
-            }
-
-            function renderProfile() {
-                const container = document.getElementById('profileContent');
-                const arb = currentArb;
-                const profile = currentArbProfile;
-                const arbo = arb.arbo || null;
-                const lifeStatus = normalizedLifeStatus();
-                const openImportIssueCount = currentImportIssues.filter(issue => !issue.resolved).length;
-
-                function motherTitleValues(column) {
-                    const values = [...new Set(currentMotherTitles.map(title => title?.[column]).filter(item => item !== null && item !== undefined && String(item).trim() !== ''))];
-                    return values.length > 0 ? values.map(safe).join('<br>') : '—';
-                }
-
-                const validationKind = arb.validation_status === 'Validated' ? 'success' : arb.validation_status === 'Rejected' ? 'danger' : 'warning';
-                const lifeKind = lifeStatus === 'Active' ? 'success' : lifeStatus === 'Dead' ? 'danger' : 'warning';
-
-                let tagsHtml = `<p class="empty-card">No legal or ALI tag recorded.</p>`;
-                if (currentTags.length > 0) {
-                    tagsHtml = `
-                        <table class="tag-list">
-                            <thead>
-                                <tr>
-                                    <th>Tag</th>
-                                    <th>Status</th>
-                                    <th>Case Ref</th>
-                                    <th>Case Details</th>
-                                    <th>Tagged By</th>
-                                    <th>Date</th>
-                                    ${canEdit() ? '<th>Action</th>' : ''}
-                                </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    currentTags.forEach(function (tag) {
-                        tagsHtml += `
-                            <tr>
-                                <td><strong>${displayValue(tag.tag_type)}</strong></td>
-                                <td>${displayValue(tag.status)}</td>
-                                <td>${displayValue(tag.case_reference_no)}</td>
-                                <td>${displayValue(tag.case_details)}</td>
-                                <td>${displayValue(tag.updated_by || tag.tagged_by)}</td>
-                                <td>${formatDateValue((tag.updated_at || tag.created_at || '').substring(0, 10))}</td>
-                                ${canEdit() ? `<td><button type="button" class="btn btn-primary edit-tag-btn" data-tag-id="${safe(tag.id)}">Update</button></td>` : ''}
-                            </tr>
-                        `;
-                    });
-                    tagsHtml += `</tbody></table>`;
-                }
-
-                let validatorsHtml = '';
-                ['Barangay', 'DARMO', 'PBDD'].forEach(function (type) {
-                    const val = currentValidations.find(item => item.validator_type === type);
-                    if (val) {
-                        validatorsHtml += `
-                            <div class="validator-item">
-                                <div class="type-badge">${safe(type)}</div>
-                                <div class="name">${displayValue(val.validator_name)}</div>
-                                <div class="detail">📌 ${displayValue(val.position)}</div>
-                                <div class="detail">📍 ${displayValue(val.validator_barangay)}${val.validator_town ? `, ${safe(val.validator_town)}` : ''}</div>
-                                <div class="detail">📅 ${formatDateValue(val.date_validated)}</div>
-                                <div class="detail">Basis: ${displayValue(val.validation_basis)}</div>
-                                <div class="detail">Document: ${displayValue(val.supporting_document_reference)}</div>
-                                <div class="detail">Recorded by: ${displayValue(val.recorded_by)}</div>
-                            </div>
-                        `;
-                    } else {
-                        validatorsHtml += `
-                            <div class="validator-item" style="border-left-color:#94a3b8; opacity:0.7;">
-                                <div class="type-badge">${safe(type)}</div>
-                                <div style="color:#64748b; font-style:italic;">Not yet validated</div>
-                            </div>
-                        `;
-                    }
-                });
-
-                // Profile Image Setup
-                const avatarStyle = profile?.image_base64 
-                    ? `background-image: url('${safe(profile.image_base64)}'); color: transparent; border: 5px solid #0a3d62;` 
-                    : '';
-                const avatarContent = profile?.image_base64 ? '' : safe(arbInitials(arb));
-
-                container.innerHTML = `
-                    <div class="profile-header">
-                        <h2>${safe(fullName(arb))}</h2>
-                        <div class="profile-actions">
-                            <a href="arb.html" class="btn btn-primary" style="text-decoration:none;">← Back</a>
-                            ${canEdit() ? `<button type="button" class="btn btn-primary" id="editProfileBtn">✏️ Update ARB Profile</button>` : ''}
-                            ${canEdit() && profile?.id ? `<button type="button" class="btn btn-primary" id="addHeirBtn">👪 Add Heir</button>` : ''}
-                            ${canEdit() ? `<button type="button" class="btn btn-primary" id="addValidationBtn">✅ Add Validation</button>` : ''}
-                            ${canEdit() ? `<button type="button" class="btn btn-primary" id="addTagBtn">⚖️ Add Legal / ALI Tag</button>` : ''}
-                        </div>
-                    </div>
-
-                    <div class="profile-grid arb-editor-grid">
-                        <div class="profile-card">
-                            <h3>👤 Personal Information</h3>
-                            <div class="arb-avatar" style="${avatarStyle}">
-                                ${avatarContent}
-                            </div>
-                            <div class="field">
-                                <span class="label">ARB ID</span>
-                                <span class="value">${displayValue(arb.generated_arb_id || arb.id)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Full Name</span>
-                                <span class="value">${safe(fullName(arb))}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">FB Name</span>
-                                <span class="value">${displayValue(profile?.fb_name)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Gender</span>
-                                <span class="value">${displayValue(profile?.fb_gender)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Spouse</span>
-                                <span class="value">${displayValue(profile?.spouse)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Manual File</span>
-                                <span class="value">${boolBadge(profile?.has_manual_file)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">CLOR / Urban</span>
-                                <span class="value">${displayValue(profile?.clorurban)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Sequence No.</span>
-                                <span class="value">${displayValue(profile?.sequence_no)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">ARBO</span>
-                                <span class="value">${displayValue(arbo?.name)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Location</span>
-                                <span class="value">${displayValue(arbo?.barangay)}, ${displayValue(arbo?.municipality)}</span>
-                            </div>
-                            <div class="field">
-                                <span class="label">Validation Status</span>
-                                <span class="value">${badge(arb.validation_status, validationKind)}</span>
-                            </div>
-                        </div>
-
-                        <div class="profile-card">
-                            <h3>📜 CCLOA and Individual Title</h3>
-                            <div class="field"><span class="label">CCLOA Number</span><span class="value">${motherTitleValues('mother_title_no')}</span></div>
-                            <div class="field"><span class="label">Landowner</span><span class="value">${motherTitleValues('landowner')}</span></div>
-                            <div class="field"><span class="label">Landholding Location</span><span class="value">${currentMotherTitles.length > 0 ? `${motherTitleValues('barangay')}, ${motherTitleValues('municipality')}` : '—'}</span></div>
-                            <div class="field"><span class="label">Landholding SPLIT Status</span><span class="value">${motherTitleValues('split_status')}</span></div>
-                            <div class="field"><span class="label">CCLOA Description</span><span class="value">${motherTitleValues('title_description')}</span></div>
-                            <div class="field"><span class="label">CCLOA Remarks</span><span class="value">${motherTitleValues('remarks')}</span></div>
-                            <div class="field"><span class="label">CCLOA Membership</span><span class="value">${displayValue(profile?.ccloa_membership_status)}</span></div>
-                            <div class="field"><span class="label">ARB Classification</span><span class="value">${displayValue(profile?.split_status)}</span></div>
-                            <div class="field"><span class="label">Individual Title / e-Title No.</span><span class="value">${displayValue(profile?.e_title_no)}</span></div>
-                            <div class="field"><span class="label">CoCROM No.</span><span class="value">${displayValue(profile?.cocrom_no)}</span></div>
-                        </div>
-
-                        <div class="profile-card" style="display:flex; flex-direction:column; gap:15px;">
-                            <div>
-                                <h3>👪 Life Status</h3>
-                                <div class="field"><span class="label">Life Status</span><span class="value">${badge(lifeStatus, lifeKind)}</span></div>
-                                <div class="field"><span class="label">Death Validation</span><span class="value">${displayValue(profile?.death_validation_status)}</span></div>
-                                <div class="field"><span class="label">Supporting Doc</span><span class="value">${displayValue(profile?.death_document_type)}</span></div>
-                                <div class="field"><span class="label">Doc Reference</span><span class="value">${displayValue(profile?.death_document_reference)}</span></div>
-                                <div class="field"><span class="label">Death Cert Submitted</span><span class="value">${boolBadge(profile?.death_cert_submitted)}</span></div>
-                            </div>
-                            
-                            <div>
-                                <h3>⚖️ Legal Flags</h3>
-                                <div class="field"><span class="label">AO8</span><span class="value">${boolBadge(arb.ao8)}</span></div>
-                                <div class="field"><span class="label">For Transfer Action</span><span class="value">${boolBadge(arb.for_ta)}</span></div>
-                                <div class="field"><span class="label">With Transfer Action Case</span><span class="value">${boolBadge(arb.with_ta)}</span></div>
-                                <div class="field"><span class="label">Subject for Transfer</span><span class="value">${boolBadge(profile?.subject_for_transfer || arb.subject_for_transfer)}</span></div>
-                                
-                                <div class="field"><span class="label">For Disqualification</span><span class="value">${boolBadge(arb.for_disqualification)}</span></div>
-                                ${arb.for_disqualification ? `<div class="field"><span class="label">Disqualification Reason</span><span class="value">${displayValue(arb.disqualification_reason)}</span></div>` : ''}
-                                
-                                <div class="field"><span class="label">For Removal</span><span class="value">${boolBadge(arb.for_removal)}</span></div>
-                                ${arb.for_removal ? `<div class="field"><span class="label">Removal Reason</span><span class="value">${displayValue(arb.removal_reason)}</span></div>` : ''}
-                                
-                                <div class="field"><span class="label">With Existing Complain</span><span class="value">${boolBadge(arb.with_existing_complain)}</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="profile-card" style="margin-top:10px; overflow-x:auto;">
-                        <h3>🌾 EPCLOAIS Landholding Records</h3>
-                        <p class="section-note">Repeatable parcel/title rows from arb_landholdings. ASP Number is maintained here and is never inferred from Survey No. ${openImportIssueCount > 0 ? `<br><strong style="color:#b45309;">${openImportIssueCount} unresolved import exception(s) share this profile's sequence and remain excluded from automatic merge.</strong>` : ''}</p>
-                        ${renderLandholdingsTable()}
-                    </div>
-
-                    <div class="profile-card" style="margin-top:25px; overflow-x:auto;">
-                        <h3>🗂️ Legacy Land Holding Records</h3>
-                        <p class="section-note">Existing rows from land_holdings are shown separately because this is a different live table.</p>
-                        ${renderLegacyLandholdingsTable()}
-                    </div>
-
-                    <div class="profile-card" style="margin-top:25px; overflow-x:auto;">
-                        <h3>👪 Heir Records</h3>
-                        ${renderHeirsTable()}
-                    </div>
-
-                    <div class="profile-card" style="margin-top:10px; overflow-x:auto;">
-                        <h3>⚖️ Legal and ALI Case Monitoring</h3>
-                        ${tagsHtml}
-                    </div>
-
-                    <div class="profile-card" style="margin-top:25px;">
-                        <h3>✅ Validators</h3>
-                        <div class="validator-grid">${validatorsHtml}</div>
-                    </div>
-
-                    <a href="arb.html" class="back-link">← Back to ARB Management</a>
-                `;
-
-                document.getElementById('editProfileBtn')?.addEventListener('click', openEditProfile);
-                document.getElementById('addValidationBtn')?.addEventListener('click', openValidationForm);
-                document.getElementById('addTagBtn')?.addEventListener('click', function () { openTagForm(null); });
-                document.getElementById('addHeirBtn')?.addEventListener('click', openHeirForm);
-                document.querySelectorAll('.edit-asp-btn').forEach(function (button) {
-                    button.addEventListener('click', function () { openAspForm(button.dataset.landholdingId); });
-                });
-                document.querySelectorAll('.edit-tag-btn').forEach(function (button) {
-                    button.addEventListener('click', function () { openTagForm(button.dataset.tagId); });
-                });
-            }
-
-            function openAspForm(landholdingId) {
-                if (!canEdit()) return;
-                const holding = currentLandholdings.find(item => String(item.id) === String(landholdingId));
-                if (!holding) { popToast('Landholding record not found.', 'err'); return; }
-
-                showModal('Update ASP Number', `
-                    <form id="aspForm">
-                        <p class="section-note">This updates only arb_landholdings.asp_no. It is not copied from Survey No. or any other field.</p>
-                        <div class="form-grid">
-                            <div class="form-group"><label>Survey No.</label><input value="${safe(holding.survey_no || '')}" disabled></div>
-                            <div class="form-group"><label>Lot No.</label><input value="${safe(holding.lot_no || '')}" disabled></div>
-                            <div class="form-group full"><label for="aspNo">ASP Number</label><input id="aspNo" name="asp_no" value="${safe(holding.asp_no || '')}"></div>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelAspBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save ASP Number</button>
-                        </div>
-                    </form>
-                `);
-
-                document.getElementById('cancelAspBtn')?.addEventListener('click', hideModal);
-                document.getElementById('aspForm')?.addEventListener('submit', async function (event) {
-                    event.preventDefault();
-                    const form = new FormData(event.currentTarget);
-                    const userName = currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null;
-                    try {
-                        const { error } = await secureDbClient.from('arb_landholdings').update({
-                            asp_no: emptyToNull(form.get('asp_no')), updated_at: new Date().toISOString(), updated_by: userName
-                        }).eq('id', holding.id);
-                        if (error) throw error;
-                        hideModal(); popToast('ASP Number updated.', 'ok'); await loadProfile(currentArb.id);
-                    } catch (err) { popToast(err.message, 'err'); }
-                });
-            }
-
-            function openHeirForm() {
-                if (!canEdit() || !currentArbProfile?.id) return;
-
-                showModal('Add Heir Record', `
-                    <form id="heirForm">
-                        <div class="form-grid">
-                            <div class="form-group full"><label for="newHeirName">Heir Name</label><input id="newHeirName" name="heir_name" required></div>
-                            <div class="form-group"><label for="newHeirRelation">Relation</label><input id="newHeirRelation" name="heir_relation"></div>
-                            <div class="form-group"><label for="newHeirContact">Contact</label><input id="newHeirContact" name="heir_contact"></div>
-                            <div class="form-group full"><label for="newHeirAddress">Address</label><input id="newHeirAddress" name="heir_address"></div>
-                            <div class="form-group"><label for="newHeirEmail">Email</label><input id="newHeirEmail" name="heir_email" type="email"></div>
-                            <div class="form-group"><label for="newHeirDocument">Supporting Document Reference</label><input id="newHeirDocument" name="supporting_document_reference"></div>
-                            
-                            <div class="form-group full">
-                                <div class="checkbox-row">
-                                    <label><input type="checkbox" name="subject_for_ta"> Subject for TA</label>
-                                    <label><input type="checkbox" name="is_verified"> Verified</label>
-                                    <label><input type="checkbox" name="is_selected"> Selected heir</label>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelHeirBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Heir</button>
-                        </div>
-                    </form>
-                `);
-
-                document.getElementById('cancelHeirBtn')?.addEventListener('click', hideModal);
-                document.getElementById('heirForm')?.addEventListener('submit', saveHeir);
-            }
-
-            async function saveHeir(event) {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const isSelected = form.get('is_selected') === 'on';
-                const userName = currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null;
-
-                const payload = {
-                    arb_profile_id: currentArbProfile.id,
-                    heir_name: emptyToNull(form.get('heir_name')),
-                    heir_relation: emptyToNull(form.get('heir_relation')),
-                    heir_address: emptyToNull(form.get('heir_address')),
-                    heir_contact: emptyToNull(form.get('heir_contact')),
-                    heir_email: emptyToNull(form.get('heir_email')),
-                    supporting_document_reference: emptyToNull(form.get('supporting_document_reference')),
-                    subject_for_ta: form.get('subject_for_ta') === 'on',
-                    is_verified: form.get('is_verified') === 'on',
-                    is_selected: isSelected,
-                    created_by: userName, updated_by: userName, updated_at: new Date().toISOString()
-                };
-
-                try {
-                    if (isSelected) {
-                        const { error: clearError } = await secureDbClient.from('arb_heirs').update({ is_selected: false, updated_at: new Date().toISOString(), updated_by: userName }).eq('arb_profile_id', currentArbProfile.id);
-                        if (clearError) throw clearError;
-                    }
-
-                    const { error: heirError } = await secureDbClient.from('arb_heirs').insert(payload);
-                    if (heirError) throw heirError;
-
-                    if (isSelected) {
-                        const profileResult = await secureDbClient.from('arb_profiles').update({ heir_type: 'SPECIFIC HEIR', heir_name: payload.heir_name, heir_relation: payload.heir_relation, updated_at: new Date().toISOString(), updated_by: userName }).eq('id', currentArbProfile.id);
-                        if (profileResult.error) throw profileResult.error;
-
-                        const arbResult = await secureDbClient.from('arb').update({ heir_name: payload.heir_name, heir_relation: payload.heir_relation, heir_address: payload.heir_address, heir_contact: payload.heir_contact, heir_email: payload.heir_email, updated_at: new Date().toISOString() }).eq('id', currentArb.id);
-                        if (arbResult.error) throw arbResult.error;
-                    }
-
-                    hideModal(); popToast('Heir record saved.', 'ok'); await loadProfile(currentArb.id);
-                } catch (err) { popToast(err.message, 'err'); }
-            }
-
-            function selectOptions(options, selected) {
-                return options.map(value => `<option value="${safe(value)}" ${value === selected ? 'selected' : ''}>${value === '' ? 'Select' : safe(value)}</option>`).join('');
-            }
-            
-            function objectOptions(options, selectedId) {
-                return options.map(obj => `<option value="${safe(obj.id)}" ${String(obj.id) === String(selectedId) ? 'selected' : ''}>${safe(obj.name)}</option>`).join('');
-            }
-
-            function openEditProfile() {
-                if (!currentArb || !canEdit()) return;
-                const profile = currentArbProfile || {};
-                const mother = currentMotherTitle || {};
-
-                showModal('Update ARB Profile', `
-                    <form id="profileForm">
-                        <div class="form-grid">
-                            
-                            <!-- Generator & ID -->
-                            <div class="form-group">
-                                <label for="generatedArbId">Generated ARB ID</label>
-                                <div style="display:flex; gap:10px;">
-                                    <input id="generatedArbId" name="generated_arb_id" value="${safe(currentArb.generated_arb_id || '')}" style="flex:1;">
-                                    <button type="button" class="btn btn-primary" id="btnGenId">Generate</button>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="hasManualFile" style="display:flex; align-items:center; gap:8px; height: 100%; padding-top:25px;">
-                                    <input type="checkbox" id="hasManualFile" name="has_manual_file" ${profile.has_manual_file ? 'checked' : ''} style="width:auto;"> 
-                                    Has Manual File Record
-                                </label>
-                            </div>
-
-                            <!-- Image Upload Section -->
-                            <div class="form-group full webcam-container">
-                                <label>Profile Image (1x1)</label>
-                                <div style="display:flex; gap:20px; align-items:center; justify-content:center; width:100%;">
-                                    <div>
-                                        <video id="webcamVideo" autoplay playsinline style="display:none;"></video>
-                                        <img id="capturedPreview" src="${safe(profile.image_base64 || '')}" style="${profile.image_base64 ? 'display:block;' : ''}">
-                                        <canvas id="webcamCanvas"></canvas>
-                                    </div>
-                                    <div style="display:flex; flex-direction:column; gap:10px;">
-                                        <button type="button" class="btn btn-primary" id="btnStartWebcam">📷 Start Camera</button>
-                                        <button type="button" class="btn btn-primary" id="btnCaptureWebcam" style="display:none;">📸 Capture</button>
-                                        <input type="file" id="imageUpload" accept="image/*" style="max-width:200px;">
-                                        <input type="hidden" id="imageBase64" name="image_base64" value="${safe(profile.image_base64 || '')}">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-group full"><label for="fbName">FB Name</label><input id="fbName" name="fb_name" value="${safe(profile.fb_name || '')}"></div>
-                            <div class="form-group"><label for="fbGender">Gender</label><input id="fbGender" name="fb_gender" value="${safe(profile.fb_gender || '')}"></div>
-                            <div class="form-group"><label for="spouse">Spouse</label><input id="spouse" name="spouse" value="${safe(profile.spouse || '')}"></div>
-                            <div class="form-group"><label for="clorurban">CLOR / Urban</label><input id="clorurban" name="clorurban" value="${safe(profile.clorurban || '')}"></div>
-                            <div class="form-group"><label for="sequenceNo">Sequence No.</label><input id="sequenceNo" value="${safe(profile.sequence_no || '')}" readonly><span class="section-note">Protected import match field.</span></div>
-                            
-                            <div class="form-group full">
-                                <label for="arboId">ARBO Assignment</label>
-                                <select id="arboId" name="arbo_id">
-                                    <option value="">-- No ARBO Assigned --</option>
-                                    ${objectOptions(globalArboList, currentArb.arbo_id)}
-                                </select>
-                            </div>
-
-                            <div class="form-group full"><label for="ccloaNo">CCLOA Number</label><input id="ccloaNo" name="ccloa_no" value="${safe(mother.mother_title_no || '')}" placeholder="Enter the existing CCLOA number"><span class="section-note">The CCLOA must already exist in the mother_titles table.</span></div>
-                            <div class="form-group"><label for="membershipStatus">CCLOA Membership</label><select id="membershipStatus" name="ccloa_membership_status">${selectOptions(['NOT APPLICABLE', 'ACTIVE', 'TRANSFERRED TO INDIVIDUAL TITLE', 'REMOVED FROM CCLOA'], profile.ccloa_membership_status || (mother.id ? 'ACTIVE' : 'NOT APPLICABLE'))}</select></div>
-                            <div class="form-group"><label for="splitStatus">ARB Classification</label><select id="splitStatus" name="split_status">${selectOptions(['PENDING VALIDATION', 'SPLIT', 'NON-SPLIT'], profile.split_status || 'PENDING VALIDATION')}</select></div>
-                            <div class="form-group"><label for="district">District</label><input id="district" name="district" value="${safe(profile.district || '')}"></div>
-                            <div class="form-group"><label for="eTitleNo">Individual Title / e-Title Number</label><input id="eTitleNo" name="e_title_no" value="${safe(profile.e_title_no || '')}"></div>
-                            <div class="form-group"><label for="cocromNo">CoCROM Number</label><input id="cocromNo" name="cocrom_no" value="${safe(profile.cocrom_no || '')}"></div>
-                            
-                            <div class="form-group"><label for="lifeStatus">Life Status</label><select id="lifeStatus" name="life_status" required>${selectOptions(['', 'Active', 'Dead'], normalizedLifeStatus())}</select></div>
-                            
-                            <!-- Legal Flags / Toggles -->
-                            <div class="form-group full">
-                                <label>Flags & Actions</label>
-                                <div class="checkbox-row">
-                                    <label><input type="checkbox" name="ao8" ${currentArb.ao8 ? 'checked' : ''}> AO8</label>
-                                    <label><input type="checkbox" name="for_ta" ${currentArb.for_ta ? 'checked' : ''}> Subject for Transfer Action</label>
-                                    <label><input type="checkbox" name="with_ta" ${currentArb.with_ta ? 'checked' : ''}> With Transfer Action Case</label>
-                                    <label><input type="checkbox" id="chkDisqualify" name="for_disqualification" ${currentArb.for_disqualification ? 'checked' : ''}> For Disqualification</label>
-                                    <label><input type="checkbox" id="chkRemoval" name="for_removal" ${currentArb.for_removal ? 'checked' : ''}> For Removal</label>
-                                    <label><input type="checkbox" name="with_existing_complain" ${currentArb.with_existing_complain ? 'checked' : ''}> With Existing Complain</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group full" id="divDisqualifyReason" style="display:none;">
-                                <label for="disqualificationReason">Disqualification Reason</label>
-                                <textarea id="disqualificationReason" name="disqualification_reason">${safe(currentArb.disqualification_reason || '')}</textarea>
-                            </div>
-
-                            <div class="form-group full" id="divRemovalReason" style="display:none;">
-                                <label for="removalReason">Removal Reason</label>
-                                <textarea id="removalReason" name="removal_reason">${safe(currentArb.removal_reason || '')}</textarea>
-                            </div>
-
-                            <!-- Dead fields -->
-                            <div class="form-group dead-field"><label for="deathValidationStatus">Death Validation Status</label><select id="deathValidationStatus" name="death_validation_status">${selectOptions(['FOR VALIDATION', 'VALIDATED'], profile.death_validation_status === 'VALIDATED' ? 'VALIDATED' : 'FOR VALIDATION')}</select></div>
-                            <div class="form-group dead-field"><label for="deathDocumentType">Supporting Document</label><select id="deathDocumentType" name="death_document_type">${selectOptions(['', 'DEATH CERTIFICATE', 'OTHER SUPPORTING DOCUMENT'], profile.death_document_type || '')}</select></div>
-                            <div class="form-group dead-field full"><label for="deathDocumentReference">Document Reference / File Reference</label><input id="deathDocumentReference" name="death_document_reference" value="${safe(profile.death_document_reference || '')}"></div>
-                            <div class="form-group dead-field full"><label><input type="checkbox" name="death_cert_submitted" ${profile.death_cert_submitted ? 'checked' : ''}> Death certificate submitted</label></div>
-                            <div class="form-group dead-field"><label for="heirType">Heir Entry</label><select id="heirType" name="heir_type">${selectOptions(['', 'HEIRS OF', 'SPECIFIC HEIR'], profile.heir_type || '')}</select></div>
-                            <div class="form-group dead-field"><label for="heirName">Heir Name</label><input id="heirName" name="heir_name" value="${safe(profile.heir_name || '')}"></div>
-                            <div class="form-group dead-field full"><label for="heirRelation">Relationship</label><input id="heirRelation" name="heir_relation" value="${safe(profile.heir_relation || '')}"></div>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelProfileBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save ARB Profile</button>
-                        </div>
-                    </form>
-                `);
-
-                // Setup dynamic toggles
-                const lifeStatusEl = document.getElementById('lifeStatus');
-                const toggleDeadFields = () => {
-                    document.querySelectorAll('.dead-field').forEach(el => el.style.display = lifeStatusEl.value === 'Dead' ? 'flex' : 'none');
-                };
-                lifeStatusEl.addEventListener('change', toggleDeadFields);
-                toggleDeadFields();
-
-                const chkDisqualify = document.getElementById('chkDisqualify');
-                const chkRemoval = document.getElementById('chkRemoval');
-                chkDisqualify.addEventListener('change', (e) => document.getElementById('divDisqualifyReason').style.display = e.target.checked ? 'flex' : 'none');
-                chkRemoval.addEventListener('change', (e) => document.getElementById('divRemovalReason').style.display = e.target.checked ? 'flex' : 'none');
-                
-                if(chkDisqualify.checked) document.getElementById('divDisqualifyReason').style.display = 'flex';
-                if(chkRemoval.checked) document.getElementById('divRemovalReason').style.display = 'flex';
-
-                // Generator
-                document.getElementById('btnGenId').addEventListener('click', () => {
-                    document.getElementById('generatedArbId').value = generateArbId();
-                });
-
-                // Webcam Logic
-                const video = document.getElementById('webcamVideo');
-                const canvas = document.getElementById('webcamCanvas');
-                const preview = document.getElementById('capturedPreview');
-                const base64Input = document.getElementById('imageBase64');
-                const fileInput = document.getElementById('imageUpload');
-                let localStream = null;
-
-                document.getElementById('btnStartWebcam').addEventListener('click', async () => {
-                    try {
-                        localStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                        video.srcObject = localStream;
-                        video.style.display = 'block';
-                        preview.style.display = 'none';
-                        document.getElementById('btnStartWebcam').style.display = 'none';
-                        document.getElementById('btnCaptureWebcam').style.display = 'block';
-                    } catch (err) {
-                        popToast('Webcam not accessible.', 'warn');
-                    }
-                });
-
-                document.getElementById('btnCaptureWebcam').addEventListener('click', () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d').drawImage(video, 0, 0);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                    preview.src = dataUrl;
-                    base64Input.value = dataUrl;
+                    document.getElementById('drawerSubtitle').textContent = `System ID: ${arb.id}`;
+                    document.getElementById('drw_generated_id').value = arb.generated_arb_id || '';
+                    document.getElementById('drw_fname').value = arb.first_name || '';
+                    document.getElementById('drw_lname').value = arb.last_name || '';
+                    document.getElementById('drw_seq').value = profile.sequence_no || '';
+                    document.getElementById('drw_arbo').value = arb.arbo_id || '';
+                    document.getElementById('drw_life').value = arb.life_status || 'Pending';
+                    document.getElementById('drw_validation').value = arb.validation_status || 'Pending';
                     
-                    video.style.display = 'none';
-                    preview.style.display = 'block';
-                    document.getElementById('btnStartWebcam').style.display = 'block';
-                    document.getElementById('btnStartWebcam').textContent = "📷 Retake";
-                    document.getElementById('btnCaptureWebcam').style.display = 'none';
+                    document.getElementById('chk_manual').checked = profile.has_manual_file || false;
+                    document.getElementById('chk_ao8').checked = arb.ao8 || false;
+                    document.getElementById('chk_for_ta').checked = arb.for_ta || false;
+                    document.getElementById('chk_with_ta').checked = arb.with_ta || false;
+                    
+                    // Disqualify Audit
+                    const isDisq = arb.for_disqualification || false;
+                    document.getElementById('chk_disqualify').checked = isDisq;
+                    document.getElementById('div_disq_reason').style.display = isDisq ? 'flex' : 'none';
+                    document.getElementById('drw_disq_reason').value = arb.disqualification_reason || '';
+                    document.getElementById('disq_audit').textContent = isDisq ? formatAudit(arb.disqualification_tagged_by, arb.disqualification_tagged_at) : '';
 
-                    // Stop camera
-                    localStream.getTracks().forEach(track => track.stop());
-                });
+                    // Removal Audit
+                    const isRem = arb.for_removal || false;
+                    document.getElementById('chk_remove').checked = isRem;
+                    document.getElementById('div_rem_reason').style.display = isRem ? 'flex' : 'none';
+                    document.getElementById('drw_rem_reason').value = arb.removal_reason || '';
+                    document.getElementById('rem_audit').textContent = isRem ? formatAudit(arb.removal_tagged_by, arb.removal_tagged_at) : '';
 
-                fileInput.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(evt) {
-                            preview.src = evt.target.result;
-                            base64Input.value = evt.target.result;
-                            preview.style.display = 'block';
-                            video.style.display = 'none';
-                        };
-                        reader.readAsDataURL(file);
+                    // Complain Audit
+                    const isComp = arb.with_existing_complain || false;
+                    document.getElementById('chk_complain').checked = isComp;
+                    document.getElementById('comp_audit').textContent = isComp ? formatAudit(arb.complain_tagged_by, arb.complain_tagged_at) : '';
+
+                    // Handle Image
+                    const previewBox = document.getElementById('avatarPreviewBox');
+                    const initialSpan = document.getElementById('avatarInitials');
+                    document.getElementById('imageBase64').value = profile.image_base64 || '';
+                    if(profile.image_base64) {
+                        previewBox.style.backgroundImage = `url('${profile.image_base64}')`;
+                        initialSpan.textContent = '';
+                    } else {
+                        previewBox.style.backgroundImage = 'none';
+                        initialSpan.textContent = (arb.first_name?.[0]||'') + (arb.last_name?.[0]||'');
                     }
-                });
 
-                document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
-                    if(localStream) localStream.getTracks().forEach(track => track.stop());
-                    hideModal();
-                });
+                    // Render Sub-lists
+                    const renderList = (id, dta, ths, rowf) => document.getElementById(id).innerHTML = dta.length===0?'<p class="empty-card">No records.</p>':`<table class="list-table"><thead><tr>${ths.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${dta.map(d=>`<tr>${rowf(d)}</tr>`).join('')}</tbody></table>`;
+                    
+                    renderList('drw_tags_container', tagsRes.data, ['Type/Status', 'Reference', 'Audit Trail'], t => `<td><strong>${safe(t.tag_type)}</strong><br><span class="badge badge-info">${safe(t.status)}</span></td><td>${safe(t.case_reference_no)}<br><span class="section-note">${safe(t.case_details)}</span></td><td><span class="audit-info">${formatAudit(t.tagged_by, t.created_at)}</span></td>`);
+                    renderList('drw_vals_container', valsRes.data, ['Validator', 'Status', 'Date'], v => `<td><strong>${safe(v.validator_name)}</strong><br><span class="section-note">${safe(v.validator_type)} - ${safe(v.position)}</span></td><td><span class="badge badge-success">${safe(v.validation_status)}</span></td><td>${safe(v.date_validated)}</td>`);
+                    renderList('drw_heirs_container', heirsRes.data, ['Name/Contact', 'Relation', 'TA Target'], h => `<td><strong>${safe(h.heir_name)}</strong><br><span class="section-note">${safe(h.heir_contact)}</span></td><td>${safe(h.heir_relation)}</td><td>${h.subject_for_ta?'<span class="badge badge-danger">For TA</span>':'-'}</td>`);
 
-                document.getElementById('profileForm')?.addEventListener('submit', saveProfile);
-            }
+                    document.getElementById('drawerLoader').style.display = 'none';
+                    document.getElementById('drawerForm').style.display = 'flex';
+                } catch(err) { document.getElementById('drawerBody').innerHTML = '<p>Error loading profile.</p>'; }
+            };
 
-            async function saveProfile(event) {
-                event.preventDefault();
-                if (!canEdit()) return;
-
-                const form = new FormData(event.currentTarget);
-                const ccloaNo = String(form.get('ccloa_no') || '').trim();
-                const lifeStatus = String(form.get('life_status') || '');
-                const eTitleNo = emptyToNull(form.get('e_title_no'));
-                const membershipStatus = ccloaNo ? String(form.get('ccloa_membership_status') || 'ACTIVE') : 'NOT APPLICABLE';
-                let motherTitleId = currentArbProfile?.mother_title_id || null;
-
+            // SAVE DRAWER
+            document.getElementById('btnSaveDrawer').addEventListener('click', async () => {
+                if(!activeArbId) return;
                 try {
-                    if (ccloaNo) {
-                        const { data: titles, error } = await secureDbClient.from('mother_titles').select('id, mother_title_no').eq('mother_title_no', ccloaNo).limit(2);
-                        if (error) throw error;
-                        if (!titles || titles.length === 0) throw new Error('CCLOA number was not found in mother_titles. Add the actual CCLOA record first.');
-                        if (titles.length > 1) throw new Error('More than one CCLOA matched. Enter the complete CCLOA number.');
-                        motherTitleId = titles[0].id;
-                    } else { motherTitleId = null; }
+                    // Logic to detect if we just checked a box to generate timestamps
+                    const { data: oldArb } = await secureDbClient.from('arb').select('for_disqualification, for_removal, with_existing_complain').eq('id', activeArbId).single();
+                    
+                    const isDisq = getChk('chk_disqualify');
+                    const isRem = getChk('chk_remove');
+                    const isComp = getChk('chk_complain');
+                    const nowISO = new Date().toISOString();
 
-                    if (lifeStatus === 'Dead' && !form.get('heir_type')) throw new Error('Choose HEIRS OF or SPECIFIC HEIR for a deceased ARB.');
-                    if (lifeStatus !== 'Active' && lifeStatus !== 'Dead') throw new Error('Select the actual life status of the ARB.');
-                    if (eTitleNo && membershipStatus === 'ACTIVE') throw new Error('An ARB with an individual title / e-Title must be marked TRANSFERRED TO INDIVIDUAL TITLE.');
-                    if (membershipStatus === 'TRANSFERRED TO INDIVIDUAL TITLE' && !eTitleNo) throw new Error('Enter the individual title / e-Title number before marking the ARB as transferred.');
-
-                    const payloadProfile = {
-                        arb_id: String(currentArb.id),
-                        image_base64: emptyToNull(form.get('image_base64')),
-                        has_manual_file: form.get('has_manual_file') === 'on',
-                        fb_name: emptyToNull(form.get('fb_name')),
-                        fb_gender: emptyToNull(form.get('fb_gender')),
-                        spouse: emptyToNull(form.get('spouse')),
-                        clorurban: emptyToNull(form.get('clorurban')),
-                        mother_title_id: motherTitleId,
-                        ccloa_membership_status: membershipStatus,
-                        split_status: String(form.get('split_status') || 'PENDING VALIDATION'),
-                        district: emptyToNull(form.get('district')),
-                        e_title_no: eTitleNo,
-                        cocrom_no: emptyToNull(form.get('cocrom_no')),
-                        life_status: lifeStatus,
-                        death_validation_status: lifeStatus === 'Dead' ? String(form.get('death_validation_status') || 'FOR VALIDATION') : 'NOT APPLICABLE',
-                        death_document_type: lifeStatus === 'Dead' ? emptyToNull(form.get('death_document_type')) : null,
-                        death_document_reference: lifeStatus === 'Dead' ? emptyToNull(form.get('death_document_reference')) : null,
-                        death_cert_submitted: lifeStatus === 'Dead' && form.get('death_cert_submitted') === 'on',
-                        heir_type: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_type')) : null,
-                        heir_name: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_name')) : null,
-                        heir_relation: lifeStatus === 'Dead' ? emptyToNull(form.get('heir_relation')) : null,
-                        subject_for_transfer: form.get('for_ta') === 'on',
-                        updated_at: new Date().toISOString(),
-                        updated_by: currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null
+                    const arbPayload = {
+                        generated_arb_id: getVal('drw_generated_id'),
+                        arbo_id: getVal('drw_arbo'),
+                        life_status: getVal('drw_life'),
+                        validation_status: getVal('drw_validation'),
+                        ao8: getChk('chk_ao8'),
+                        for_ta: getChk('chk_for_ta'),
+                        with_ta: getChk('chk_with_ta'),
+                        for_disqualification: isDisq,
+                        disqualification_reason: isDisq ? getVal('drw_disq_reason') : null,
+                        for_removal: isRem,
+                        removal_reason: isRem ? getVal('drw_rem_reason') : null,
+                        with_existing_complain: isComp,
+                        updated_at: nowISO
                     };
 
-                    if (!currentArbProfile?.id) throw new Error('The ARB profile is missing. Stop and repair the profile relationship first.');
+                    // Add who/when tracking dynamically
+                    if(isDisq && !oldArb.for_disqualification) { arbPayload.disqualification_tagged_by = currentUserName; arbPayload.disqualification_tagged_at = nowISO; }
+                    if(!isDisq) { arbPayload.disqualification_tagged_by = null; arbPayload.disqualification_tagged_at = null; }
 
-                    let profileQuery = secureDbClient.from('arb_profiles').update(payloadProfile).eq('id', currentArbProfile.id);
-                    if (currentArbProfile.updated_at) profileQuery = profileQuery.eq('updated_at', currentArbProfile.updated_at);
-                    const profileResult = await profileQuery.select('id').maybeSingle();
+                    if(isRem && !oldArb.for_removal) { arbPayload.removal_tagged_by = currentUserName; arbPayload.removal_tagged_at = nowISO; }
+                    if(!isRem) { arbPayload.removal_tagged_by = null; arbPayload.removal_tagged_at = null; }
 
-                    if (profileResult.error) throw profileResult.error;
-                    if (!profileResult.data) throw new Error('This profile was updated in another session. Reload it before saving.');
+                    if(isComp && !oldArb.with_existing_complain) { arbPayload.complain_tagged_by = currentUserName; arbPayload.complain_tagged_at = nowISO; }
+                    if(!isComp) { arbPayload.complain_tagged_by = null; arbPayload.complain_tagged_at = null; }
 
-                    const arbResult = await secureDbClient.from('arb').update({
-                        generated_arb_id: emptyToNull(form.get('generated_arb_id')),
-                        arbo_id: emptyToNull(form.get('arbo_id')),
-                        ao8: form.get('ao8') === 'on',
-                        for_ta: form.get('for_ta') === 'on',
-                        with_ta: form.get('with_ta') === 'on',
-                        subject_for_transfer: form.get('for_ta') === 'on',
-                        for_disqualification: form.get('for_disqualification') === 'on',
-                        disqualification_reason: emptyToNull(form.get('disqualification_reason')),
-                        for_removal: form.get('for_removal') === 'on',
-                        removal_reason: emptyToNull(form.get('removal_reason')),
-                        with_existing_complain: form.get('with_existing_complain') === 'on',
-                        life_status: lifeStatus,
-                        updated_at: new Date().toISOString()
-                    }).eq('id', currentArb.id).select('id').maybeSingle();
+                    await secureDbClient.from('arb').update(arbPayload).eq('id', activeArbId);
 
-                    if (arbResult.error || !arbResult.data) {
-                        const rollbackPayload = {};
-                        Object.keys(payloadProfile).forEach(column => rollbackPayload[column] = currentArbProfile[column] ?? null);
-                        await secureDbClient.from('arb_profiles').update(rollbackPayload).eq('id', currentArbProfile.id);
-                        throw new Error('The ARB master update failed. The profile change was rolled back. ' + (arbResult.error?.message || ''));
+                    if(activeProfileId) {
+                        await secureDbClient.from('arb_profiles').update({ has_manual_file: getChk('chk_manual'), image_base64: getVal('imageBase64'), updated_at: nowISO }).eq('id', activeProfileId);
                     }
 
-                    hideModal(); popToast('ARB profile updated successfully.', 'ok'); await loadProfile(currentArb.id);
-                } catch (err) { popToast(err.message, 'err'); }
-            }
+                    popToast('Profile Saved successfully', 'ok');
+                    loadGrid(); 
+                    window.openDrawer(activeArbId); // Refresh timestamps
+                } catch(err) { popToast('Failed to save profile', 'err'); }
+            });
 
-            function openValidationForm() {
-                if (!currentArb || !canEdit()) return;
-                const today = new Date().toISOString().substring(0, 10);
-                showModal('Add ARB Validation', `
-                    <form id="validationForm">
-                        <div class="form-grid">
-                            <div class="form-group"><label for="validatorType">Validator Type</label><select id="validatorType" name="validator_type" required>${selectOptions(['Barangay', 'DARMO', 'PBDD'], 'Barangay')}</select></div>
-                            <div class="form-group"><label for="validationStatus">ARB Validation Status</label><select id="validationStatus" name="validation_status" required>${selectOptions(['Pending', 'Validated', 'Rejected'], currentArb.validation_status || 'Pending')}</select></div>
-                            <div class="form-group full"><label for="validatorName">Actual Validator Name</label><input id="validatorName" name="validator_name" required></div>
-                            <div class="form-group"><label for="validatorPosition">Position</label><input id="validatorPosition" name="position" required></div>
-                            <div class="form-group"><label for="validationDate">Date Validated</label><input type="date" id="validationDate" name="date_validated" value="${today}" required></div>
-                            <div class="form-group"><label for="validatorBarangay">Barangay</label><input id="validatorBarangay" name="validator_barangay" value="${safe(currentArb.arbo?.barangay || '')}"></div>
-                            <div class="form-group"><label for="validatorTown">Town</label><input id="validatorTown" name="validator_town" value="${safe(currentArb.arbo?.municipality || '')}"></div>
-                            <div class="form-group full"><label for="validationBasis">Validation Basis</label><input id="validationBasis" name="validation_basis"></div>
-                            <div class="form-group full"><label for="validationDocument">Supporting Document Reference</label><input id="validationDocument" name="supporting_document_reference"></div>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelValidationBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Validation</button>
-                        </div>
-                    </form>
-                `);
+            // MODALS (TAG, VALIDATION, HEIR)
+            document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', e => e.target.closest('.modal').classList.remove('active')));
 
-                document.getElementById('cancelValidationBtn')?.addEventListener('click', hideModal);
-                document.getElementById('validationForm')?.addEventListener('submit', saveValidation);
-            }
+            document.getElementById('btnShowAddTag').addEventListener('click', () => { isBulkTagging=false; document.getElementById('formTag').reset(); document.getElementById('modalTag').classList.add('active'); });
+            document.getElementById('btnShowAddValidation').addEventListener('click', () => { document.getElementById('formValidation').reset(); document.getElementById('modalValidation').classList.add('active'); });
+            document.getElementById('btnShowAddHeir').addEventListener('click', () => { document.getElementById('formHeir').reset(); document.getElementById('modalHeir').classList.add('active'); });
 
-            async function saveValidation(event) {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
+            // Tag Form (Records WHO and WHEN)
+            document.getElementById('formTag').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const tagType = fd.get('tag_type');
+                const nowISO = new Date().toISOString();
+                
                 try {
-                    const { error } = await secureDbClient.from('arb_validations').insert({
-                        arb_id: currentArb.id, validator_type: form.get('validator_type'), validator_name: emptyToNull(form.get('validator_name')), validator_barangay: emptyToNull(form.get('validator_barangay')), validator_town: emptyToNull(form.get('validator_town')), position: emptyToNull(form.get('position')), date_validated: form.get('date_validated'), validation_basis: emptyToNull(form.get('validation_basis')), supporting_document_reference: emptyToNull(form.get('supporting_document_reference')), recorded_by: currentUserProfile?.full_name || currentUser?.email || currentUser?.id || null, recorded_by_user_id: currentUser?.id || null, updated_at: new Date().toISOString()
-                    });
-                    if (error) throw error;
-                    const { error: arbError } = await secureDbClient.from('arb').update({ validation_status: form.get('validation_status') }).eq('id', currentArb.id);
-                    if (arbError) throw arbError;
-                    hideModal(); popToast('Validation recorded successfully.', 'ok'); await loadProfile(currentArb.id);
-                } catch (err) { popToast(err.message, 'err'); }
-            }
-
-            function openTagForm(tagId) {
-                if (!canEdit()) return;
-                if (!currentArbProfile?.id) { popToast('Update the ARB Profile first before adding a legal or ALI tag.', 'warn'); return; }
-
-                const tag = tagId ? currentTags.find(item => String(item.id) === String(tagId)) : null;
-                const tagTypes = ['', 'AO8', 'SUBJECT FOR TRANSFER ACTION', 'WITH TRANSFER ACTION CASE', 'REGULAR ALI CASE', 'SPLIT ALI CASE'];
-                const caseStatuses = ['', 'AT DARPO', 'AT DARMO WITH MEMO', 'AT DARPO WITH COMPLIANCE - COMPLETE', 'AT DARPO WITH COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'];
-
-                showModal(tag ? 'Update Legal / ALI Tag' : 'Add Legal / ALI Tag', `
-                    <form id="tagForm">
-                        <div class="form-grid">
-                            <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${selectOptions(tagTypes, tag?.tag_type || '')}</select></div>
-                            <div class="form-group"><label for="tagStatus">Case Status</label><select id="tagStatus" name="status" required>${selectOptions(caseStatuses, tag?.status || '')}</select></div>
-                            <div class="form-group full"><label for="caseReferenceNo">Case Reference No.</label><input id="caseReferenceNo" name="case_reference_no" value="${safe(tag?.case_reference_no || '')}"></div>
-                            <div class="form-group full"><label for="caseDetails">Case Details</label><textarea id="caseDetails" name="case_details">${safe(tag?.case_details || '')}</textarea></div>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">${tag ? 'Update Tag' : 'Save Tag'}</button>
-                        </div>
-                    </form>
-                `);
-
-                document.getElementById('cancelTagBtn')?.addEventListener('click', hideModal);
-                document.getElementById('tagForm')?.addEventListener('submit', function (event) { saveTag(event, tag); });
-            }
-
-            async function saveTag(event, existingTag) {
-                event.preventDefault();
-                const form = new FormData(event.currentTarget);
-                const tagType = String(form.get('tag_type'));
-                const userName = currentUserProfile?.full_name || currentUser?.email || currentUser?.id;
-
-                try {
-                    const payload = { arb_profile_id: currentArbProfile.id, tag_type: tagType, status: form.get('status'), case_reference_no: emptyToNull(form.get('case_reference_no')), case_details: emptyToNull(form.get('case_details')) };
-                    let error = null;
-
-                    if (existingTag) {
-                        payload.updated_by = userName; payload.updated_at = new Date().toISOString();
-                        const result = await secureDbClient.from('arb_tags').update(payload).eq('id', existingTag.id);
-                        error = result.error;
+                    if (isBulkTagging) {
+                        const { data: profiles } = await secureDbClient.from('arb_profiles').select('id, arb_id').in('arb_id', Array.from(selectedArbIds));
+                        const tags = profiles.map(p => ({
+                            arb_profile_id: p.id, tag_type: tagType, status: fd.get('status'), case_reference_no: emptyToNull(fd.get('case_reference_no')), case_details: emptyToNull(fd.get('case_details')), tagged_by: currentUserName, tagged_by_user_id: currentUser.id, created_at: nowISO, updated_at: nowISO
+                        }));
+                        await secureDbClient.from('arb_tags').insert(tags);
+                        
+                        const arbUpdate = {};
+                        if(tagType === 'AO8') arbUpdate.ao8 = true;
+                        if(tagType === 'SUBJECT FOR TRANSFER ACTION') arbUpdate.for_ta = true;
+                        if(tagType === 'WITH TRANSFER ACTION CASE') arbUpdate.with_ta = true;
+                        if(Object.keys(arbUpdate).length > 0) await secureDbClient.from('arb').update(arbUpdate).in('id', Array.from(selectedArbIds));
+                        
+                        popToast(`Bulk Tagged ${selectedArbIds.size} ARBs!`, 'ok');
+                        document.getElementById('btnClearSelection').click();
                     } else {
-                        payload.tagged_by = userName; payload.tagged_by_user_id = currentUser?.id || null; payload.updated_by = userName; payload.updated_at = new Date().toISOString();
-                        const result = await secureDbClient.from('arb_tags').insert(payload);
-                        error = result.error;
-                    }
-                    if (error) throw error;
-
-                    const arbFlagUpdate = {};
-                    if (tagType === 'AO8') arbFlagUpdate.ao8 = true;
-                    if (tagType === 'SUBJECT FOR TRANSFER ACTION') { arbFlagUpdate.for_ta = true; arbFlagUpdate.subject_for_transfer = true; }
-                    if (tagType === 'WITH TRANSFER ACTION CASE') { arbFlagUpdate.with_ta = true; arbFlagUpdate.subject_for_transfer = true; }
-
-                    if (Object.keys(arbFlagUpdate).length > 0) {
-                        const { error: flagError } = await secureDbClient.from('arb').update(arbFlagUpdate).eq('id', currentArb.id);
-                        if (flagError) throw flagError;
-                    }
-
-                    hideModal(); popToast(existingTag ? 'Legal / ALI tag updated.' : 'Legal / ALI tag recorded.', 'ok'); await loadProfile(currentArb.id);
-                } catch (err) { popToast(err.message, 'err'); }
-            }
-
-            async function openCcloaSearch() {
-                showModal('Search CCLOA', `
-                    <div class="search-row">
-                        <input id="ccloaSearchInput" placeholder="Enter CCLOA number">
-                        <button type="button" class="btn btn-primary" id="runCcloaSearchBtn">Search</button>
-                    </div>
-                    <div id="ccloaSearchResults"><p class="empty-msg">Enter an existing CCLOA number.</p></div>
-                `);
-
-                document.getElementById('runCcloaSearchBtn')?.addEventListener('click', runCcloaSearch);
-                document.getElementById('ccloaSearchInput')?.addEventListener('keydown', function (event) { if (event.key === 'Enter') runCcloaSearch(); });
-            }
-
-            async function runCcloaSearch() {
-                const term = String(document.getElementById('ccloaSearchInput')?.value || '').trim();
-                const resultsEl = document.getElementById('ccloaSearchResults');
-
-                if (!term) { resultsEl.innerHTML = `<p class="empty-msg">Enter a CCLOA number.</p>`; return; }
-                resultsEl.innerHTML = `<p class="empty-msg">⏳ Searching CCLOA records...</p>`;
-
-                try {
-                    const { data, error } = await secureDbClient.from('mother_titles').select('*').ilike('mother_title_no', `%${term}%`).order('mother_title_no', { ascending: true }).limit(50);
-                    if (error) throw error;
-
-                    if (!data || data.length === 0) { resultsEl.innerHTML = `<p class="empty-msg">No matching CCLOA record found.</p>`; return; }
-
-                    let html = `<table class="modal-table"><thead><tr><th>CCLOA No.</th><th>Landowner</th><th>Municipality</th><th>Barangay</th><th>SPLIT Status</th><th>Remarks</th><th>Action</th></tr></thead><tbody>`;
-                    data.forEach(function (title) {
-                        html += `<tr><td><strong>${displayValue(title.mother_title_no)}</strong></td><td>${displayValue(title.landowner)}</td><td>${displayValue(title.municipality)}</td><td>${displayValue(title.barangay)}</td><td>${displayValue(title.split_status)}</td><td>${displayValue(title.remarks)}</td><td><button type="button" class="btn btn-primary show-members-btn" data-title-id="${safe(title.id)}">View Current ARBs</button></td></tr>`;
-                    });
-                    resultsEl.innerHTML = html + '</tbody></table>';
-
-                    resultsEl.querySelectorAll('.show-members-btn').forEach(function (button) {
-                        button.addEventListener('click', function () { showCurrentCcloaMembers(button.dataset.titleId); });
-                    });
-                } catch (err) { resultsEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`; }
-            }
-
-            async function showCurrentCcloaMembers(motherTitleId) {
-                modalTitleEl.textContent = 'Current ARBs under CCLOA';
-                modalBodyEl.innerHTML = `<p class="empty-msg">⏳ Loading current CCLOA members...</p>`;
-                try {
-                    const { data: mother, error: motherError } = await secureDbClient.from('mother_titles').select('*').eq('id', motherTitleId).single();
-                    if (motherError) throw motherError;
-
-                    const titleLandholdings = await fetchRowsByEquality('arb_landholdings', 'arb_profile_id', 'mother_title_id', motherTitleId, 'source_row_no');
-                    const profileIds = [...new Set(titleLandholdings.map(holding => holding.arb_profile_id).filter(Boolean))];
-                    const profiles = await fetchRowsInChunks('arb_profiles', '*', 'id', profileIds);
-
-                    if (!profiles || profiles.length === 0) {
-                        modalBodyEl.innerHTML = `<p><strong>CCLOA:</strong> ${displayValue(mother.mother_title_no)}</p><p class="empty-msg">No ARB is currently tagged through a canonical arb_landholdings row under this CCLOA.</p>`;
-                        return;
-                    }
-
-                    const arbIds = profiles.map(profile => profile.arb_id).filter(Boolean);
-                    const arbs = await fetchRowsInChunks('arb', `id, first_name, middle_name, last_name, validation_status`, 'id', arbIds);
-                    arbs.sort((a, b) => fullName(a).localeCompare(fullName(b)));
-
-                    const profileByArbId = new Map(profiles.map(profile => [String(profile.arb_id), profile]));
-
-                    let html = `<p><strong>CCLOA:</strong> ${displayValue(mother.mother_title_no)} &nbsp; <strong>Landowner:</strong> ${displayValue(mother.landowner)} &nbsp; <strong>Location:</strong> ${displayValue(mother.barangay)}, ${displayValue(mother.municipality)}</p><table class="modal-table"><thead><tr><th>ARB</th><th>Validation</th><th>Life Status</th><th>ARB Classification</th><th>Individual Title / e-Title</th><th>Action</th></tr></thead><tbody>`;
-
-                    (arbs || []).forEach(function (arb) {
-                        const profile = profileByArbId.get(String(arb.id)) || {};
-                        html += `<tr><td><strong>${safe(fullName(arb))}</strong></td><td>${displayValue(arb.validation_status)}</td><td>${displayValue(profile.life_status)}</td><td>${displayValue(profile.split_status)}</td><td>${displayValue(profile.e_title_no)}</td><td><a class="btn btn-primary" style="text-decoration:none;" href="arb-profile.html?id=${encodeURIComponent(arb.id)}">Open Profile</a></td></tr>`;
-                    });
-
-                    modalBodyEl.innerHTML = html + '</tbody></table>';
-                } catch (err) { modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`; }
-            }
-
-            async function openPagedArbFilters(initialTerm = '') {
-                let currentPage = 0; const pageSize = 100;
-                const startingTerm = String(initialTerm || '').trim();
-                const startingType = /^\d+$/.test(startingTerm) ? 'arb_id' : /^CS/i.test(startingTerm) ? 'sequence' : 'name';
-
-                showModal('View / Filter ARBs', `
-                    <div class="filter-grid">
-                        <div class="form-group"><label for="serverSearchType">Search Field</label><select id="serverSearchType"><option value="name" ${startingType === 'name' ? 'selected' : ''}>ARB Name</option><option value="fb_name">FB / Source Name</option><option value="sequence" ${startingType === 'sequence' ? 'selected' : ''}>Sequence No.</option><option value="arb_id" ${startingType === 'arb_id' ? 'selected' : ''}>ARB ID</option><option value="district">District</option></select></div>
-                        <div class="form-group"><label for="serverSearchTerm">Search Value</label><input id="serverSearchTerm" placeholder="Leave blank to browse" value="${safe(startingTerm)}"></div>
-                        <div class="form-group"><label for="serverLifeFilter">Life Status</label><select id="serverLifeFilter"><option value="">All</option><option value="Active">Active</option><option value="Alive">Alive</option><option value="Dead">Dead</option></select></div>
-                        <div class="form-group"><label for="serverValidationFilter">Validation</label><select id="serverValidationFilter"><option value="">All</option><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
-                    </div>
-                    <div class="modal-actions" style="justify-content:flex-start; margin-top:0; margin-bottom:18px;">
-                        <button type="button" class="btn btn-primary" id="applyServerFiltersBtn">Apply Filters</button>
-                        <button type="button" class="btn btn-primary" id="clearServerFiltersBtn">Clear</button>
-                    </div>
-                    <p class="section-note">Results are loaded 100 rows at a time.</p>
-                    <div id="arbFilterResults"></div>
-                `);
-
-                async function renderServerPage(page) {
-                    const resultsEl = document.getElementById('arbFilterResults');
-                    if (!resultsEl) return;
-                    resultsEl.innerHTML = `<p class="empty-msg">⏳ Loading ARB records...</p>`;
-
-                    const searchType = document.getElementById('serverSearchType').value;
-                    const term = String(document.getElementById('serverSearchTerm').value || '').trim();
-                    const lifeFilter = document.getElementById('serverLifeFilter').value;
-                    const validationFilter = document.getElementById('serverValidationFilter').value;
-                    const from = page * pageSize; const to = from + pageSize - 1;
-
-                    try {
-                        let arbs = []; let profiles = []; let totalRows = 0;
-                        const profileFirst = ['fb_name', 'sequence', 'district'].includes(searchType);
-
-                        if (profileFirst) {
-                            let profileQuery = secureDbClient.from('arb_profiles').select('*', { count: 'exact' }).order('arb_id', { ascending: true }).range(from, to);
-                            if (term) {
-                                const column = searchType === 'fb_name' ? 'fb_name' : searchType === 'sequence' ? 'sequence_no' : 'district';
-                                profileQuery = profileQuery.ilike(column, `%${term.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`);
-                            }
-                            if (lifeFilter) profileQuery = profileQuery.eq('life_status', lifeFilter);
-                            const profileResult = await profileQuery;
-                            if (profileResult.error) throw profileResult.error;
-                            profiles = profileResult.data || []; totalRows = profileResult.count || 0;
-                            arbs = await fetchRowsInChunks('arb', `id, first_name, middle_name, last_name, life_status, validation_status, arbo:arbo_id (id, name, barangay, municipality)`, 'id', profiles.map(profile => profile.arb_id));
-                            if (validationFilter) arbs = arbs.filter(arb => arb.validation_status === validationFilter);
-                        } else {
-                            let arbQuery = secureDbClient.from('arb').select(`id, first_name, middle_name, last_name, life_status, validation_status, arbo:arbo_id (id, name, barangay, municipality)`, { count: 'exact' }).order('id', { ascending: true }).range(from, to);
-                            if (searchType === 'arb_id' && term) arbQuery = arbQuery.eq('id', term);
-                            if (searchType === 'name' && term) {
-                                const token = term.split(/[(),]/).map(item => item.trim()).filter(Boolean)[0] || term;
-                                const pattern = `%${token.replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
-                                arbQuery = arbQuery.or(`first_name.ilike.${pattern},middle_name.ilike.${pattern},last_name.ilike.${pattern}`);
-                            }
-                            if (lifeFilter) arbQuery = arbQuery.eq('life_status', lifeFilter);
-                            if (validationFilter) arbQuery = arbQuery.eq('validation_status', validationFilter);
-                            const arbResult = await arbQuery;
-                            if (arbResult.error) throw arbResult.error;
-                            arbs = arbResult.data || []; totalRows = arbResult.count || 0;
-                            profiles = await fetchRowsInChunks('arb_profiles', '*', 'arb_id', arbs.map(arb => String(arb.id)));
-                        }
-
-                        const profileMap = new Map(profiles.map(profile => [String(profile.arb_id), profile]));
-                        if (arbs.length === 0) { resultsEl.innerHTML = `<p class="empty-msg">No ARB record matched the filters.</p>`; return; }
-
-                        let html = `<p><strong>${totalRows}</strong> matching record(s); page ${page + 1}.</p><table class="modal-table"><thead><tr><th>ARB</th><th>Town</th><th>Barangay</th><th>District</th><th>ARBO</th><th>Life</th><th>Validation</th><th>Classification</th><th>Action</th></tr></thead><tbody>`;
-                        arbs.forEach(function (arb) {
-                            const profile = profileMap.get(String(arb.id)) || {};
-                            html += `<tr><td><strong>${safe(fullName(arb))}</strong></td><td>${displayValue(arb.arbo?.municipality)}</td><td>${displayValue(arb.arbo?.barangay)}</td><td>${displayValue(profile.district)}</td><td>${displayValue(arb.arbo?.name)}</td><td>${displayValue(profile.life_status || arb.life_status)}</td><td>${displayValue(arb.validation_status)}</td><td>${displayValue(profile.split_status)}</td><td><a class="btn btn-primary" style="text-decoration:none;" href="arb-profile.html?id=${encodeURIComponent(arb.id)}">Open</a></td></tr>`;
+                        if(!activeProfileId) throw new Error("No profile active");
+                        await secureDbClient.from('arb_tags').insert({
+                            arb_profile_id: activeProfileId, tag_type: tagType, status: fd.get('status'), case_reference_no: emptyToNull(fd.get('case_reference_no')), case_details: emptyToNull(fd.get('case_details')), tagged_by: currentUserName, tagged_by_user_id: currentUser.id, created_at: nowISO, updated_at: nowISO
                         });
-                        html += `</tbody></table><div class="modal-actions"><button type="button" class="btn btn-primary" id="previousArbPageBtn" ${page === 0 ? 'disabled' : ''}>Previous</button><button type="button" class="btn btn-primary" id="nextArbPageBtn" ${to + 1 >= totalRows ? 'disabled' : ''}>Next</button></div>`;
 
-                        resultsEl.innerHTML = html;
-                        document.getElementById('previousArbPageBtn')?.addEventListener('click', function () { currentPage = Math.max(0, currentPage - 1); renderServerPage(currentPage); });
-                        document.getElementById('nextArbPageBtn')?.addEventListener('click', function () { currentPage += 1; renderServerPage(currentPage); });
-                    } catch (err) { resultsEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`; }
-                }
+                        const arbUpdate = {};
+                        if(tagType === 'AO8') arbUpdate.ao8 = true;
+                        if(tagType === 'SUBJECT FOR TRANSFER ACTION') arbUpdate.for_ta = true;
+                        if(tagType === 'WITH TRANSFER ACTION CASE') arbUpdate.with_ta = true;
+                        if(Object.keys(arbUpdate).length > 0) await secureDbClient.from('arb').update(arbUpdate).eq('id', activeArbId);
 
-                document.getElementById('applyServerFiltersBtn')?.addEventListener('click', function () { currentPage = 0; renderServerPage(currentPage); });
-                document.getElementById('clearServerFiltersBtn')?.addEventListener('click', function () { document.getElementById('serverSearchType').value = 'name'; document.getElementById('serverSearchTerm').value = ''; document.getElementById('serverLifeFilter').value = ''; document.getElementById('serverValidationFilter').value = ''; currentPage = 0; renderServerPage(currentPage); });
-                document.getElementById('serverSearchTerm')?.addEventListener('keydown', function (event) { if (event.key === 'Enter') { currentPage = 0; renderServerPage(currentPage); } });
+                        popToast('Tag Added successfully!', 'ok');
+                        window.openDrawer(activeArbId); 
+                    }
+                    e.target.closest('.modal').classList.remove('active');
+                } catch(err) { popToast(err.message, 'err'); }
+            });
 
-                await renderServerPage(currentPage);
+            // Validation Form
+            document.getElementById('formValidation').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if(!activeArbId) return;
+                const fd = new FormData(e.target);
+                try {
+                    await secureDbClient.from('arb_validations').insert({
+                        arb_id: activeArbId, validator_type: fd.get('validator_type'), validator_name: fd.get('validator_name'), position: fd.get('position'), date_validated: fd.get('date_validated'), validation_basis: emptyToNull(fd.get('validation_basis')), validation_status: fd.get('validation_status'), recorded_by: currentUserName, recorded_by_user_id: currentUser.id
+                    });
+                    await secureDbClient.from('arb').update({ validation_status: fd.get('validation_status') }).eq('id', activeArbId);
+                    e.target.closest('.modal').classList.remove('active'); popToast('Validation saved!', 'ok'); window.openDrawer(activeArbId); 
+                } catch(err) { popToast('Error saving validation', 'err'); }
+            });
+
+            // Heir Form (With Subject for TA targeting)
+            document.getElementById('formHeir').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if(!activeProfileId) return;
+                const fd = new FormData(e.target);
+                const isSelected = fd.get('is_selected') === 'on';
+                try {
+                    if (isSelected) await secureDbClient.from('arb_heirs').update({ is_selected: false }).eq('arb_profile_id', activeProfileId);
+                    await secureDbClient.from('arb_heirs').insert({
+                        arb_profile_id: activeProfileId, heir_name: fd.get('heir_name'), heir_relation: emptyToNull(fd.get('heir_relation')), heir_contact: emptyToNull(fd.get('heir_contact')), subject_for_ta: fd.get('subject_for_ta') === 'on', is_verified: fd.get('is_verified') === 'on', is_selected: isSelected, created_by: currentUserName
+                    });
+                    e.target.closest('.modal').classList.remove('active'); popToast('Heir added!', 'ok'); window.openDrawer(activeArbId); 
+                } catch(err) { popToast('Error adding heir', 'err'); }
+            });
+
+            // WEBCAM CAPTURE
+            let localStream = null;
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            const previewBox = document.getElementById('avatarPreviewBox');
+            const base64Input = document.getElementById('imageBase64');
+            const btnCam = document.getElementById('btnWebcam');
+            const btnCap = document.getElementById('btnCapture');
+
+            function stopWebcam() {
+                if(localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+                video.style.display = 'none'; btnCap.style.display = 'none'; btnCam.style.display = 'block'; btnCam.textContent = "📷 Capture Webcam";
             }
 
-            async function openArbFilters() { await openPagedArbFilters(); return; }
+            btnCam.addEventListener('click', async () => {
+                try {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = localStream;
+                    previewBox.style.backgroundImage = 'none'; document.getElementById('avatarInitials').textContent='';
+                    video.style.display = 'block'; btnCam.style.display = 'none'; btnCap.style.display = 'block';
+                } catch (err) { popToast('Webcam not accessible.', 'warn'); }
+            });
 
-            document.getElementById('searchCcloaBtn')?.addEventListener('click', openCcloaSearch);
-            document.getElementById('viewArbsBtn')?.addEventListener('click', openArbFilters);
+            btnCap.addEventListener('click', () => {
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                previewBox.style.backgroundImage = `url('${dataUrl}')`;
+                base64Input.value = dataUrl;
+                stopWebcam();
+            });
 
-            function runQuickArbSearch() {
-                const term = String(document.getElementById('quickArbSearchInput')?.value || '').trim();
-                openPagedArbFilters(term);
-            }
-
-            document.getElementById('quickArbSearchBtn')?.addEventListener('click', runQuickArbSearch);
-            document.getElementById('quickArbSearchInput')?.addEventListener('keydown', function (event) { if (event.key === 'Enter') runQuickArbSearch(); });
-
-            // Initialize Page
-            try {
-                const profileContent = document.getElementById('profileContent');
-                if (!secureDbClient) {
-                    await buildNavbar(null);
-                    profileContent.innerHTML = `<div style="text-align:center; padding:40px; color:#b91c1c;"><p>🔌 Database connection required.</p></div>`;
-                    return;
+            document.getElementById('imageUpload').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        previewBox.style.backgroundImage = `url('${evt.target.result}')`;
+                        document.getElementById('avatarInitials').textContent='';
+                        base64Input.value = evt.target.result;
+                        stopWebcam();
+                    };
+                    reader.readAsDataURL(file);
                 }
+            });
 
-                const { data: authData } = await secureDbClient.auth.getUser();
-                if (!authData || !authData.user) {
-                    await buildNavbar(null);
-                    profileContent.innerHTML = `<div style="text-align:center; padding:40px;"><p>🔒 Security Lockout</p><button onclick="window.location.href='login.html'" class="btn btn-primary">Login</button></div>`;
-                    return;
-                }
-
-                currentUser = authData.user;
-                const { data: profile, error: profileError } = await secureDbClient.from('profiles').select('*').eq('id', currentUser.id).single();
-                if (profileError) throw profileError;
-
-                currentUserProfile = profile;
-                await buildNavbar(profile);
-                await fetchArboList(); // Fetch global list of ARBOs for the edit form
-
-                const arbId = new URLSearchParams(window.location.search).get('id');
-                if (!arbId) {
-                    profileContent.innerHTML = `<div style="text-align:center; padding:40px;"><p>Select an ARB through <strong>Search CCLOA</strong>, <strong>View / Filter ARBs</strong>, or the ARB Management page.</p><a href="arb.html" class="back-link">← Back to ARB Management</a></div>`;
-                    return;
-                }
-
-                await loadProfile(arbId);
-                popToast('ARB Profile synchronized.', 'ok');
-            } catch (fatalObj) {
-                const profileContent = document.getElementById('profileContent');
-                profileContent.innerHTML = `<div style="text-align:center; padding:40px; color:#b91c1c;"><p>❌ ${safe(fatalObj.message)}</p></div>`;
-            }
         })();
     </script>
 </body>
