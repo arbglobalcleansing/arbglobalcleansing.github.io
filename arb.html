@@ -176,7 +176,6 @@
         .modal.minimized .modal-body-scroll { display: none; }
         .modal-body-scroll { padding: 20px; overflow-y: auto; max-height: 85vh; background: #fafafa; }
 
-
         /* -------- Profile View Layout Inside Modal -------- */
         .profile-modal {
             display: flex;
@@ -488,8 +487,29 @@
         const pageSize = 50;
         let totalRecords = 0;
         let arboList = [];
-        let filterTownOptions = [];
-        let filterBarangayOptions = [];
+
+        // Hardcoded Municipality Database for consistent dropdown loading
+        const locData = {
+            "Cabusao": ["Barcelonita", "Biong", "Camagong", "Castillo", "New Poblacion", "Pandan", "San Pedro", "Santa Cruz", "Santa Lutgarda (Poblacion)"],
+            "Del Gallego": ["Bagong Silang", "Bucal", "Cabasag", "Comadaycaday", "Comadogcadog", "Domagondong", "Kinalangan", "Mabini", "Magais I", "Magais II", "Mansalaya", "Nagkalit", "Palaspas", "Pamplona", "Pasay", "Pinagdapian", "Pinugusan", "Poblacion Zone I (Fatima)", "Poblacion Zone II (San Antonio)", "Poblacion Zone III", "Sabang", "Salvacion", "San Juan", "San Pablo", "Santa Rita I", "Santa Rita II", "Sinagawsawan", "Sinuknipan I", "Sinuknipan II", "Sugsugin", "Tabion", "Tomagoktok"],
+            "Lupi": ["Alleomar", "Bagangan", "Bagong Sikat", "Bangon", "Bel-Cruz", "Biga", "Bulawan", "Cabutagan", "Casay", "Colacling (Del Rosario)", "Cristo Rey", "Del Carmen", "Halaban", "Kaibigan", "La Purisima", "Lourdes", "Lupi Nuevo", "Lupi Viejo", "Mangcawayan", "Napolidan", "Poblacion", "Polantuna", "Sagrada", "Salvacion", "San Isidro", "San Jose", "San Pedro", "San Rafael", "San Ramon", "San Vicente", "Santa Cruz", "Santa Rita", "Sooc", "Tanawan", "Tapi", "Tapi Cruz", "Tible"],
+            "Ragay": ["Agao-ao", "Agrupacion", "Amomokpok", "Apad", "Apali", "Baya", "Cabadisan", "Cabinitan", "Caditaan", "Cale", "Catabangan Proper", "F. Simeon (Pugod)", "Godofredo Reyes Sr.", "Ina", "Inandono", "Laguio", "Lanigay", "Liboro", "Lohong", "Lower Omon", "Lower Santa Cruz", "Panaytayan", "Panaytayan Nuevo", "Patalunan", "Poblacion Ilaod", "Poblacion Iraya", "Port Junction Norte", "Port Junction Sur", "Salvacion", "Samay", "San Rafael", "Tagbac", "Upper Omon", "Upper Santa Cruz"],
+            "Sipocot": ["Aldezar", "Alteza", "Anib", "Awayan", "Azucena", "Bagong Sirang", "Binahian", "Bolo Norte", "Bolo Sur", "Bulan", "Bulawan", "Cabuyao", "Caima", "Calagbangan", "Calampinay", "Carayrayan", "Cotmo", "Gabi", "Gaongan", "Impig", "Lipilip", "Lubigan Jr.", "Lubigan Sr.", "Malaguico", "Malubago", "Manangle", "Mangga", "Manlubang", "Mantila", "North Centro", "North Villazar", "Sagrada Familia", "Salanda", "Salvacion", "San Isidro", "San Vicente", "South Centro", "South Villazar", "Taisan", "Tara", "Tible", "Tula-tula", "Vigaan", "Yabu"],
+            "Gainza": ["Cagbunga", "Dahilig", "District I (Poblacion)", "District II (Poblacion)", "Loob", "Malbong", "Namuat", "Sampaloc"],
+            "Libmanan": ["Aslong", "Awayan", "Bagacay", "Bagadion", "Bagamelon", "Bagumbayan", "Bahao", "Bahay", "Beguito Nuevo", "Beguito Viejo", "Bigajo Norte", "Bigajo Sur", "Bikal", "Busak", "Caima", "Calabnigan", "Camambugan", "Cambalidio", "Candato", "Cawayan", "Concepcion", "Cuco", "Danawan", "Duang Niog", "Handong", "Ibid", "Inalahan", "Labao", "Libod I", "Libod II", "Loba-loba", "Mabini", "Malansad Nuevo", "Malansad Viejo", "Malbogon", "Malinao", "Mambalite", "Mambayawas", "Mambulo Nuevo", "Mambulo Viejo", "Mancawayan", "Mandilihan", "Mantalisay", "Padlos", "Pag-oring Nuevo", "Pag-oring Viejo", "Palangon", "Palong", "Patag", "Planza", "Poblacion", "Potot", "Puro-Batia", "Rongos", "Salvacion", "San Isidro", "San Juan", "San Pablo", "San Vicente", "Sigamot", "Station-Church Site", "Tarum", "Tinalmud Nuevo", "Tinalmud Viejo", "Tinawan", "Udoc", "Umalo", "Uson", "Villaderez", "Villasocorro"],
+            "Milaor": ["Alimbuyog", "Amparado", "Balagbag", "Borongborongan", "Cabugao", "Capucnasan", "Dalipay", "Del Rosario", "Flordeliz", "Lipot", "Mayaopayawan", "Maycatmon", "Maydaso", "San Antonio", "San Jose", "San Miguel", "San Roque", "San Vicente", "Santo Domingo", "Tarusanan"],
+            "Minalabac": ["Antipolo", "Bagolatao", "Bagongbong", "Baliuag Nuevo", "Baliuag Viejo", "Catanusan", "Del Carmen-Del Rosario", "Del Socorro", "Hamoraon", "Hobo", "Irayang Solong", "Magadap", "Malitbog", "Manapao", "Mataoroc", "Sagrada", "Salingogon", "San Antonio", "San Felipe-Santiago", "San Francisco", "San Jose", "San Juan-San Lorenzo", "Taban", "Tariric", "Timbang"],
+            "Pamplona": ["Batang", "Burabod", "Cagbibi", "Cagbunga", "Calawat", "Del Rosario", "Patong", "Poblacion", "Salvacion", "San Gabriel", "San Isidro", "San Rafael", "San Ramon", "San Vicente", "Tambo", "Tampadong", "Veneracion"],
+            "Pasacao": ["Antipolo", "Bagong Silang", "Bahay", "Balogo", "Caranan", "Cuco", "Dalupaon", "Hubo", "Itulan", "Macad", "Odicon", "Quitang", "Salvacion", "San Antonio", "San Cirilo", "Santa Rosa Del Norte", "Santa Rosa Del Sur", "Tilnac", "Tinalmud"],
+            "San Fernando": ["Alianza", "Beberon", "Bical", "Bocal", "Bonifacio", "Buenavista", "Calascagas", "Cotmo", "Daculang Tubig", "Del Rosario", "Grijalvo", "Lupi", "Maragni", "Pamukid", "Pinamasagan", "Pipian", "Planza", "Rizal", "San Joaquin", "Santa Cruz", "Tagpocol"],
+            "Baao": ["Agdangan", "Antipolo", "Bagumbayan", "Buluang", "Caranday", "Del Rosario", "Iyasan", "La Medalla", "Lourdes", "Nababarera", "Pugay", "Sagrada", "Salvacion", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Nicolas", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Cruz", "Santa Eulalia", "Santa Isabel", "Santa Teresa", "Santa Teresita", "Tapol"],
+            "Balatan": ["Cabanbanan", "Cabungan", "Camangahan", "Cayogcog", "Coguit", "Duran", "Laganac", "Luluasan", "Montenegro", "Pararao", "Pulang Daga", "Sagrada", "San Francisco", "Santiago Nacacale", "Siramag", "Tapayas", "Tomatarayo"],
+            "Bato": ["Agos", "Bacolod", "Buluang", "Caricot", "Cawacagan", "Cotmon", "Cristo Rey", "Del Rosario", "Divina Pastora", "Goyouran", "Lubigan", "Mainit", "Manga", "Masoli", "Neighborhood", "Niño Jesus", "Pagatpatan", "Palo", "Payak", "Sagrada", "Salvacion", "San Isidro", "San Juan", "San Miguel", "San Rafael", "San Roque", "San Vicente", "Santa Cruz", "Santiago", "Sooc", "Tagbac", "Tres Reyes", "Tres Reyes (Poblacion)"],
+            "Buhi": ["Amlongan", "Antipolo", "Burocbusoc", "Cabatuan", "Cagmaslog", "De La Fe", "Delos Angeles", "Divino Rostro", "Gabas", "Ibayugan", "Igbac", "Ipil", "Iraya", "Labawon", "Lourdes", "Macaangay", "Monte Calvario", "Namurabod", "Sagrada Familia", "Salvacion", "San Antonio", "San Buenaventura", "San Francisco", "San Isidro", "San Jose Baybayon", "San Jose Salay", "San Pascual", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Clara", "Santa Cruz", "Santa Elena", "Santa Isabel", "Santa Justina", "Tambo"],
+            "Bula": ["Bagoladio", "Bagumbayan", "Balaogan", "Caorasan", "Casugad", "Causip", "Fabrica", "Inoyonan", "Itangon", "Kinalabasahan", "La Purisima", "La Victoria", "Lanipga", "Lubgan", "Ombao Heights", "Ombao Polpog", "Palsong", "Panoypoyan", "Pawili", "Sagrada", "Salvacion", "San Agustin", "San Francisco", "San Isidro", "San Jose", "San Miguel", "San Ramon", "San Roque", "San Roque Heights", "Santa Elena", "Santo Domingo", "Santo Niño", "Taisan"],
+            "Nabua": ["Angustia", "Antipolo Old", "Antipolo Young", "Aro-aldao", "Bustrac", "Dolorosa", "Duran", "Inapatan", "La Opinion", "La Purisima", "Lourdes Old", "Lourdes Young", "Malawag", "Nabuangan", "Paloyon Oriental", "Paloyon Proper", "Quitpon", "Sagumay", "San Antonio", "San Antonio Ogbon", "San Esteban", "San Francisco", "San Isidro", "San Isidro Ilaya", "San Jose", "San Juan", "San Luis", "San Miguel", "San Nicolas", "San Roque", "San Roque Madawon", "San Roque Sagumay", "San Vicente Gorong-Gorong", "San Vicente Ogbon", "Santa Barbara", "Santa Cruz", "Santa Elena Baras", "Santa Elena Ilaya", "Santa Lucia Baras", "Santiago Old", "Santiago Young", "Santo Domingo"],
+            "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "Niño Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo Niño"]
+        };
 
         // -------- Helpers (unchanged) --------
         function safe(value) {
@@ -536,14 +556,13 @@
             return role === 'admin' || role === 'staff';
         }
 
-        // --- FEATURE: Compress Image before saving ---
         function compressImage(dataUrl, maxWidth=400, quality=0.7) {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     let scaleSize = maxWidth / img.width;
-                    if(scaleSize > 1) scaleSize = 1; // Don't enlarge if it's already smaller
+                    if(scaleSize > 1) scaleSize = 1;
                     canvas.width = img.width * scaleSize;
                     canvas.height = img.height * scaleSize;
                     const ctx = canvas.getContext('2d');
@@ -602,7 +621,6 @@
                 {label:'Validators', url:'/validators.html', icon:'✅'},
                 {label:'Reports', url:'/reports.html', icon:'📈'}
             ];
-            // Remove duplicates by label
             const seen = new Set();
             links = links.filter(l => { const key = l.label; if (seen.has(key)) return false; seen.add(key); return true; });
             let html = links.map(link => {
@@ -642,7 +660,6 @@
             if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
 
-            // Gather filters
             const town = document.getElementById('filterTown').value;
             const barangay = document.getElementById('filterBarangay').value;
             const validation = document.getElementById('filterValidation').value;
@@ -651,7 +668,6 @@
             const ta = document.getElementById('filterTa').value;
             const cocrom = document.getElementById('filterCocrom').value;
             const titleDist = document.getElementById('filterTitleDist').value;
-
             const searchTerm = document.getElementById('globalSearchInput').value.trim();
             const searchField = document.getElementById('globalSearchField').value;
 
@@ -671,7 +687,6 @@
                 let locationFilterActive = (town || barangay || municipalityPart);
 
                 if (locationFilterActive) {
-                    // Check `arbo` table
                     let arboQuery = secureDbClient.from('arbo').select('id');
                     if (town) arboQuery = arboQuery.eq('municipality', town);
                     if (barangay) arboQuery = arboQuery.eq('barangay', barangay);
@@ -687,7 +702,7 @@
                         townBarangayArbIds = (arbsFromArbo || []).map(a => a.id);
                     }
 
-                    // Check `arb_landholdings` and strictly map id in arb_profiles to arb_profile_id in arb_landholdings
+                    // Strict mapping: arb_landholdings.arb_profile_id -> arb_profiles.id[cite: 1]
                     let landQuery = secureDbClient.from('arb_landholdings').select('arb_profile_id');
                     if (town) landQuery = landQuery.eq('municipality', town);
                     if (barangay) landQuery = landQuery.eq('barangay', barangay);
@@ -701,7 +716,6 @@
                     if (landData && landData.length > 0) {
                         const profileIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
                         if (profileIds.length > 0) {
-                            // Link mapping fix exactly here:
                             const { data: profs, error: pErr } = await secureDbClient
                                 .from('arb_profiles')
                                 .select('arb_id')
@@ -729,7 +743,6 @@
                 if (titleDist !== '') {
                     profileQuery = profileQuery.eq('is_title_distribute', titleDist === 'true');
                 }
-                // Search on sequence or fb_name
                 if (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')) {
                     const col = searchField === 'sequence' ? 'sequence_no' : 'fb_name';
                     const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
@@ -842,7 +855,12 @@
 
                 if (searchTerm && (searchField === 'name' || searchField === 'id')) {
                     if (searchField === 'id') {
-                        arbQuery = arbQuery.eq('id', searchTerm);
+                        if (!isNaN(searchTerm)) {
+                            // Check integer primary key OR string matching sequence ID
+                            arbQuery = arbQuery.or(`id.eq.${searchTerm},generated_arb_ic.ilike.%${searchTerm}%`);
+                        } else {
+                            arbQuery = arbQuery.ilike('generated_arb_ic', `%${searchTerm}%`);
+                        }
                     } else {
                         const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                         if (tokens.length === 1) {
@@ -946,19 +964,22 @@
             }
         }
 
-        // -------- Populate filter dropdowns --------
+        // -------- Populate filter dropdowns from Local DB Arrays --------
         async function populateFilterOptions() {
-            try {
-                const { data: townsArbo } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
-                const { data: townsLand } = await secureDbClient.from('arb_landholdings').select('municipality').not('municipality','is',null);
-                const tSet = new Set([...(townsArbo||[]).map(t=>t.municipality), ...(townsLand||[]).map(t=>t.municipality)]);
-                document.getElementById('filterTown').innerHTML = '<option value="">All</option>' + Array.from(tSet).sort().map(t=>`<option value="${safe(t)}">${safe(t)}</option>`).join('');
+            const townSelect = document.getElementById('filterTown');
+            const towns = Object.keys(locData).sort();
+            townSelect.innerHTML = '<option value="">All</option>' + towns.map(t => `<option value="${safe(t)}">${safe(t)}</option>`).join('');
 
-                const { data: barArbo } = await secureDbClient.from('arbo').select('barangay').not('barangay','is',null);
-                const { data: barLand } = await secureDbClient.from('arb_landholdings').select('barangay').not('barangay','is',null);
-                const bSet = new Set([...(barArbo||[]).map(b=>b.barangay), ...(barLand||[]).map(b=>b.barangay)]);
-                document.getElementById('filterBarangay').innerHTML = '<option value="">All</option>' + Array.from(bSet).sort().map(b=>`<option value="${safe(b)}">${safe(b)}</option>`).join('');
-            } catch(e) { console.warn('Failed to load filter options:', e); }
+            document.getElementById('filterTown').addEventListener('change', function() {
+                const barangaySelect = document.getElementById('filterBarangay');
+                const selectedTown = this.value;
+                if (!selectedTown) {
+                    barangaySelect.innerHTML = '<option value="">All</option>';
+                    return;
+                }
+                const barangays = locData[selectedTown].sort();
+                barangaySelect.innerHTML = '<option value="">All</option>' + barangays.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+            });
         }
 
         // -------- Load ARBO list --------
@@ -1113,7 +1134,7 @@
             return parts.map(p => p.charAt(0).toUpperCase()).join('');
         }
 
-        // -------- Render Overview (Removed "For Removal" flag & Reason) --------
+        // -------- Render Overview (Removed "For Removal" flag) --------
         function renderOverview(arb, profile, arbo) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
@@ -1392,7 +1413,7 @@
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
                             <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
-                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option><option value="Others" ${arb.disqualification_r==='Others'?'selected':''}>Others</option></select></div>
+                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option></select></div>
                         </div>
                         <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
@@ -1414,7 +1435,9 @@
                         for_disqualificati: fd.get('for_disqualificati') === 'on',
                         with_existing_con: fd.get('with_existing_con') === 'on',
                         disqualification_r: emptyToNull(fd.get('disqualification_r')),
-                        updated_at: new Date().toISOString()
+                        updated_at: new Date().toISOString(),
+                        for_removal: false,
+                        removal_reason: null
                     };
                     const profilePayload = {
                         fb_name: emptyToNull(fd.get('fb_name')),
@@ -1846,13 +1869,12 @@
             } catch(e) { document.querySelector('.modal-body-scroll').innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
         }
 
-        // -------- Batch Validation --------
+        // -------- Batch Validation (Fixed Town/Barangay Options) --------
         async function openBatchValidation() {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
-            const { data: municipalities } = await secureDbClient.from('arbo').select('municipality').not('municipality','is',null);
-            const munSet = new Set(municipalities?.map(m => m.municipality).filter(Boolean) || []);
-            const munOptions = Array.from(munSet).sort();
-            const munSelect = munOptions.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
+            
+            const munSet = Object.keys(locData).sort();
+            const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
             const formHtml = `
                 <form id="batchValForm">
@@ -1912,19 +1934,15 @@
             showModal('Batch Validate', formHtml);
             document.getElementById('cancelBatchBtn').addEventListener('click', hideModal);
 
-            document.getElementById('batchMunicipality').addEventListener('change', async function() {
+            document.getElementById('batchMunicipality').addEventListener('change', function() {
                 const mun = this.value;
                 const barangaySelect = document.getElementById('batchBarangay');
                 if (!mun) {
                     barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
                     return;
                 }
-                const { data: arboBarangays } = await secureDbClient.from('arbo').select('barangay').eq('municipality', mun).not('barangay','is',null);
-                const { data: landBarangays } = await secureDbClient.from('arb_landholdings').select('barangay').eq('municipality', mun).not('barangay','is',null);
-                const combined = new Set();
-                (arboBarangays || []).forEach(b => { if (b.barangay) combined.add(b.barangay); });
-                (landBarangays || []).forEach(b => { if (b.barangay) combined.add(b.barangay); });
-                const options = Array.from(combined).sort().map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+                const barangays = locData[mun].sort();
+                const options = barangays.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 barangaySelect.innerHTML = `<option value="">Select Barangay</option>${options}`;
             });
 
