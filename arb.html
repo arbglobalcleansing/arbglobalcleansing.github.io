@@ -13,7 +13,6 @@
     <script src="common.js"></script>
 
     <style>
-        /* --- EXACT ORIGINAL STYLES PRESERVED --- */
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
         .profile-header h2 { margin: 0; }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -33,7 +32,7 @@
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
         .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; font-style: italic;}
+        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; }
         .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
         .search-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
         .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
@@ -45,14 +44,11 @@
         .arb-quick-search input { flex: 1; min-width: 0; padding: 11px 14px; border: 1px solid #cbd5e1; border-radius: 7px; color: #0f172a; background: #f8fafc; }
         .arb-quick-search input:focus { outline: none; border-color: #0a3d62; box-shadow: 0 0 0 3px rgba(10, 61, 98, 0.10); background: #ffffff; }
         .profile-grid.arb-editor-grid { grid-template-columns: 0.9fr 1.15fr 1.15fr; gap: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-shadow: 0 12px 34px rgba(15, 23, 42, 0.08); }
-        .profile-grid.arb-editor-grid > .profile-card { margin: 0; border: 0; border-right: 1px solid #e2e8f0; border-radius: 0; box-shadow: none; padding: 20px;}
+        .profile-grid.arb-editor-grid > .profile-card { margin: 0; border: 0; border-right: 1px solid #e2e8f0; border-radius: 0; box-shadow: none; }
         .profile-grid.arb-editor-grid > .profile-card:last-child { border-right: 0; }
-        
         .arb-avatar { display: grid; place-items: center; width: 104px; height: 104px; margin: 4px auto 18px; border: 5px solid #f1f5f9; border-radius: 50%; color: #ffffff; background: linear-gradient(145deg, #0a3d62, #1d6fa5); font-size: 1.65rem; font-weight: 800; letter-spacing: 0.05em; background-size: cover; background-position: center;}
-        .profile-grid.arb-editor-grid .field { padding: 9px 0; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column;}
+        .profile-grid.arb-editor-grid .field { padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
         .profile-grid.arb-editor-grid .field:last-child { border-bottom: 0; }
-        .field .label { font-size: 0.85rem; color: #64748b; font-weight: 600; text-transform: uppercase;}
-        .field .value { font-weight: 500; color: #0f172a;}
 
         @media (max-width: 700px) {
             .profile-grid, .form-grid, .filter-grid { grid-template-columns: 1fr; }
@@ -65,18 +61,17 @@
             .arb-quick-search { align-items: stretch; flex-direction: column; }
         }
 
-        /* --- ADDED SYSTEM STYLES --- */
-        .audit-info { display: block; font-size: 0.75rem; color: #64748b; font-style: italic; margin-top: 4px; }
+        /* --- ADDED REQUIRED SYSTEM STYLES --- */
+        .audit-info { display: block; font-size: 0.8rem; color: #64748b; font-style: italic; margin-top: 4px; }
         .webcam-container { display: flex; flex-direction: column; align-items: center; gap: 10px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px dashed #cbd5e1; }
         #webcamVideo { width: 150px; height: 150px; background: #000; border-radius: 8px; object-fit: cover; display: none;}
         #capturedPreview { width: 104px; height: 104px; border-radius: 50%; object-fit: cover; display: none; border: 3px solid #0a3d62;}
         .badge-info { background: #e0f2fe; color: #075985; }
-        
         .modal-table { width: 100%; border-collapse: collapse; font-size: 0.9rem;}
         .modal-table th, .modal-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .modal-table th { background: #f8fafc; color: #475569; position: sticky; top: 0; }
 
-        /* ID CARD PRINT ENGINE (CR80 Standard) */
+        /* ID CARD PRINT ENGINE (Standard CR80) */
         @media print {
             body * { visibility: hidden; }
             #printWorkspace, #printWorkspace * { visibility: visible; }
@@ -107,41 +102,59 @@
         </div>
     </div>
 
-    <!-- MAIN APP WRAPPER -->
-    <div class="container" id="mainContainer">
-        <h1 class="no-print">
+    <!-- MAIN APP WRAPPER (Preserving user's exact container div) -->
+    <div class="container">
+        <h1>
             🏛️ ARB Global Cleansing
             <small>ARB Profile Management</small>
         </h1>
 
-        <nav class="nav no-print" id="mainNav"></nav>
+        <nav class="nav" id="mainNav"></nav>
 
-        <div class="arb-quick-search no-print">
+        <div class="arb-quick-search">
             <input
                 id="quickArbSearchInput"
-                placeholder="IntelliSearch: Type ANY part of Name, ID, or Sequence (e.g. 'Dela Cruz Juan')"
+                placeholder="IntelliSearch: Type any name, ID, or sequence (e.g. 'Dela Cruz Juan')"
                 autocomplete="off"
                 aria-label="Search ARB"
             >
-            <button type="button" class="btn btn-primary" id="quickArbSearchBtn">
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="quickArbSearchBtn"
+            >
                 🔎 Search ARB
             </button>
         </div>
 
-        <div class="management-toolbar no-print">
-            <button type="button" class="btn btn-primary" id="searchCcloaBtn">🔎 Search CCLOA</button>
-            <button type="button" class="btn btn-primary" id="viewArbsBtn">📋 Advanced View / Filter ARBs</button>
+        <div class="management-toolbar">
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="searchCcloaBtn"
+            >
+                🔎 Search CCLOA
+            </button>
+            <button
+                type="button"
+                class="btn btn-primary"
+                id="viewArbsBtn"
+            >
+                📋 View / Filter ARBs
+            </button>
         </div>
 
-        <div id="profileContent" class="no-print">
+        <div id="profileContent">
             <p style="text-align:center; padding:40px;">
                 Loading profile...
             </p>
         </div>
 
-        <div id="modal" class="modal no-print">
-            <div class="modal-content wide" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">
-                <button class="modal-close" id="closeModalBtn">&times;</button>
+        <div id="modal" class="modal">
+            <div class="modal-content wide">
+                <button class="modal-close" id="closeModalBtn">
+                    &times;
+                </button>
                 <h2 id="modalTitle">ARB Profile Management</h2>
                 <div id="modalBody">
                     <p class="empty-msg">Loading…</p>
@@ -154,14 +167,25 @@
 
     <script>
         (async function () {
-            function logDebug(msg, type = 'info') { console.log(`[DBG] ${msg}`); }
+            function logDebug(msg, type = 'info') {
+                console.log(`[DBG] ${msg}`);
+            }
 
             let toastTimer;
             function popToast(msg, type = 'info') {
                 const el = document.getElementById('toast');
                 if (!el) return;
-                const colors = { info: '#1e293b', ok: '#14532d', warn: '#78350f', err: '#7f1d1d' };
-                el.style.borderLeftColor = type === 'ok' ? '#4ade80' : type === 'warn' ? '#facc15' : type === 'err' ? '#f87171' : '#e8a317';
+                const colors = {
+                    info: '#1e293b',
+                    ok: '#14532d',
+                    warn: '#78350f',
+                    err: '#7f1d1d'
+                };
+                el.style.borderLeftColor =
+                    type === 'ok' ? '#4ade80'
+                    : type === 'warn' ? '#facc15'
+                    : type === 'err' ? '#f87171'
+                    : '#e8a317';
                 el.style.background = colors[type] || '#1e293b';
                 el.textContent = msg;
                 el.classList.add('show');
@@ -200,35 +224,65 @@
             const modalTitleEl = document.getElementById('modalTitle');
             const modalBodyEl = document.getElementById('modalBody');
 
-            function safe(value) { return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;'); }
-            function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? '—' : safe(value); }
+            function safe(value) {
+                return String(value ?? '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
+            function displayValue(value) {
+                if (value === null || value === undefined || String(value).trim() === '') {
+                    return '—';
+                }
+                return safe(value);
+            }
+
             function formatDateValue(value) {
                 if (!value) return '—';
                 const date = new Date(`${value}T00:00:00`);
-                return Number.isNaN(date.getTime()) ? safe(value) : date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
+                return Number.isNaN(date.getTime())
+                    ? safe(value)
+                    : date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
             }
+
             function formatAudit(by, at) { return by ? `Recorded by ${safe(by)} on ${new Date(at).toLocaleString()}` : ''; }
 
             function badge(value, kind = 'warning') {
                 const cls = kind === 'success' ? 'badge-success' : kind === 'danger' ? 'badge-danger' : kind === 'info' ? 'badge-info' : 'badge-warning';
                 return `<span class="badge ${cls}">${displayValue(value)}</span>`;
             }
-            function boolBadge(value) { return value ? badge('Yes', 'warning') : badge('No', 'success'); }
+
+            function boolBadge(value) {
+                return value ? badge('Yes', 'warning') : badge('No', 'success');
+            }
+
             function numberValue(value) {
-                if (value === null || value === undefined || String(value).trim() === '') return '—';
+                if (value === null || value === undefined || String(value).trim() === '') {
+                    return '—';
+                }
                 const number = Number(value);
-                return Number.isFinite(number) ? number.toLocaleString('en-PH', { maximumFractionDigits: 8 }) : safe(value);
+                return Number.isFinite(number)
+                    ? number.toLocaleString('en-PH', { maximumFractionDigits: 8 })
+                    : safe(value);
             }
 
             function qualityFlagsHtml(flags) {
                 let values = flags;
-                if (typeof values === 'string') { try { values = JSON.parse(values); } catch (e) { values = values.trim() ? [values.trim()] : []; } }
+                if (typeof values === 'string') {
+                    try { values = JSON.parse(values); } 
+                    catch (error) { values = values.trim() ? [values.trim()] : []; }
+                }
                 if (!Array.isArray(values) || values.length === 0) return '';
-                return `<br><span class="section-note" style="color:#b45309;">Review: ${values.map(flag => safe(typeof flag === 'string' ? flag : JSON.stringify(flag))).join(', ')}</span>`;
+                return `<br><span class="section-note">Review: ${values.map(function (flag) {
+                    return safe(typeof flag === 'string' ? flag : JSON.stringify(flag));
+                }).join(', ')}</span>`;
             }
 
-            // Print Action Hook
-            window.printIdCard = function() {
+            // Expose ID Print Function globally for onclick handler
+            window.triggerIdPrint = function() {
                 if (!currentArb) return;
                 const photo = currentArbProfile?.image_base64 || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
                 document.getElementById('print_photo').src = photo;
@@ -236,24 +290,26 @@
                 document.getElementById('print_id').textContent = currentArb.generated_arb_id || currentArb.id;
                 document.getElementById('print_arbo').textContent = currentArb.arbo?.name || 'NO ARBO ASSIGNED';
                 
-                document.getElementById('mainContainer').style.display = 'none';
+                document.querySelector('.container').style.display = 'none';
                 document.getElementById('printWorkspace').style.display = 'flex';
                 
                 window.print();
                 
                 document.getElementById('printWorkspace').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'block';
+                document.querySelector('.container').style.display = 'block';
             };
 
             function renderHeirsTable() {
-                if (currentHeirs.length === 0) return `<p class="empty-card">No separate heir record has been encoded.</p>`;
+                if (currentHeirs.length === 0) {
+                    return `<p class="empty-card">No separate heir record has been encoded.</p>`;
+                }
                 return `
                     <table class="tag-list">
                         <thead>
                             <tr>
                                 <th>Heir</th>
                                 <th>Relation</th>
-                                <th>Contact</th>
+                                <th>Contact & Docs</th>
                                 <th>Target for TA</th>
                                 <th>Verified</th>
                                 <th>Selected Primary</th>
@@ -278,7 +334,9 @@
             }
 
             function renderLandholdingsTable() {
-                if (currentLandholdings.length === 0) return `<p class="empty-card">No EPCLOAIS landholding record is linked to this ARB profile.</p>`;
+                if (currentLandholdings.length === 0) {
+                    return `<p class="empty-card">No EPCLOAIS landholding record is linked to this ARB profile.</p>`;
+                }
                 return `
                     <table class="tag-list">
                         <thead>
@@ -316,7 +374,9 @@
             }
 
             function renderLegacyLandholdingsTable() {
-                if (currentLegacyLandholdings.length === 0) return `<p class="empty-card">No legacy land_holding record is linked to this ARB profile.</p>`;
+                if (currentLegacyLandholdings.length === 0) {
+                    return `<p class="empty-card">No legacy land_holding record is linked to this ARB profile.</p>`;
+                }
                 return `
                     <table class="tag-list">
                         <thead>
@@ -348,7 +408,7 @@
             }
 
             function fullName(arb) {
-                if (!arb) return currentArbProfile?.fb_name || '—';
+                if (!arb) { return currentArbProfile?.fb_name || '—'; }
                 const formatted = [arb.last_name ? `${arb.last_name},` : '', arb.first_name || '', arb.middle_name || ''].filter(Boolean).join(' ').trim();
                 return formatted || currentArbProfile?.fb_name || '—';
             }
@@ -357,20 +417,27 @@
                 const parts = [arb?.first_name, arb?.last_name].filter(Boolean);
                 if (parts.length === 0) {
                     const fallback = String(currentArbProfile?.fb_name || 'ARB').trim();
-                    return fallback.split(/\s+/).slice(0, 2).map(function(p){return p.charAt(0);}).join('').toUpperCase() || 'AR';
+                    return fallback.split(/\s+/).slice(0, 2).map(function (part) { return part.charAt(0); }).join('').toUpperCase() || 'AR';
                 }
-                return parts.map(function(p){return String(p).charAt(0);}).join('').toUpperCase();
+                return parts.map(function (part) { return String(part).charAt(0); }).join('').toUpperCase();
             }
 
             function normalizedLifeStatus() {
                 const raw = String(currentArbProfile?.life_status || currentArb?.life_status || '').toLowerCase();
-                if (raw === 'dead' || raw === 'deceased') return 'Dead';
-                if (raw === 'active' || raw === 'alive') return 'Active';
+                if (raw === 'dead' || raw === 'deceased') { return 'Dead'; }
+                if (raw === 'active' || raw === 'alive') { return 'Active'; }
                 return raw ? String(currentArbProfile?.life_status || currentArb?.life_status) : 'Pending';
             }
 
-            function emptyToNull(value) { const text = String(value ?? '').trim(); return text === '' ? null : text; }
-            function canEdit() { const role = String(currentUserProfile?.role || '').toLowerCase(); return (role === 'admin' || role === 'staff'); }
+            function emptyToNull(value) {
+                const text = String(value ?? '').trim();
+                return text === '' ? null : text;
+            }
+
+            function canEdit() {
+                const role = String(currentUserProfile?.role || '').toLowerCase();
+                return (role === 'admin' || role === 'staff');
+            }
 
             function showModal(title, body) {
                 modalTitleEl.textContent = title;
@@ -378,10 +445,16 @@
                 modalEl.classList.add('active');
             }
 
-            function hideModal() { modalEl.classList.remove('active'); modalBodyEl.innerHTML = ''; }
+            function hideModal() {
+                modalEl.classList.remove('active');
+                modalBodyEl.innerHTML = '';
+            }
 
             document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
-            modalEl?.addEventListener('click', function (event) { if (event.target === modalEl) hideModal(); });
+
+            modalEl?.addEventListener('click', function (event) {
+                if (event.target === modalEl) hideModal();
+            });
 
             async function buildNavbar(userProfile) {
                 const navEl = document.getElementById('mainNav');
@@ -389,6 +462,7 @@
                 const curPath = window.location.pathname;
 
                 const { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', { ascending: true });
+
                 let links = navItems && navItems.length > 0 ? navItems : [
                     { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
                     { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
@@ -397,8 +471,14 @@
                     { label: 'Reports', url: '/reports.html', icon: '📈' }
                 ];
 
-                const uniqueLinks = []; const seenLabels = new Set();
-                for (const item of links) { if (!seenLabels.has(item.label)) { seenLabels.add(item.label); uniqueLinks.push(item); } }
+                const uniqueLinks = [];
+                const seenLabels = new Set();
+                for (const item of links) {
+                    if (!seenLabels.has(item.label)) {
+                        seenLabels.add(item.label);
+                        uniqueLinks.push(item);
+                    }
+                }
 
                 let html = uniqueLinks.map(function (link) {
                     const linkTarget = (link.url || '').replace('/', '');
@@ -418,22 +498,12 @@
                         <span class="logout-link" style="color:#0a3d62; margin-left:10px; cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>
                     `;
                 }
-                navEl.innerHTML = html;
-                document.getElementById('navLogoutBtn')?.addEventListener('click', async function () { if (secureDbClient) await secureDbClient.auth.signOut(); window.location.href = 'login.html'; });
-            }
 
-            async function fetchAllRows(table, selectColumns, orderColumn = null) {
-                const pageSize = 1000; let from = 0; let rows = [];
-                while (true) {
-                    let query = secureDbClient.from(table).select(selectColumns).range(from, from + pageSize - 1);
-                    if (orderColumn) query = query.order(orderColumn, { ascending: true });
-                    const { data, error } = await query;
-                    if (error) throw error;
-                    rows = rows.concat(data || []);
-                    if (!data || data.length < pageSize) break;
-                    from += pageSize;
-                }
-                return rows;
+                navEl.innerHTML = html;
+                document.getElementById('navLogoutBtn')?.addEventListener('click', async function () {
+                    if (secureDbClient) await secureDbClient.auth.signOut();
+                    window.location.href = 'login.html';
+                });
             }
 
             async function fetchRowsByEquality(table, selectColumns, column, match, orderColumn = null, maximumRows = 20000) {
@@ -514,12 +584,7 @@
 
                     renderProfile();
                 } catch (err) {
-                    container.innerHTML = `
-                        <div style="text-align:center; padding:40px; color:#b91c1c;">
-                            <p>❌ ${safe(err.message)}</p>
-                            <a href="arb.html" class="back-link">← Back to ARB Management</a>
-                        </div>
-                    `;
+                    container.innerHTML = `<div style="text-align:center; padding:40px; color:#b91c1c;"><p>❌ ${safe(err.message)}</p><a href="arb.html" class="back-link">← Back to ARB Management</a></div>`;
                     logDebug(err.message, 'err');
                 }
             }
@@ -606,7 +671,7 @@
                         <h2>${safe(fullName(arb))}</h2>
                         <div class="profile-actions">
                             <a href="arb.html" class="btn btn-primary" style="text-decoration:none;">← Back</a>
-                            <button type="button" class="btn btn-primary" onclick="window.printIdCard()">🖨️ Print ID Card</button>
+                            <button type="button" class="btn btn-primary" onclick="window.triggerIdPrint()">🖨️ Print ID Card</button>
                             ${canEdit() ? `<button type="button" class="btn btn-primary" id="editProfileBtn">✏️ Update ARB Profile</button>` : ''}
                             ${canEdit() && profile?.id ? `<button type="button" class="btn btn-primary" id="addHeirBtn">👪 Add Heir</button>` : ''}
                             ${canEdit() ? `<button type="button" class="btn btn-primary" id="addValidationBtn">✅ Add Validation</button>` : ''}
@@ -661,16 +726,15 @@
                             <div class="field"><span class="label">Manual File Record</span><span class="value">${boolBadge(profile?.has_manual_file)}</span></div>
                             <div class="field"><span class="label">AO8</span><span class="value">${boolBadge(arb.ao8)}</span></div>
                             
-                            <div class="field" style="background:#eff6ff; padding:10px; border-radius:6px; border:1px solid #bfdbfe;">
-                                <span class="label">With ALI Case</span><span class="value">${boolBadge(arb.with_ali_case)}<br><span style="font-size:0.8rem; color:#0369a1;">Type: ${displayValue(arb.ali_case_type)}<br>Status: ${displayValue(arb.ali_case_status)}</span></span>
+                            <div class="flag-panel info">
+                                <strong>With ALI Case: </strong> ${boolBadge(arb.with_ali_case)}<br>
+                                <span style="font-size:0.85rem; color:#0369a1;">Type: ${displayValue(arb.ali_case_type)}<br>Status: ${displayValue(arb.ali_case_status)}</span>
                             </div>
 
-                            <div class="field" style="background:#fef2f2; padding:10px; border-radius:6px; border:1px solid #fecaca;">
-                                <span class="label">Subject for Transfer Action</span><span class="value">${boolBadge(arb.for_ta)}</span>
-                            </div>
-                            
-                            <div class="field" style="background:#fef2f2; padding:10px; border-radius:6px; border:1px solid #fecaca; margin-top:-1px;">
-                                <span class="label">With Transfer Action Case</span><span class="value">${boolBadge(arb.with_ta)}<br><span style="font-size:0.8rem; color:#b91c1c;">Status: ${displayValue(arb.ta_status)}</span></span>
+                            <div class="flag-panel danger">
+                                <strong>Subject for Transfer Action: </strong> ${boolBadge(arb.for_ta)}<br>
+                                <strong>With Transfer Action Case: </strong> ${boolBadge(arb.with_ta)}<br>
+                                <span style="font-size:0.85rem; color:#b91c1c;">Status: ${displayValue(arb.ta_status)}</span>
                             </div>
                             
                             <div class="field">
@@ -726,9 +790,10 @@
                         <div class="validator-grid">${validatorsHtml}</div>
                     </div>
 
-                    <a href="arb.html" class="back-link">← Back to ARB Management</a>
+                    <a href="arb.html" class="back-link no-print">← Back to ARB Management</a>
                 `;
 
+                // Rebind event listeners cleanly after DOM update
                 document.getElementById('editProfileBtn')?.addEventListener('click', openEditProfile);
                 document.getElementById('addValidationBtn')?.addEventListener('click', openValidationForm);
                 document.getElementById('addTagBtn')?.addEventListener('click', function () { openTagForm(null); });
@@ -908,7 +973,7 @@
                                 <!-- Red Flags / Issues Toggles -->
                                 <div class="form-group full" style="border-top: 1px solid #e2e8f0; padding-top: 15px; margin-top: 10px;">
                                     <label>Flags & Actions (Audited)</label>
-                                    <div class="checkbox-row" style="background:#f8fafc; padding: 10px; border-radius: 8px;">
+                                    <div class="checkbox-row" style="background:#f8fafc; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
                                         <label><input type="checkbox" name="ao8" ${currentArb.ao8 ? 'checked' : ''}> AO8</label>
                                         <label><input type="checkbox" id="chkDisqualify" name="for_disqualification" ${currentArb.for_disqualification ? 'checked' : ''}> For Disqualification</label>
                                         <label><input type="checkbox" id="chkRemoval" name="for_removal" ${currentArb.for_removal ? 'checked' : ''}> For Removal</label>
@@ -916,12 +981,12 @@
                                     </div>
                                 </div>
                                 
-                                <div class="form-group full" id="divDisqualifyReason" style="display:none; background:#fef2f2; padding:10px; border-radius:8px;">
+                                <div class="form-group full" id="divDisqualifyReason" style="display:none; background:#fef2f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
                                     <label for="disqualificationReason" style="color:#b91c1c;">Disqualification Reason</label>
                                     <textarea id="disqualificationReason" name="disqualification_reason" style="border-color:#fca5a5;">${safe(currentArb.disqualification_reason || '')}</textarea>
                                 </div>
 
-                                <div class="form-group full" id="divRemovalReason" style="display:none; background:#fef2f2; padding:10px; border-radius:8px;">
+                                <div class="form-group full" id="divRemovalReason" style="display:none; background:#fef2f2; padding:10px; border-radius:8px; border: 1px solid #fecaca;">
                                     <label for="removalReason" style="color:#b91c1c;">Removal Reason</label>
                                     <textarea id="removalReason" name="removal_reason" style="border-color:#fca5a5;">${safe(currentArb.removal_reason || '')}</textarea>
                                 </div>
@@ -1155,7 +1220,7 @@
 
                 const tag = tagId ? currentTags.find(item => String(item.id) === String(tagId)) : null;
                 const tagTypes = ['', 'AO8', 'SUBJECT FOR TRANSFER ACTION', 'WITH TRANSFER ACTION CASE', 'REGULAR ALI CASE', 'SPLIT ALI CASE'];
-                const caseStatuses = ['', 'AT DARPO', 'AT DARMO WITH MEMO', 'AT DARPO WITH COMPLIANCE - COMPLETE', 'AT DARPO WITH COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'];
+                const caseStatuses = ['', 'AT DARPO', 'AT DARMO WITH INDORSEMENT', 'AT DARPO FROM DARMO - COMPLETE', 'AT DARPO FROM DARMO - INCOMPLETE', 'AT REGION FOR DECISION', 'GRANTED', 'DENIED', 'MOTION FOR RECONSIDERATION', 'WITH OF'];
 
                 showModal(tag ? 'Update Legal / ALI Tag' : 'Add Legal / ALI Tag', `
                     <form id="tagForm">
@@ -1289,7 +1354,7 @@
                         <div class="form-group"><label for="filterCocrom">Has COCROM</label><select id="filterCocrom"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></div>
                         <div class="form-group"><label for="filterAli">ALI Case</label><select id="filterAli"><option value="">All</option><option value="true">With ALI Case</option><option value="false">No ALI Case</option></select></div>
                         <div class="form-group"><label for="filterTa">TA Case</label><select id="filterTa"><option value="">All</option><option value="true">With TA Case</option><option value="false">No TA Case</option></select></div>
-                        <div class="form-group"><label for="filterCaseStat">Case Status</label><select id="filterCaseStat"><option value="">All</option><option value="AT DARPO">AT DARPO</option><option value="AT DARMO WITH MEMO">AT DARMO WITH MEMO</option><option value="AT DARPO WITH COMPLIANCE - COMPLETE">AT DARPO WITH COMPLIANCE - COMPLETE</option><option value="AT DARPO WITH COMPLIANCE - INCOMPLETE">AT DARPO WITH COMPLIANCE - INCOMPLETE</option><option value="AT LEGAL">AT LEGAL</option><option value="FORWARDED TO REGION">FORWARDED TO REGION</option><option value="WITH ORDER - GRANTED">WITH ORDER - GRANTED</option><option value="WITH ORDER - DENIED">WITH ORDER - DENIED</option><option value="WITH MR">WITH MR</option><option value="WITH ORDER OF FINALITY">WITH ORDER OF FINALITY</option><option value="FORWARDED TO ROD">FORWARDED TO ROD</option><option value="EXECUTED">EXECUTED</option></select></div>
+                        <div class="form-group"><label for="filterCaseStat">Case Status</label><select id="filterCaseStat"><option value="">All</option><option value="AT DARPO">AT DARPO</option><option value="AT DARMO WITH INDORSEMENT">AT DARMO WITH INDORSEMENT</option><option value="AT DARPO FROM DARMO - COMPLETE">AT DARPO FROM DARMO - COMPLETE</option><option value="AT DARPO FROM DARMO - INCOMPLETE">AT DARPO FROM DARMO - INCOMPLETE</option><option value="AT REGION FOR DECISION">AT REGION FOR DECISION</option><option value="GRANTED">GRANTED</option><option value="DENIED">DENIED</option><option value="MOTION FOR RECONSIDERATION">MOTION FOR RECONSIDERATION</option><option value="WITH OF">WITH OF</option></select></div>
                     </div>
                     <div class="modal-actions" style="justify-content:flex-start; margin-top:0; margin-bottom:18px;"><button type="button" class="btn btn-primary" id="applyServerFiltersBtn">Apply Filters</button><button type="button" class="btn btn-primary" id="clearServerFiltersBtn">Clear</button></div>
                     <p class="section-note">Results are loaded 100 rows at a time.</p>
@@ -1323,7 +1388,7 @@
                         
                         let arbQuery = secureDbClient.from('arb').select(`id, generated_arb_id, first_name, middle_name, last_name, life_status, validation_status, with_ali_case, with_ta, ${arboJoin}, ${profJoin}`, { count: 'exact' }).order('last_name', { ascending: true }).range(from, to);
 
-                        // IntelliSearch: split terms by space, search all relevant fields for EACH term
+                        // IntelliSearch: split terms by space, search all relevant fields for EACH term natively across joined columns
                         if (term) {
                             const terms = term.split(/\s+/).filter(Boolean);
                             terms.forEach(t => {
