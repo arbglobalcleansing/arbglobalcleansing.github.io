@@ -51,6 +51,7 @@
             .profile-header { flex-direction: column; align-items: stretch; gap: 12px; }
             .form-group.full { grid-column: auto; }
             .search-row { flex-direction: column; }
+            .arb-quick-search { align-items: stretch; flex-direction: column; }
         }
 
         /* -------- New styles for management table and professional search -------- */
@@ -81,7 +82,6 @@
         .webcam-preview { width: 100%; max-width: 320px; border: 1px solid #ccc; border-radius: 6px; margin: 10px 0; }
         .hidden { display: none; }
 
-        /* -------- Professional search bar -------- */
         .search-container {
             display: flex;
             flex-wrap: wrap;
@@ -379,6 +379,9 @@
                 {label:'Validators', url:'/validators.html', icon:'✅'},
                 {label:'Reports', url:'/reports.html', icon:'📈'}
             ];
+            // Remove duplicates by label
+            const seen = new Set();
+            links = links.filter(l => { const key = l.label; if (seen.has(key)) return false; seen.add(key); return true; });
             let html = links.map(link => {
                 const isActive = curPath.includes((link.url||'').replace('/','')) && (link.url||'') !== '' ? 'active' : '';
                 return `<a href="${safe(link.url)}" class="${isActive}">${safe(link.icon||'')} ${safe(link.label)}</a>`;
@@ -410,7 +413,7 @@
             }
         } catch(e) { console.error('Supabase init error:', e); }
 
-        // -------- Load ARB list with filters --------
+        // -------- Load ARB list with filters (no join between arb and arb_profiles) --------
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
@@ -426,97 +429,112 @@
             const cocrom = document.getElementById('filterCocrom').value;
             const titleDist = document.getElementById('filterTitleDist').value;
 
-            // Global search
             const searchTerm = document.getElementById('globalSearchInput').value.trim();
             const searchField = document.getElementById('globalSearchField').value;
 
-            const from = page * pageSize;
-            const to = from + pageSize - 1;
-
             try {
-                // Build query using correct relationship: arb_profiles!inner(arb_id)
-                let query = secureDbClient
-                    .from('arb')
-                    .select(`
-                        id,
-                        first_name,
-                        middle_name,
-                        last_name,
-                        validation_status,
-                        life_status,
-                        with_ali_case,
-                        with_ta,
-                        for_disqualificati,
-                        arbo:arbo_id ( id, name, municipality, barangay ),
-                        arb_profiles!inner(arb_id) ( id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status )
-                    `, { count: 'exact' })
-                    .order('id', { ascending: true })
-                    .range(from, to);
-
-                // Apply filters
-                if (town) {
-                    query = query.eq('arbo.municipality', town);
-                }
-                if (barangay) {
-                    query = query.eq('arbo.barangay', barangay);
-                }
-                if (validation) {
-                    query = query.eq('validation_status', validation);
-                }
-                if (split) {
-                    query = query.eq('arb_profiles.split_status', split);
-                }
-                if (ali !== '') {
-                    query = query.eq('with_ali_case', ali === 'true');
-                }
-                if (ta !== '') {
-                    query = query.eq('with_ta', ta === 'true');
-                }
-                if (cocrom !== '') {
-                    if (cocrom === 'true') {
-                        query = query.not('arb_profiles.cocrom_no', 'is', null);
-                    } else {
-                        query = query.is('arb_profiles.cocrom_no', null);
+                // Step 1: Get arbo_ids for town/barangay if selected
+                let arboIds = null;
+                if (town || barangay) {
+                    let arboQuery = secureDbClient.from('arbo').select('id');
+                    if (town) arboQuery = arboQuery.eq('municipality', town);
+                    if (barangay) arboQuery = arboQuery.eq('barangay', barangay);
+                    const { data: arboData, error: arboErr } = await arboQuery;
+                    if (arboErr) throw arboErr;
+                    arboIds = arboData.map(a => a.id);
+                    if (arboIds.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBOs match the selected town/barangay.</td></tr>`;
+                        return;
                     }
+                }
+
+                // Step 2: Query arb_profiles with profile filters
+                let profileQuery = secureDbClient.from('arb_profiles').select('arb_id');
+                if (split) profileQuery = profileQuery.eq('split_status', split);
+                if (cocrom !== '') {
+                    if (cocrom === 'true') profileQuery = profileQuery.not('cocrom_no', 'is', null);
+                    else profileQuery = profileQuery.is('cocrom_no', null);
                 }
                 if (titleDist !== '') {
-                    query = query.eq('arb_profiles.is_title_distribute', titleDist === 'true');
+                    profileQuery = profileQuery.eq('is_title_distribute', titleDist === 'true');
+                }
+                // Search on sequence or fb_name
+                if (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')) {
+                    const col = searchField === 'sequence' ? 'sequence_no' : 'fb_name';
+                    const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
+                    profileQuery = profileQuery.ilike(col, pattern);
                 }
 
-                // Apply global search
+                const { data: profiles, error: profErr } = await profileQuery;
+                if (profErr) throw profErr;
+                let profileArbIds = profiles.map(p => p.arb_id).filter(Boolean);
+                // If no profile matches, return empty
+                if (profileArbIds.length === 0 && (split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField==='sequence'||searchField==='fb_name')))) {
+                    tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the profile filters.</td></tr>`;
+                    return;
+                }
+
+                // Step 3: Query arb with pagination and filters
+                let arbQuery = secureDbClient.from('arb').select(`
+                    id,
+                    first_name,
+                    middle_name,
+                    last_name,
+                    validation_status,
+                    life_status,
+                    with_ali_case,
+                    with_ta,
+                    for_disqualificati,
+                    arbo:arbo_id ( id, name, municipality, barangay )
+                `, { count: 'exact' })
+                .order('id', { ascending: true })
+                .range(page * pageSize, (page + 1) * pageSize - 1);
+
+                // Filter by arbo_ids
+                if (arboIds && arboIds.length > 0) {
+                    arbQuery = arbQuery.in('arbo_id', arboIds);
+                }
+
+                // Filter by profile arb_ids (if any profile filters applied)
+                if (profileArbIds.length > 0) {
+                    arbQuery = arbQuery.in('id', profileArbIds);
+                }
+
+                // Filters on arb
+                if (validation) arbQuery = arbQuery.eq('validation_status', validation);
+                if (ali !== '') arbQuery = arbQuery.eq('with_ali_case', ali === 'true');
+                if (ta !== '') arbQuery = arbQuery.eq('with_ta', ta === 'true');
+
+                // Search on name or id
                 if (searchTerm) {
-                    const isNumeric = /^\d+$/.test(searchTerm);
-                    switch (searchField) {
-                        case 'id':
-                            query = query.eq('id', searchTerm);
-                            break;
-                        case 'sequence':
-                            query = query.eq('arb_profiles.sequence_no', searchTerm);
-                            break;
-                        case 'fb_name':
-                            query = query.ilike('arb_profiles.fb_name', `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
-                            break;
-                        case 'name':
-                        default:
-                            const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                            query = query.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
-                            break;
+                    if (searchField === 'id') {
+                        arbQuery = arbQuery.eq('id', searchTerm);
+                    } else if (searchField === 'name') {
+                        const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
+                        arbQuery = arbQuery.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
                     }
                 }
 
-                const { data, error, count } = await query;
-
-                if (error) throw error;
-
+                const { data: arbs, error: arbErr, count } = await arbQuery;
+                if (arbErr) throw arbErr;
                 totalRecords = count || 0;
-                const arbs = data || [];
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;">No ARBs match the filters.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="12" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
+                    // Step 4: Fetch profiles for these arbs
+                    const arbIds = arbs.map(a => String(a.id));
+                    const { data: profileData, error: profFetchErr } = await secureDbClient
+                        .from('arb_profiles')
+                        .select('arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status')
+                        .in('arb_id', arbIds);
+                    if (profFetchErr) throw profFetchErr;
+                    const profileMap = {};
+                    (profileData || []).forEach(p => { profileMap[p.arb_id] = p; });
+
                     let html = '';
                     arbs.forEach(arb => {
-                        const profile = arb.arb_profiles?.[0] || {};
+                        const profile = profileMap[String(arb.id)] || {};
                         const arbo = arb.arbo || {};
                         const hasCocrom = profile.cocrom_no && profile.cocrom_no.trim() !== '';
                         const aliTag = arb.with_ali_case ? badge('ALI','danger') : '—';
@@ -554,7 +572,7 @@
                 // Update pagination
                 document.getElementById('pageInfo').textContent = `Page ${page+1} of ${Math.ceil(totalRecords/pageSize) || 1}`;
                 document.getElementById('prevPageBtn').disabled = (page === 0);
-                document.getElementById('nextPageBtn').disabled = (from + pageSize >= totalRecords);
+                document.getElementById('nextPageBtn').disabled = (page * pageSize + pageSize >= totalRecords);
 
                 // Attach event listeners to action buttons
                 document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
@@ -596,22 +614,24 @@
             } catch(e) { console.warn('Failed to load ARBO list:', e); }
         }
 
-        // -------- Action: Edit ARB (full profile) - unchanged --------
+        // -------- Action: Edit ARB (full profile) - unchanged (but uses same join fix) --------
         async function openEditArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
-                const { data: arb, error } = await secureDbClient.from('arb').select(`
-                    *, arb_profiles!inner(arb_id)(*), arbo:arbo_id (id, name, municipality, barangay)
+                // Fetch arb and profile separately (no join)
+                const { data: arb, error: arbErr } = await secureDbClient.from('arb').select(`
+                    *, arbo:arbo_id (id, name, municipality, barangay)
                 `).eq('id', arbId).single();
-                if (error) throw error;
-                const profile = arb.arb_profiles?.[0] || {};
+                if (arbErr) throw arbErr;
+                const { data: profile, error: profErr } = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId)).single();
+                if (profErr && profErr.code !== 'PGRST116') throw profErr; // ignore not found
 
                 const formHtml = `
                     <form id="editArbForm">
                         <div class="form-grid">
                             <div class="form-group full">
                                 <label>ARB ID</label>
-                                <input value="${safe(profile.generated_arb_ic || arb.id)}" disabled>
+                                <input value="${safe(profile?.generated_arb_ic || arb.id)}" disabled>
                             </div>
                             <div class="form-group">
                                 <label for="editFirstName">First Name</label>
@@ -628,9 +648,9 @@
                             <div class="form-group">
                                 <label for="editLifeStatus">Life Status</label>
                                 <select id="editLifeStatus" name="life_status">
-                                    <option value="Active" ${profile.life_status==='Active'?'selected':''}>Active</option>
-                                    <option value="Dead" ${profile.life_status==='Dead'?'selected':''}>Dead</option>
-                                    <option value="Unknown" ${!profile.life_status?'selected':''}>Unknown</option>
+                                    <option value="Active" ${profile?.life_status==='Active'?'selected':''}>Active</option>
+                                    <option value="Dead" ${profile?.life_status==='Dead'?'selected':''}>Dead</option>
+                                    <option value="Unknown" ${!profile?.life_status?'selected':''}>Unknown</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -643,34 +663,34 @@
                             </div>
                             <div class="form-group full">
                                 <label for="editFbName">FB Name</label>
-                                <input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}">
+                                <input id="editFbName" name="fb_name" value="${safe(profile?.fb_name||'')}">
                             </div>
                             <div class="form-group">
                                 <label for="editSplitStatus">SPLIT Status</label>
                                 <select id="editSplitStatus" name="split_status">
-                                    <option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option>
-                                    <option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option>
-                                    <option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option>
+                                    <option value="PENDING VALIDATION" ${profile?.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option>
+                                    <option value="SPLIT" ${profile?.split_status==='SPLIT'?'selected':''}>SPLIT</option>
+                                    <option value="NON-SPLIT" ${profile?.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label for="editCocrom">CoCROM No.</label>
-                                <input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}">
+                                <input id="editCocrom" name="cocrom_no" value="${safe(profile?.cocrom_no||'')}">
                             </div>
                             <div class="form-group">
                                 <label for="editTitleDistributed">Title Distributed</label>
                                 <select id="editTitleDistributed" name="is_title_distribute">
-                                    <option value="false" ${!profile.is_title_distribute?'selected':''}>No</option>
-                                    <option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option>
+                                    <option value="false" ${!profile?.is_title_distribute?'selected':''}>No</option>
+                                    <option value="true" ${profile?.is_title_distribute?'selected':''}>Yes</option>
                                 </select>
                             </div>
                             <div class="form-group">
                                 <label for="editETitle">Individual Title / e-Title</label>
-                                <input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}">
+                                <input id="editETitle" name="e_title_no" value="${safe(profile?.e_title_no||'')}">
                             </div>
                             <div class="form-group">
                                 <label for="editDistrict">District</label>
-                                <input id="editDistrict" name="district" value="${safe(profile.district||'')}">
+                                <input id="editDistrict" name="district" value="${safe(profile?.district||'')}">
                             </div>
                             <div class="form-group full">
                                 <label>Legal Flags</label>
@@ -732,8 +752,15 @@
                     try {
                         const { error: e1 } = await secureDbClient.from('arb').update(payload).eq('id', arbId);
                         if (e1) throw e1;
-                        const { error: e2 } = await secureDbClient.from('arb_profiles').update(profilePayload).eq('arb_id', String(arbId));
-                        if (e2) throw e2;
+                        // Update or insert profile
+                        if (profile?.id) {
+                            const { error: e2 } = await secureDbClient.from('arb_profiles').update(profilePayload).eq('id', profile.id);
+                            if (e2) throw e2;
+                        } else {
+                            profilePayload.arb_id = String(arbId);
+                            const { error: e2 } = await secureDbClient.from('arb_profiles').insert(profilePayload);
+                            if (e2) throw e2;
+                        }
                         hideModal();
                         popToast('ARB updated successfully.', 'ok');
                         loadArbs(currentPage);
@@ -742,14 +769,22 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Action: Tag ARB (unchanged) --------
+        // -------- Action: Tag ARB (unchanged, but uses profileId) --------
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
                 const { data: arb } = await secureDbClient.from('arb').select('*').eq('id', arbId).single();
-                const { data: profile } = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-                if (!profile) throw new Error('ARB profile not found.');
-                const profileId = profile.id;
+                let profileId;
+                const { data: prof, error: profErr } = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                if (profErr && profErr.code !== 'PGRST116') throw profErr;
+                if (prof) {
+                    profileId = prof.id;
+                } else {
+                    // create profile if missing
+                    const { data: newProf, error: insErr } = await secureDbClient.from('arb_profiles').insert({ arb_id: String(arbId) }).select('id').single();
+                    if (insErr) throw insErr;
+                    profileId = newProf.id;
+                }
 
                 const tagTypes = [
                     { value: 'ALI CASE', label: 'ALI Case' },
@@ -925,15 +960,20 @@
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
                 const { data: profile, error } = await secureDbClient.from('arb_profiles').select('sequence_no, generated_arb_ic').eq('arb_id', String(arbId)).single();
-                if (error) throw error;
-                let seq = profile.sequence_no;
+                if (error && error.code !== 'PGRST116') throw error;
+                let seq = profile?.sequence_no;
                 if (!seq) {
                     const { count } = await secureDbClient.from('arb_profiles').select('*', { count: 'exact', head: true });
                     seq = String((count || 0) + 1).padStart(6, '0');
                 }
                 const newId = `ARB-${seq}`;
-                const { error: updateErr } = await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId }).eq('id', profile.id);
-                if (updateErr) throw updateErr;
+                if (profile?.id) {
+                    const { error: updateErr } = await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId }).eq('id', profile.id);
+                    if (updateErr) throw updateErr;
+                } else {
+                    const { error: insErr } = await secureDbClient.from('arb_profiles').insert({ arb_id: String(arbId), generated_arb_ic: newId, sequence_no: seq });
+                    if (insErr) throw insErr;
+                }
                 popToast(`ARB ID generated: ${newId}`, 'ok');
                 loadArbs(currentPage);
             } catch(e) { popToast(e.message, 'err'); }
@@ -1026,8 +1066,16 @@
                     return;
                 }
                 try {
-                    const { data: profile } = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-                    if (!profile) throw new Error('Profile not found');
+                    let profile = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                    if (profile.error && profile.error.code !== 'PGRST116') throw profile.error;
+                    if (!profile.data) {
+                        // create profile
+                        const { data: newProf, error: insErr } = await secureDbClient.from('arb_profiles').insert({ arb_id: String(arbId) }).select('id').single();
+                        if (insErr) throw insErr;
+                        profile = newProf;
+                    } else {
+                        profile = profile.data;
+                    }
                     const { error } = await secureDbClient.from('arb_profiles').update({
                         image_base64: imageData,
                         updated_at: new Date().toISOString(),
@@ -1201,7 +1249,6 @@
         document.getElementById('globalSearchBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
         document.getElementById('globalSearchInput')?.addEventListener('keydown', function(e) { if (e.key==='Enter') { currentPage = 0; loadArbs(currentPage); } });
 
-        // Toggle advanced filters
         document.getElementById('toggleFiltersBtn')?.addEventListener('click', function() {
             const filters = document.getElementById('advancedFilters');
             filters.classList.toggle('open');
