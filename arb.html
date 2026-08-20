@@ -1,10 +1,9 @@
-The following image can be moved on the page using keyboard controls (left, right, up, down)
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ARB Global Validation - ARB Management</title>
+    <title>ARB Global Cleansing - ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -54,7 +53,7 @@ The following image can be moved on the page using keyboard controls (left, righ
 
         /* CLEAN, SMALL ACTION BUTTON GRID */
         .action-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 140px; }
-        .update-validation-btn { grid-column: span 3; }
+        .update-validation-btn { grid-column: span 2; }
         .btn-sm { padding: 4px 6px !important; font-size: 0.65rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
 
         .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
@@ -163,6 +162,9 @@ The following image can be moved on the page using keyboard controls (left, righ
         .table-view-toolbar { display:flex; gap:10px; align-items:end; flex-wrap:wrap; padding:10px; background:#f8fafc; border:1px solid var(--border-light); border-radius:8px; margin-bottom:10px; }
         .table-view-toolbar label { font-size:.72rem; color:#475569; font-weight:700; display:flex; flex-direction:column; gap:4px; }
         .ocr-review-row { display:grid; grid-template-columns:120px 1.5fr 140px 1fr 1fr; gap:8px; align-items:center; padding:8px; border-bottom:1px solid #e2e8f0; }
+        .duplicate-review-scroll { max-height: 62vh; overflow: auto; border: 1px solid var(--border-light); border-radius: 8px; }
+        .duplicate-review-scroll table { min-width: 1320px; margin: 0; }
+        .duplicate-review-scroll th { position: sticky; top: 0; z-index: 3; background: #f1f5f9; }
         @media print { body * { visibility:hidden!important; } #printArea, #printArea * { visibility:visible!important; } #printArea { position:absolute; inset:0; } .no-print { display:none!important; } }
         .link-button { border: 0; background: none; padding: 0; color: #0369a1; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
 
@@ -186,7 +188,7 @@ The following image can be moved on the page using keyboard controls (left, righ
 </head>
 <body>
 <div class="container">
-    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
+    <h1>🏛️ ARB Global Cleansing <small>ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
@@ -201,7 +203,6 @@ The following image can be moved on the page using keyboard controls (left, righ
             <button type="button" class="btn btn-primary" id="tableViewBtn">Table View</button>
             <button type="button" class="btn btn-primary" id="duplicateReviewBtn">Review Duplicates</button>
             <button type="button" class="btn btn-primary" id="captureValidationBtn">Capture Validation Form</button>
-            <button type="button" class="btn btn-primary" id="batchValidateBtn">Batch Validate</button>
             <button type="button" class="btn btn-primary" id="generateReportBtn">Print Validation Form</button>
         </div>
     </div>
@@ -580,36 +581,30 @@ The following image can be moved on the page using keyboard controls (left, righ
             const curPath = window.location.pathname;
             let { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', {ascending:true});
             let links = navItems?.length ? navItems : [
-                {label:'Dashboard', url:'/dashboard.html', icon:''},
-                {label:'ARBO Management', url:'/arbo.html', icon:''},
-                {label:'ARB Management', url:'/arb.html', icon:''},
-                {label:'Validators', url:'/validators.html', icon:''},
-                {label:'Reports', url:'/reports.html', icon:''}
+                {label:'Dashboard', url:'/dashboard.html', icon:'📊'},
+                {label:'ARBO Management', url:'/arbo.html', icon:'🏢'},
+                {label:'ARB Management', url:'/arb.html', icon:'👤'},
+                {label:'Validators', url:'/validators.html', icon:'✅'},
+                {label:'Reports', url:'/reports.html', icon:'📈'}
             ];
             const seen = new Set();
             links = links.filter(l => { const key = l.label; if (seen.has(key)) return false; seen.add(key); return true; });
-            const navIcon = label => {
-                const common = 'width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px;margin-right:6px"';
-                const key = String(label || '').toUpperCase();
-                if (key.includes('DASHBOARD')) return `<svg ${common}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`;
-                if (key.includes('ARBO')) return `<svg ${common}><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>`;
-                if (key.includes('ARB MANAGEMENT')) return `<svg ${common}><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg>`;
-                if (key.includes('VALIDATOR')) return `<svg ${common}><path d="M20 6 9 17l-5-5"/><path d="M21 12a9 9 0 1 1-5-8"/></svg>`;
-                return `<svg ${common}><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19H2"/></svg>`;
-            };
             let html = links.map(link => {
                 const isActive = curPath.includes((link.url||'').replace('/','')) && (link.url||'') !== '' ? 'active' : '';
-                return `<a href="${safe(link.url)}" class="${isActive}">${navIcon(link.label)}${safe(link.label)}</a>`;
+                const fallbackIcons = {'Dashboard':'📊','ARBO Management':'🏢','ARB Management':'👤','Validators':'✅','Reports':'📈'};
+                const icon = fallbackIcons[link.label] || link.icon || '';
+                return `<a href="${safe(link.url)}" class="${isActive}">${safe(icon)} ${safe(link.label)}</a>`;
             }).join('');
             if (profile) {
                 const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || '—');
-                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">${safe(displayName)} (${safe(profile.role)})</span>`;
-                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">Logout</span>`;
+                html += `<span class="user-badge" id="navProfileBtn" title="Modify my profile" style="margin-left:auto;color:#0a3d62;font-weight:600;cursor:pointer;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
+                html += `<span class="logout-link" id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
             } else {
-                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">Not Logged In</span>`;
-                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">Login</span>`;
+                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">⚠️ Not Logged In</span>`;
+                html += `<span class="logout-link" style="color:#0a3d62;margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
             }
             navEl.innerHTML = html;
+            document.getElementById('navProfileBtn')?.addEventListener('click', openMyProfileEditor);
             document.getElementById('navLogoutBtn')?.addEventListener('click', async function() {
                 if (secureDbClient) await secureDbClient.auth.signOut();
                 window.location.href = 'login.html';
@@ -944,7 +939,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
                                     ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">LEGAL TAG</button>` : ''}
+                                    ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">TAG / CASE</button>` : ''}
                                     ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="DEAD">DECEASED</button>` : ''}
                                     ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
                                     ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
@@ -1099,7 +1094,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                                 <div class="sidebar-actions">
                                     ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">Profile record missing.</p>`}
                                     ${profileId && (arb.life_status || profile.life_status)==='Dead' && canTagDeceased() ? `<button class="btn btn-primary" id="profileAddHeirBtn">Add Heir</button>` : ''}
-                                    ${profileId && canManageLegal() ? `<button class="btn btn-primary" id="profileAddTagBtn">Legal Tag</button>` : ''}
+                                    ${profileId && canManageLegal() ? `<button class="btn btn-primary" id="profileAddTagBtn">Tag / Case</button>` : ''}
                                     ${profileId && canTagDeceased() ? `<button class="btn btn-primary" id="profileDeceasedBtn">Tag Deceased</button>` : ''}
                                     ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">Validate</button>` : ''}
                                     ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">Create Profile</button>` : ''}
@@ -1215,7 +1210,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 { label: 'For Transfer Action', value: arb.for_ta },
                 { label: 'With Transfer Action', value: arb.with_ta },
                 { label: 'For Disqualification', value: arb.for_disqualification },
-                { label: 'With Existing Complain', value: arb.with_existing_complain },
+                { label: 'With Open Case', value: arb.with_existing_complain },
                 { label: 'With ALI Case', value: arb.with_ali_case },
             ];
 
@@ -1410,7 +1405,7 @@ The following image can be moved on the page using keyboard controls (left, righ
             });
         }
 
-        async function openValidationForm(arbId, currentStatus = 'Pending') {
+        async function openValidationForm(arbId, currentStatus = 'Pending', options = {}) {
             const currentName = currentUserProfile?.full_name || currentUser?.email || '';
             const currentPos = currentUserProfile?.position || '';
 
@@ -1434,7 +1429,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" value="${safe(currentName)}" required></div>
                         <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position" value="${safe(currentPos)}"></div>
                         <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
-                        <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
+                        <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis" required placeholder="Required basis for this validation action"></div>
                         <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference" required placeholder="Required"></div>
                     </div>
                     <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
@@ -1469,7 +1464,8 @@ The following image can be moved on the page using keyboard controls (left, righ
                     if (error) throw error;
                     hideSubModal();
                     popToast('Validation added and status updated.', 'ok');
-                    openArbProfile(arbId);
+                    if (options.returnToTable) await openTableView();
+                    else openArbProfile(arbId);
                     loadArbs(currentPage);
                 } catch (err) { 
                     popToast(err.message, 'err'); 
@@ -1629,22 +1625,21 @@ The following image can be moved on the page using keyboard controls (left, righ
                     { value: 'DISQUALIFICATION AND IDENTIFICATION', label: 'Disqualification and Identification of New ARB' },
                     { value: 'AO8', label: 'AO8 Transfer Action' },
                     { value: 'DEAD', label: 'Mark Individual ARB as Deceased' },
-                    { value: 'WITH COMPLAIN', label: 'With Existing Complain' }
+                    { value: 'WITH OPEN CASE', label: 'With Open Case' }
                 ];
                 if (forcedMode === 'DEAD') tagTypes = tagTypes.filter(t => t.value === 'DEAD');
                 else if (forcedMode && forcedMode !== 'LEGAL') tagTypes = tagTypes.filter(t => t.value === forcedMode);
                 else tagTypes = tagTypes.filter(t => t.value !== 'DEAD');
                 const statusOptions = {
-                    'ALI CASE': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
-                    'TRANSFER ACTION': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
-                    'DISQUALIFICATION': ['FOR DISQUALIFICATION'],
-                    'CANCELLATION OF TITLE': ['FOR REVIEW','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
-                    'IDENTIFICATION OF NEW ARB': ['FOR VALIDATION','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
-                    'DISQUALIFICATION AND IDENTIFICATION': ['FOR VALIDATION','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
-                    'AO8': ['FOR DOCUMENTATION','AT DARMO','AT DARPO','AT LEGAL','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
-                    'ORDER OF FINALITY': ['WITH ORDER OF FINALITY'],
-                    'DEAD': ['DECEASED'],
-                    'WITH COMPLAIN': ['EXISTING']
+                    'ALI CASE': ['FOR FIELD VALIDATION','FOR DOCUMENT COMPLETION','AT DARMO','AT DARMO WITH MEMORANDUM','RECEIVED AT DARPO','AT DARPO - COMPLIANCE COMPLETE','AT DARPO - COMPLIANCE INCOMPLETE','AT LEGAL DIVISION','FOR FILING','FILED','FORWARDED TO DAR REGIONAL OFFICE','FORWARDED TO DAR CENTRAL OFFICE','WITH ORDER - GRANTED','WITH ORDER - DENIED','MOTION FOR RECONSIDERATION FILED','WITH ORDER OF FINALITY','FORWARDED TO ROD','EXECUTED / IMPLEMENTED','CLOSED / ARCHIVED'],
+                    'TRANSFER ACTION': ['REQUEST RECEIVED','FOR FIELD VALIDATION','FOR HEIR IDENTIFICATION','FOR DOCUMENT COMPLETION','AT DARMO','AT DARMO WITH MEMORANDUM','RECEIVED AT DARPO','AT LEGAL DIVISION','FOR FILING','FILED','WITH ORDER - GRANTED','WITH ORDER - DENIED','MOTION FOR RECONSIDERATION FILED','WITH ORDER OF FINALITY','FORWARDED TO ROD','REGISTERED / EXECUTED','CLOSED / ARCHIVED'],
+                    'DISQUALIFICATION': ['FOR FIELD VALIDATION','FOR DOCUMENT COMPLETION','FOR LEGAL EVALUATION','FOR DISQUALIFICATION','NOTICE ISSUED','FOR FILING','FILED','WITH ORDER - GRANTED','WITH ORDER - DENIED','WITH ORDER OF FINALITY','EXECUTED / IMPLEMENTED','CLOSED / ARCHIVED'],
+                    'CANCELLATION OF TITLE': ['REQUEST RECEIVED','FOR DOCUMENT REVIEW','FOR FIELD VALIDATION','FOR LEGAL EVALUATION','FOR FILING','FILED','FOR HEARING / COMMENT','WITH ORDER - GRANTED','WITH ORDER - DENIED','MOTION FOR RECONSIDERATION FILED','WITH ORDER OF FINALITY','FOR ROD CANCELLATION / ANNOTATION','EXECUTED / IMPLEMENTED','CLOSED / ARCHIVED'],
+                    'IDENTIFICATION OF NEW ARB': ['FOR FIELD VALIDATION','FOR ISS / QUALIFICATION','DOCUMENTS INCOMPLETE','DOCUMENTS COMPLETE','FOR APPROVAL','IDENTIFIED AS NEW ARB','NOT QUALIFIED','FOR INCLUSION IN MASTERLIST','COMPLETED','CLOSED / ARCHIVED'],
+                    'DISQUALIFICATION AND IDENTIFICATION': ['FOR FIELD VALIDATION','FOR DOCUMENT COMPLETION','FOR DISQUALIFICATION','FOR ISS / QUALIFICATION OF REPLACEMENT','FOR LEGAL EVALUATION','FOR FILING','FILED','WITH ORDER - GRANTED','WITH ORDER - DENIED','WITH ORDER OF FINALITY','NEW ARB IDENTIFIED','FOR MASTERLIST UPDATE','EXECUTED / IMPLEMENTED','CLOSED / ARCHIVED'],
+                    'AO8': ['REQUEST RECEIVED','FOR DOCUMENT VERIFICATION','WITH DOCUMENTARY DEFICIENCY','FOR FIELD VALIDATION','AT DARMO','RECEIVED AT DARPO','FOR LEGAL REVIEW','WITH ORDER OF FINALITY','FOR DAR CLEARANCE SIGNATURE','DAR CLEARANCE ISSUED','FOR DEED / INSTRUMENT EXECUTION','FOR ROD REGISTRATION','REGISTERED / COMPLETED','CLOSED / ARCHIVED'],
+                    'DEAD': ['DECEASED - FOR DOCUMENT VERIFICATION','DECEASED - DOCUMENT VERIFIED'],
+                    'WITH OPEN CASE': ['OPEN REQUEST','REFERRED TO DARMO','REFERRED TO DARPO','AWAITING DOCUMENTS','UNDER REVIEW','ACTION TAKEN','CLOSED']
                 };
 
                 const formHtml = `
@@ -1652,7 +1647,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         <div class="form-grid">
                             <div class="form-group full"><label>Target Date</label><input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required><small>The actual tagging date and active user are recorded automatically.</small></div>
                             <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}</select></div>
-                            <div class="form-group" id="tagLandholdingGroup"><label for="tagLandholding">Particular Landholding</label><select id="tagLandholding" name="arb_landholding_id"><option value="">General ARB-level legal action</option>${legalHoldingOptions}</select></div>
+                            <div class="form-group" id="tagLandholdingGroup" style="display:none;"><label for="tagLandholding">Particular Landholding</label><select id="tagLandholding" name="arb_landholding_id"><option value="">Select the affected landholding</option>${legalHoldingOptions}</select><small>Required only for Land Conversion or Cancellation of Title.</small></div>
 
                             <div class="form-group" id="aliCategoryGrp" style="display:none;">
                                 <label>ALI Category</label>
@@ -1695,7 +1690,18 @@ The following image can be moved on the page using keyboard controls (left, righ
                 const tagStatusSelect = document.getElementById('tagStatus');
                 document.getElementById('aliCategory').addEventListener('change', function() {
                     document.getElementById('aliType').innerHTML = activeAliRows.filter(r=>r.ali_category===this.value).map(r=>`<option value="${safe(r.case_type)}">${safe(r.case_type)}</option>`).join('');
+                    updateLandholdingVisibility();
                 });
+                function updateLandholdingVisibility() {
+                    const type = tagTypeSelect.value;
+                    const aliType = document.getElementById('aliType').value;
+                    const affectsWholeLandholding = type === 'CANCELLATION OF TITLE' || (type === 'ALI CASE' && aliType === 'LAND CONVERSION');
+                    const group = document.getElementById('tagLandholdingGroup');
+                    const select = document.getElementById('tagLandholding');
+                    group.style.display = affectsWholeLandholding ? 'flex' : 'none';
+                    select.required = affectsWholeLandholding;
+                    if (!affectsWholeLandholding) select.value = '';
+                }
                 function updateStatuses() {
                     const type = tagTypeSelect.value;
                     const opts = statusOptions[type] || [];
@@ -1708,14 +1714,15 @@ The following image can be moved on the page using keyboard controls (left, righ
                     document.getElementById('aliTypeGrp').style.display = type === 'ALI CASE' ? 'flex' : 'none';
                     document.getElementById('deathDocSection').style.display = type === 'DEAD' ? 'flex' : 'none';
                     document.getElementById('deathDocumentFile').required = type === 'DEAD';
-                    document.getElementById('tagLandholdingGroup').style.display = type === 'DEAD' ? 'none' : 'flex';
-                    const finalMode = ['ORDER OF FINALITY'].includes(type) || tagStatusSelect.value === 'WITH ORDER OF FINALITY';
+                    updateLandholdingVisibility();
+                    const finalMode = type === 'AO8' && tagStatusSelect.value === 'WITH ORDER OF FINALITY';
                     document.getElementById('finalOwnerSection').style.display = finalMode ? 'flex' : 'none';
                     document.getElementById('newOwnerName').required = finalMode;
                     document.getElementById('finalityDate').required = finalMode;
                 }
                 tagTypeSelect.addEventListener('change', updateStatuses);
                 tagStatusSelect.addEventListener('change', updateStatuses);
+                document.getElementById('aliType').addEventListener('change', updateLandholdingVisibility);
                 updateStatuses();
 
                 document.getElementById('addHeirRowBtn')?.addEventListener('click', function() {
@@ -1746,9 +1753,11 @@ The following image can be moved on the page using keyboard controls (left, righ
                     const targetDate = fd.get('action_date');
                     const aliCategory = fd.get('ali_category');
                     const aliType = fd.get('ali_type');
-                    const landholdingId = tagType === 'DEAD' ? null : emptyToNull(fd.get('arb_landholding_id'));
+                    const requiresLandholding = tagType === 'CANCELLATION OF TITLE' || (tagType === 'ALI CASE' && aliType === 'LAND CONVERSION');
+                    const landholdingId = requiresLandholding ? emptyToNull(fd.get('arb_landholding_id')) : null;
 
                     try {
+                    if (requiresLandholding && !landholdingId) throw new Error('Select the particular landholding affected by this case.');
                     if (tagType === 'DEAD') {
                         const deathFile = document.getElementById('deathDocumentFile').files[0];
                         if (!deathFile) { popToast('A death supporting document is required.', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Save Tag'; return; }
@@ -1804,29 +1813,23 @@ The following image can be moved on the page using keyboard controls (left, righ
                             arbUpdate.disqualification_reason = caseDetails || status;
                             break;
                         case 'CANCELLATION OF TITLE':
+                            arbUpdate.for_removal = true;
+                            arbUpdate.removal_reason = caseDetails || status;
+                            break;
                         case 'IDENTIFICATION OF NEW ARB':
+                            break;
                         case 'DISQUALIFICATION AND IDENTIFICATION':
-                            arbUpdate.with_ali_case = true;
-                            arbUpdate.ali_case_type = tagType;
-                            arbUpdate.ali_case_status = status;
-                            if (tagType.includes('DISQUALIFICATION')) arbUpdate.for_disqualification = true;
+                            arbUpdate.for_disqualification = true;
+                            arbUpdate.disqualification_reason = caseDetails || status;
                             break;
                         case 'AO8':
-                        case 'ORDER OF FINALITY':
                             arbUpdate.ao8 = true;
-                            arbUpdate.for_ta = true;
-                            arbUpdate.with_ta = true;
-                            arbUpdate.ta_status = status;
                             break;
                         case 'DEAD':
                             arbUpdate.life_status = 'Dead';
                             lifeUpdate = 'Dead';
                             break;
-                        case 'ALIVE':
-                            arbUpdate.life_status = 'Active';
-                            lifeUpdate = 'Active';
-                            break;
-                        case 'WITH COMPLAIN':
+                        case 'WITH OPEN CASE':
                             arbUpdate.with_existing_complain = true;
                             break;
                     }
@@ -1834,7 +1837,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
                         if (tagErr) throw tagErr;
 
-                        if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION', 'CANCELLATION OF TITLE', 'IDENTIFICATION OF NEW ARB', 'DISQUALIFICATION AND IDENTIFICATION', 'AO8', 'ORDER OF FINALITY', 'WITH COMPLAIN'].includes(tagType)) {
+                        if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION', 'CANCELLATION OF TITLE', 'IDENTIFICATION OF NEW ARB', 'DISQUALIFICATION AND IDENTIFICATION', 'AO8'].includes(tagType)) {
                             const { data: existingMon } = await secureDbClient.from('arb_legal_monitoring').select('id').eq('arb_id', arbId).eq('case_type', tagType).single();
                             const trackingPayload = {
                                 arb_id: arbId,
@@ -2654,7 +2657,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                             const h1 = 20; // top box height
                             const h2 = 6;  // bottom box height
 
-                            const titles = ["Barangay Kagawad", "Barangay Kapitan", "PBDD PERSONNEL", "CARPO-PBDD/MARPO", "PARPO II"];
+                            const titles = ["Barangay Kagawad", "Barangay Kapitan", "PBDD/DARMO PERSONNEL", "CARPO-PBDD/MARPO", "PARPO II"];
 
                             for (let j = 0; j < 5; j++) {
                                 let x = startX + (j * boxWidth);
@@ -2687,7 +2690,7 @@ The following image can be moved on the page using keyboard controls (left, righ
             try {
                 const candidates = await fetchAllRecords(() => secureDbClient.from('arb_duplicate_candidates_v').select('*').order('arb_name_a'));
                 if (!candidates.length) { showModal('Duplicate Record Verification', '<p class="empty-card">No unreviewed duplicate candidates found.</p>'); return; }
-                const body = `<p style="color:#475569;">A duplicate is never deleted automatically. Compare the two records, select a decision, and save the human review.</p><div class="table-wrap"><table><thead><tr><th>Record A</th><th>Record B</th><th>Matching Basis</th><th>Location / Title</th><th>Decision</th><th>Action</th></tr></thead><tbody>${candidates.map(c=>`<tr data-duplicate-a="${c.arb_id_a}" data-duplicate-b="${c.arb_id_b}"><td><strong>${safe(c.arb_name_a)}</strong><br>ARB ${safe(c.arb_id_a)}</td><td><strong>${safe(c.arb_name_b)}</strong><br>ARB ${safe(c.arb_id_b)}</td><td>${safe(c.match_reason)}</td><td>${safe(c.title_no||'')}<br>${safe([c.barangay,c.municipality].filter(Boolean).join(', '))}</td><td><select class="duplicate-decision"><option value="CONFIRMED DUPLICATE">Confirmed Duplicate</option><option value="NOT DUPLICATE">Not Duplicate</option><option value="NEEDS FIELD VALIDATION">Needs Field Validation</option></select><input class="duplicate-notes" placeholder="Review notes" style="margin-top:5px;"></td><td><button class="btn btn-primary btn-sm save-duplicate-review">Save Review</button></td></tr>`).join('')}</tbody></table></div>`;
+                const body = `<p style="color:#475569;">A duplicate is never deleted automatically. Names, title numbers, survey numbers, and Lot Nos. are shown separately for human comparison.</p><div class="duplicate-review-scroll"><table><thead><tr><th>Record A</th><th>Record B</th><th>Matching Basis</th><th>Location</th><th>Decision</th><th>Action</th></tr></thead><tbody>${candidates.map(c=>`<tr data-duplicate-a="${c.arb_id_a}" data-duplicate-b="${c.arb_id_b}"><td><strong>${safe(c.arb_name_a)}</strong><br>ARB ${safe(c.arb_id_a)}<br>Title: ${safe(c.title_no_a||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_a||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_a||c.survey_no||'—')}</td><td><strong>${safe(c.arb_name_b)}</strong><br>ARB ${safe(c.arb_id_b)}<br>Title: ${safe(c.title_no_b||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_b||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_b||c.survey_no||'—')}</td><td>${safe(c.match_reason)}</td><td>${safe([c.barangay,c.municipality].filter(Boolean).join(', '))}</td><td><select class="duplicate-decision"><option value="CONFIRMED DUPLICATE">Confirmed Duplicate</option><option value="NOT DUPLICATE">Not Duplicate</option><option value="NEEDS FIELD VALIDATION">Needs Field Validation</option></select><input class="duplicate-notes" placeholder="Review notes" style="margin-top:5px;"></td><td><button class="btn btn-primary btn-sm save-duplicate-review">Save Review</button></td></tr>`).join('')}</tbody></table></div>`;
                 showModal(`Duplicate Record Verification - ${candidates.length} candidate(s)`, body);
                 document.querySelectorAll('.save-duplicate-review').forEach(btn=>btn.addEventListener('click',async()=>{const row=btn.closest('tr');btn.disabled=true;const {error}=await secureDbClient.from('arb_duplicate_reviews').upsert({arb_id_a:Number(row.dataset.duplicateA),arb_id_b:Number(row.dataset.duplicateB),decision:row.querySelector('.duplicate-decision').value,review_notes:row.querySelector('.duplicate-notes').value||null,reviewed_by:currentUser.id,reviewed_by_name:currentUserProfile?.full_name||currentUser.email,reviewed_at:new Date().toISOString()},{onConflict:'arb_id_a,arb_id_b'});if(error){popToast(error.message,'err');btn.disabled=false;return}row.style.opacity='.5';row.querySelectorAll('input,select,button').forEach(x=>x.disabled=true);popToast('Duplicate review saved.','ok')}));
             } catch(e) { showModal('Duplicate Record Verification', `<p class="empty-card" style="color:#991b1b;">${safe(e.message)}</p>`); }
@@ -2788,12 +2791,38 @@ The following image can be moved on the page using keyboard controls (left, righ
             });
         }
 
+        function openMyProfileEditor() {
+            if (!currentUser || !currentUserProfile) return;
+            showSubModal('My Profile', `<form id="myProfileForm"><div class="form-grid">
+                <div class="form-group full"><label>Email / Login</label><input value="${safe(currentUser.email||currentUserProfile.email||'')}" disabled></div>
+                <div class="form-group full"><label>Complete Name</label><input name="full_name" value="${safe(currentUserProfile.full_name||'')}" required></div>
+                <div class="form-group full"><label>Position</label><input name="position" value="${safe(currentUserProfile.position||'')}"></div>
+                <div class="form-group full"><label>New Password</label><input name="new_password" type="password" minlength="6" placeholder="Leave blank to keep the current password"><small>New accounts initially use password 111111. Change it here after first login.</small></div>
+                </div><div class="modal-actions"><button class="btn btn-primary" type="button" id="cancelMyProfile">Cancel</button><button class="btn btn-primary" type="submit">Save Profile</button></div></form>`);
+            document.getElementById('cancelMyProfile').addEventListener('click', hideSubModal);
+            document.getElementById('myProfileForm').addEventListener('submit', async e => {
+                e.preventDefault(); const button=e.target.querySelector('[type=submit]');button.disabled=true;
+                const fd=new FormData(e.target), fullName=String(fd.get('full_name')||'').trim(), position=emptyToNull(fd.get('position')), password=String(fd.get('new_password')||'');
+                try {
+                    const {error}=await secureDbClient.from('profiles').update({full_name:fullName,position,updated_at:new Date().toISOString()}).eq('id',currentUser.id);if(error)throw error;
+                    if(password){const changed=await secureDbClient.auth.updateUser({password});if(changed.error)throw changed.error;}
+                    currentUserProfile={...currentUserProfile,full_name:fullName,position};hideSubModal();await buildNavbar(currentUserProfile);popToast('Profile updated.','ok');
+                } catch(err){popToast(err.message,'err');button.disabled=false;}
+            });
+        }
+
 
         let currentTableViewRows = [];
         async function saveTableCell(el) {
             if (!isFullAdmin()) return;
             const table = el.dataset.table, id = el.dataset.id, field = el.dataset.field;
             let value = el.value;
+            if (table === 'arb' && field === 'validation_status') {
+                const requestedStatus = value;
+                el.value = el.dataset.previous || 'Pending';
+                openValidationForm(id, requestedStatus, { returnToTable: true });
+                return;
+            }
             if (el.dataset.type === 'boolean') value = value === 'true';
             if (value === '') value = null;
             el.disabled = true;
@@ -2864,7 +2893,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     <th>ALI</th><th>ALI Type</th><th>ALI Status</th><th>Transfer Action</th><th>Title Distributed</th><th>Sequence No.</th>
                 </tr></thead><tbody>${rows.map(({a,p,h,flags}) => `<tr>
                     <td>${displayValue(a.generated_arb_id || a.id)}</td><td>${displayValue(fullName(a))}</td><td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="contact_number" value="${safe(p.contact_number||'')}">`:displayValue(p.contact_number)}</td>
-                    <td>${editable?`<select data-table="arb" data-id="${a.id}" data-field="validation_status"><option ${a.validation_status==='Pending'?'selected':''}>Pending</option><option ${a.validation_status==='Validated'?'selected':''}>Validated</option><option ${a.validation_status==='Rejected'?'selected':''}>Rejected</option></select>`:displayValue(a.validation_status)}</td><td>${displayValue(a.life_status)}</td><td>${editable?`<select data-table="arb_profiles" data-id="${p.id}" data-field="split_status"><option ${p.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option ${p.split_status==='SPLIT'?'selected':''}>SPLIT</option><option ${p.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select>`:displayValue(p.split_status)}</td>
+                    <td>${editable?`<select data-table="arb" data-id="${a.id}" data-field="validation_status" data-previous="${safe(a.validation_status||'Pending')}"><option ${a.validation_status==='Pending'?'selected':''}>Pending</option><option ${a.validation_status==='Validated'?'selected':''}>Validated</option><option ${a.validation_status==='Rejected'?'selected':''}>Rejected</option></select>`:displayValue(a.validation_status)}</td><td>${displayValue(a.life_status)}</td><td>${editable?`<select data-table="arb_profiles" data-id="${p.id}" data-field="split_status"><option ${p.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option ${p.split_status==='SPLIT'?'selected':''}>SPLIT</option><option ${p.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select>`:displayValue(p.split_status)}</td>
                     <td>${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td><td>${displayValue(h.landowner)}</td><td>${editable?`<input data-table="arb_landholdings" data-id="${h.id}" data-field="title_no" value="${safe(h.title_no||'')}">`:displayValue(h.title_no || h.ep_cloa_serial_no)}</td>
                     <td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="e_title_no" value="${safe(p.e_title_no||'')}">`:displayValue(p.e_title_no)}</td><td>${flags.has_individual_title ? 'YES' : 'NO'}</td><td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="cocrom_no" value="${safe(p.cocrom_no||h.cocrom_certificate_no||'')}">`:displayValue(p.cocrom_no || h.cocrom_certificate_no || 'NO')}</td>
                     <td>${displayValue(h.claim_no)}</td><td>${displayValue(h.lhid)}</td><td>${displayValue(h.survey_no)}</td><td>${displayValue(h.lot_no)}</td><td>${displayValue(h.landholding_area)}</td>
@@ -2885,7 +2914,6 @@ The following image can be moved on the page using keyboard controls (left, righ
         // -------- Listeners & Initialization --------
         document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
         document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
-        document.getElementById('batchValidateBtn')?.addEventListener('click', openBatchValidation);
         document.getElementById('generateReportBtn')?.addEventListener('click', openGenerateReport);
         document.getElementById('tableViewBtn')?.addEventListener('click', openTableView);
         document.getElementById('captureValidationBtn')?.addEventListener('click', openValidationCapture);
