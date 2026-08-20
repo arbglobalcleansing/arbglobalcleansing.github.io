@@ -38,7 +38,7 @@
 
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
         .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; color: var(--text-dark); }
-        
+
         .checkbox-column { display: flex; flex-direction: column; gap: 10px; padding: 8px 0; }
         .checkbox-column label { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text-dark); }
 
@@ -303,7 +303,7 @@
             "Lupi": ["Alleomar", "Bagangan", "Bagong Sikat", "Bangon", "Bel-Cruz", "Biga", "Bulawan", "Cabutagan", "Casay", "Colacling (Del Rosario)", "Cristo Rey", "Del Carmen", "Halaban", "Kaibigan", "La Purisima", "Lourdes", "Lupi Nuevo", "Lupi Viejo", "Mangcawayan", "Napolidan", "Poblacion", "Polantuna", "Sagrada", "Salvacion", "San Isidro", "San Jose", "San Pedro", "San Rafael", "San Ramon", "San Vicente", "Santa Cruz", "Santa Rita", "Sooc", "Tanawan", "Tapi", "Tapi Cruz", "Tible"],
             "Ragay": ["Agao-ao", "Agrupacion", "Amomokpok", "Apad", "Apali", "Baya", "Cabadisan", "Cabinitan", "Caditaan", "Cale", "Catabangan Proper", "F. Simeon (Pugod)", "Godofredo Reyes Sr.", "Ina", "Inandono", "Laguio", "Lanigay", "Liboro", "Lohong", "Lower Omon", "Lower Santa Cruz", "Panaytayan", "Panaytayan Nuevo", "Patalunan", "Poblacion Ilaod", "Poblacion Iraya", "Port Junction Norte", "Port Junction Sur", "Salvacion", "Samay", "San Rafael", "Tagbac", "Upper Omon", "Upper Santa Cruz"],
             "Sipocot": ["Aldezar", "Alteza", "Anib", "Awayan", "Azucena", "Bagong Sirang", "Binahian", "Bolo Norte", "Bolo Sur", "Bulan", "Bulawan", "Cabuyao", "Caima", "Calagbangan", "Calampinay", "Carayrayan", "Cotmo", "Gabi", "Gaongan", "Impig", "Lipilip", "Lubigan Jr.", "Lubigan Sr.", "Malaguico", "Malubago", "Manangle", "Mangga", "Manlubang", "Mantila", "North Centro", "North Villazar", "Sagrada Familia", "Salanda", "Salvacion", "San Isidro", "San Vicente", "South Centro", "South Villazar", "Taisan", "Tara", "Tible", "Tula-tula", "Vigaan", "Yabu"],
-            "Gainza": ["Cagbunga", "Dahilig", "Poblacion", "Loob", "Malbong", "Namuat", "Sampaloc"],
+            "Gainza": ["Cagbunga", "Dahilig", "District I (Poblacion)", "District II (Poblacion)", "Loob", "Malbong", "Namuat", "Sampaloc"],
             "Libmanan": ["Aslong", "Awayan", "Bagacay", "Bagadion", "Bagamelon", "Bagumbayan", "Bahao", "Bahay", "Beguito Nuevo", "Beguito Viejo", "Bigajo Norte", "Bigajo Sur", "Bikal", "Busak", "Caima", "Calabnigan", "Camambugan", "Cambalidio", "Candato", "Cawayan", "Concepcion", "Cuco", "Danawan", "Duang Niog", "Handong", "Ibid", "Inalahan", "Labao", "Libod I", "Libod II", "Loba-loba", "Mabini", "Malansad Nuevo", "Malansad Viejo", "Malbogon", "Malinao", "Mambalite", "Mambayawas", "Mambulo Nuevo", "Mambulo Viejo", "Mancawayan", "Mandilihan", "Mantalisay", "Padlos", "Pag-oring Nuevo", "Pag-oring Viejo", "Palangon", "Palong", "Patag", "Planza", "Poblacion", "Potot", "Puro-Batia", "Rongos", "Salvacion", "San Isidro", "San Juan", "San Pablo", "San Vicente", "Sigamot", "Station-Church Site", "Tarum", "Tinalmud Nuevo", "Tinalmud Viejo", "Tinawan", "Udoc", "Umalo", "Uson", "Villaderez", "Villasocorro"],
             "Milaor": ["Alimbuyog", "Amparado", "Balagbag", "Borongborongan", "Cabugao", "Capucnasan", "Dalipay", "Del Rosario", "Flordeliz", "Lipot", "Mayaopayawan", "Maycatmon", "Maydaso", "San Antonio", "San Jose", "San Miguel", "San Roque", "San Vicente", "Santo Domingo", "Tarusanan"],
             "Minalabac": ["Antipolo", "Bagolatao", "Bagongbong", "Baliuag Nuevo", "Baliuag Viejo", "Catanusan", "Del Carmen-Del Rosario", "Del Socorro", "Hamoraon", "Hobo", "Irayang Solong", "Magadap", "Malitbog", "Manapao", "Mataoroc", "Sagrada", "Salingogon", "San Antonio", "San Felipe-Santiago", "San Francisco", "San Jose", "San Juan-San Lorenzo", "Taban", "Tariric", "Timbang"],
@@ -423,7 +423,7 @@
             document.getElementById('winMaxBtn').addEventListener('click', () => { modalEl.classList.toggle('maximized'); modalEl.classList.remove('minimized'); });
             document.getElementById('winMinBtn').addEventListener('click', () => modalEl.classList.toggle('minimized') );
         }
-        
+
         function hideModal() { 
             modalEl.classList.remove('active'); 
             modalEl.style.display = ''; 
@@ -446,7 +446,7 @@
             document.getElementById('subModal').classList.add('active');
             document.getElementById('subWinCloseBtn').addEventListener('click', hideSubModal);
         }
-        
+
         function hideSubModal() {
             document.getElementById('subModal').classList.remove('active');
             document.getElementById('subModalContentContainer').innerHTML = '';
@@ -808,7 +808,7 @@
                 document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
                 document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
                 document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
-                
+
                 // Re-routed individual VALIDATE button directly to the full comprehensive validation form
                 document.querySelectorAll('.update-validation-btn').forEach(btn => btn.addEventListener('click', () => openValidationForm(btn.dataset.arbId, btn.dataset.current)));
 
@@ -1222,8 +1222,6 @@
                         <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" required></div>
                         <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position"></div>
                         <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
-                        <div class="form-group"><label for="valBarangay">Barangay</label><input id="valBarangay" name="validator_barangay"></div>
-                        <div class="form-group"><label for="valTown">Town</label><input id="valTown" name="validator_town"></div>
                         <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
                         <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference" required placeholder="Required"></div>
                     </div>
@@ -1244,8 +1242,6 @@
                     validator_name: emptyToNull(fd.get('validator_name')),
                     position: emptyToNull(fd.get('position')),
                     date_validated: fd.get('date_validated'),
-                    validator_barangay: emptyToNull(fd.get('validator_barangay')),
-                    validator_town: emptyToNull(fd.get('validator_town')),
                     validation_basis: emptyToNull(fd.get('validation_basis')),
                     supporting_document_reference: emptyToNull(fd.get('supporting_document_reference')),
                     recorded_by: currentUserProfile?.full_name || currentUser?.email || null,
@@ -1294,7 +1290,7 @@
                             <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
-                            
+
                             <div class="form-group full">
                                 <label>Legal Flags & ALI Status</label>
                                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -1327,7 +1323,7 @@
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_reason"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_reason==='Double Entry'?'selected':''}>Double Entry</option></select></div>
                         </div>
                         <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
@@ -1649,7 +1645,7 @@
                 const { data: lhData } = await secureDbClient.from('arb_landholdings')
                     .select('municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, landholding_area, asp_no, lot_no')
                     .eq('arb_profile_id', profile.id);
-                
+
                 let tTown = arb.arbo?.municipality;
                 let tBrgy = arb.arbo?.barangay;
                 if (!tTown && lhData && lhData.length > 0) {
@@ -1699,7 +1695,7 @@
 
                 doc.setFontSize(6);
                 doc.setFont("helvetica", "normal");
-                
+
                 doc.text(`ID Number : ${newId}`, 28, 21);
                 doc.text(`Title No : ${tTitle}`, 28, 24);
                 doc.text(`Area : ${tArea}   Lot No : ${tLot}   ASP : ${tAsp}`, 28, 27);
@@ -2232,7 +2228,7 @@
                         if (brgyUpper === targetBrgyUpper) isMatch = true;
                         if (!isMatch && p1 && brgyUpper.includes(p1)) isMatch = true;
                         if (!isMatch && p2 && brgyUpper.includes(p2)) isMatch = true;
-                        
+
                         if (!isMatch) return;
                     }
 
@@ -2269,9 +2265,29 @@
                     const brgy = brgyKeys[i];
                     if (i > 0) doc.addPage();
 
+                    // Generate Unique Sequence Number for this report print
+                    const year = new Date().getFullYear();
+                    let reportRef = `ARB-GC-${year}-${municipality.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-${brgy.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-00000`;
+                    if (secureDbClient) {
+                        try {
+                            const { data, error } = await secureDbClient.rpc('get_next_report_sequence', {
+                                p_municipality: municipality,
+                                p_barangay: brgy,
+                                p_year: year
+                            });
+                            if (!error && data) reportRef = data;
+                        } catch(e) { console.warn(e); }
+                    }
+
                     doc.setFontSize(14);
                     doc.setFont("helvetica", "bold");
                     doc.text(`ARB Cleansing Report - ${municipality}`, 14, 15);
+
+                    // Add Reference Number Top Right
+                    doc.setFontSize(10);
+                    doc.setTextColor(217, 119, 6);
+                    doc.text(`Ref: ${reportRef}`, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
+                    doc.setTextColor(0, 0, 0);
 
                     const head = [
                         [
@@ -2335,37 +2351,34 @@
                         },
                         didDrawPage: function(data) {
                             const pageHeight = doc.internal.pageSize.getHeight();
-                            const y = pageHeight - 18; // Adjusted to bottom
+                            const pageWidth = doc.internal.pageSize.getWidth();
+                            const y = pageHeight - 35; // Position for the signature boxes
 
-                            doc.setFontSize(10);
+                            doc.setFontSize(9);
                             doc.setFont("helvetica", "normal");
                             doc.setTextColor(0, 0, 0);
-                            
-                            // Wide spacing designed for 330.2mm landscape width
-                            const lineLen = "________________________________________"; // 40 chars
 
-                            // 1. Kagawad
-                            doc.text("Validated by:", 15, y - 8);
-                            doc.text(lineLen, 15, y);
-                            doc.text("Barangay Kagawad", 25, y + 4);
+                            // Total usable width (subtracting 20mm margin)
+                            const usableWidth = pageWidth - 20; 
+                            const boxWidth = usableWidth / 5;
+                            const startX = 10;
+                            const h1 = 20; // top box height
+                            const h2 = 6;  // bottom box height
 
-                            // 2. Kapitan
-                            doc.text("Verified by:", 75, y - 8);
-                            doc.text(lineLen, 75, y);
-                            doc.text("Barangay Kapitan", 85, y + 4);
+                            const titles = ["Barangay Kagawad", "Barangay Kapitan", "PBDD PERSONNEL", "CARPO-PBDD/MARPO", "PARPO II"];
 
-                            // 3. PBDD
-                            doc.text(lineLen, 140, y);
-                            doc.text("PBDD PERSONNEL", 152, y + 4);
+                            for (let j = 0; j < 5; j++) {
+                                let x = startX + (j * boxWidth);
+                                
+                                // Top Box 
+                                doc.setDrawColor(0);
+                                doc.rect(x, y, boxWidth, h1);
+                                doc.text("Date:", x + 2, y + h1 - 2);
 
-                            // 4. CARPO
-                            doc.text(lineLen, 205, y);
-                            doc.text("CARPO-PBDD", 222, y + 4);
-
-                            // 5. PARPO
-                            doc.text("Recommending Approval by:", 270, y - 8);
-                            doc.text(lineLen, 270, y);
-                            doc.text("PARPO II", 290, y + 4);
+                                // Bottom Box (Title Row)
+                                doc.rect(x, y + h1, boxWidth, h2);
+                                doc.text(titles[j], x + (boxWidth / 2), y + h1 + 4, { align: "center" });
+                            }
                         }
                     });
                 }
