@@ -6,12 +6,10 @@
     <title>ARB Global Cleansing – ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- jsPDF for Standard CR80 ID Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
-        /* -------- All styles -------- */
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
         .profile-header h2 { margin: 0; }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -653,13 +651,12 @@
             }
         } catch(e) { console.error('Supabase init error:', e); }
 
-        // -------- Load ARB list with filters --------
+        // -------- Load ARB list with strictly merged filters --------
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
 
-            // Clear the "Select All" checkbox
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
 
@@ -685,167 +682,105 @@
                     }
                 }
 
-                let townBarangayArbIds = [];
-                let locationFilterActive = (town || barangay || municipalityPart);
+                // Array of Arrays to intersect
+                let intersectArrays = [];
 
+                // 1. LOCATION FILTER
+                let locationFilterActive = (town || barangay || municipalityPart);
                 if (locationFilterActive) {
+                    let locIds = [];
+
                     let arboQuery = secureDbClient.from('arbo').select('id');
                     if (town) arboQuery = arboQuery.eq('municipality', town);
                     if (barangay) arboQuery = arboQuery.eq('barangay', barangay);
-                    if (municipalityPart) {
-                        arboQuery = arboQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
-                    }
-                    const { data: arboData, error: arboErr } = await arboQuery;
-                    if (arboErr) throw arboErr;
-
+                    if (municipalityPart) arboQuery = arboQuery.ilike('municipality', `%${municipalityPart}%`);
+                    const { data: arboData } = await arboQuery;
+                    
                     if (arboData && arboData.length > 0) {
-                        let arboIds = arboData.map(a => a.id);
+                        const arboIds = arboData.map(a => a.id);
                         const { data: arbsFromArbo } = await secureDbClient.from('arb').select('id').in('arbo_id', arboIds);
-                        townBarangayArbIds = (arbsFromArbo || []).map(a => a.id);
+                        if (arbsFromArbo) arbsFromArbo.forEach(a => locIds.push(String(a.id)));
                     }
 
                     let landQuery = secureDbClient.from('arb_landholdings').select('arb_profile_id');
                     if (town) landQuery = landQuery.eq('municipality', town);
                     if (barangay) landQuery = landQuery.eq('barangay', barangay);
-                    if (municipalityPart) {
-                        landQuery = landQuery.ilike('municipality', `%${municipalityPart.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`);
-                    }
-
-                    const { data: landData, error: landErr } = await landQuery;
-                    if (landErr) throw landErr;
+                    if (municipalityPart) landQuery = landQuery.ilike('municipality', `%${municipalityPart}%`);
+                    const { data: landData } = await landQuery;
 
                     if (landData && landData.length > 0) {
                         const profileIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
                         if (profileIds.length > 0) {
-                            const { data: profs, error: pErr } = await secureDbClient
-                                .from('arb_profiles')
-                                .select('arb_id')
-                                .in('id', profileIds);
-                            if (pErr) throw pErr;
-
-                            const landArbIds = profs.map(p => p.arb_id).filter(Boolean);
-                            townBarangayArbIds = [...new Set([...townBarangayArbIds, ...landArbIds])];
+                            const { data: profs } = await secureDbClient.from('arb_profiles').select('arb_id').in('id', profileIds);
+                            if (profs) profs.forEach(p => locIds.push(String(p.arb_id)));
                         }
                     }
-
-                    if (townBarangayArbIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the selected town/barangay.</td></tr>`;
-                        return;
-                    }
+                    intersectArrays.push([...new Set(locIds)]);
                 }
 
-                let profileQuery = secureDbClient.from('arb_profiles').select('arb_id');
-                if (split) profileQuery = profileQuery.eq('split_status', split);
-                if (cocrom !== '') {
-                    if (cocrom === 'true') profileQuery = profileQuery.not('cocrom_no', 'is', null);
-                    else profileQuery = profileQuery.is('cocrom_no', null);
-                }
-                if (titleDist !== '') {
-                    profileQuery = profileQuery.eq('is_title_distribute', titleDist === 'true');
-                }
-                if (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')) {
-                    const col = searchField === 'sequence' ? 'sequence_no' : 'fb_name';
-                    const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                    profileQuery = profileQuery.ilike(col, pattern);
-                }
-
-                const { data: profiles, error: profErr } = await profileQuery;
-                if (profErr) throw profErr;
-                let profileArbIds = profiles.map(p => p.arb_id).filter(Boolean);
-                let profileFilterApplied = (split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField==='sequence'||searchField==='fb_name')));
-
-                let landholdingArbIds = null;
-                if (searchTerm && searchField === 'landholding') {
-                    const pattern = `%${searchTerm.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                    const landQuery = secureDbClient
-                        .from('arb_landholdings')
-                        .select('arb_profile_id')
-                        .or(`
-                            claim_no.ilike.${pattern},
-                            survey_no.ilike.${pattern},
-                            asp_no.ilike.${pattern},
-                            lot_no.ilike.${pattern},
-                            lhid.ilike.${pattern},
-                            ccloa_title_raw.ilike.${pattern},
-                            title_no.ilike.${pattern},
-                            title_type.ilike.${pattern},
-                            cocrom_certificate_no.ilike.${pattern},
-                            cocrom_reference_raw.ilike.${pattern},
-                            release_status.ilike.${pattern},
-                            ep_cloa_serial_n.ilike.${pattern},
-                            original_mother_t.ilike.${pattern}
-                        `);
-
-                    const { data: landData, error: landErr } = await landQuery;
-                    if (landErr) throw landErr;
-                    if (landData && landData.length > 0) {
-                        const profileIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
-                        if (profileIds.length > 0) {
-                            const { data: profs, error: pErr } = await secureDbClient
-                                .from('arb_profiles')
-                                .select('arb_id')
-                                .in('id', profileIds);
-                            if (pErr) throw pErr;
-                            landholdingArbIds = profs.map(p => p.arb_id).filter(Boolean);
+                // 2. PROFILE FILTER
+                let profileFilterApplied = (split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')));
+                if (profileFilterApplied) {
+                    let profileQuery = secureDbClient.from('arb_profiles').select('arb_id');
+                    if (split) profileQuery = profileQuery.eq('split_status', split);
+                    if (cocrom !== '') {
+                        if (cocrom === 'true') {
+                            profileQuery = profileQuery.not('cocrom_no', 'is', null).neq('cocrom_no', '');
                         } else {
-                            landholdingArbIds = [];
+                            profileQuery = profileQuery.or('cocrom_no.is.null,cocrom_no.eq.""');
                         }
-                    } else {
-                        landholdingArbIds = [];
                     }
+                    if (titleDist !== '') profileQuery = profileQuery.eq('is_title_distribute', titleDist === 'true');
+                    
+                    if (searchTerm && searchField === 'sequence') profileQuery = profileQuery.ilike('sequence_no', `%${searchTerm}%`);
+                    if (searchTerm && searchField === 'fb_name') profileQuery = profileQuery.ilike('fb_name', `%${searchTerm}%`);
+
+                    const { data: profiles } = await profileQuery;
+                    const profileArbIds = (profiles || []).map(p => String(p.arb_id)).filter(Boolean);
+                    intersectArrays.push([...new Set(profileArbIds)]);
                 }
 
+                // 3. LANDHOLDING GLOBAL SEARCH
+                if (searchTerm && searchField === 'landholding') {
+                    const pattern = `%${searchTerm}%`;
+                    const { data: lhData } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},title_no.ilike.${pattern}`);
+                    
+                    let landholdingSearchIds = [];
+                    if (lhData && lhData.length > 0) {
+                        const pIds = [...new Set(lhData.map(l => l.arb_profile_id).filter(Boolean))];
+                        if(pIds.length > 0) {
+                            const { data: profs } = await secureDbClient.from('arb_profiles').select('arb_id').in('id', pIds);
+                            landholdingSearchIds = (profs || []).map(p => String(p.arb_id)).filter(Boolean);
+                        }
+                    }
+                    intersectArrays.push([...new Set(landholdingSearchIds)]);
+                }
+
+                // INTERSECTION LOGIC
                 let finalArbIds = null;
-                if (locationFilterActive) {
-                    finalArbIds = townBarangayArbIds;
-                }
-
-                if (profileFilterApplied && profileArbIds.length === 0) {
-                    if (landholdingArbIds && landholdingArbIds.length > 0) {
-                        finalArbIds = landholdingArbIds;
-                    } else {
-                        tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the filters.</td></tr>`;
+                if (intersectArrays.length > 0) {
+                    finalArbIds = intersectArrays[0];
+                    for (let i = 1; i < intersectArrays.length; i++) {
+                        finalArbIds = finalArbIds.filter(id => intersectArrays[i].includes(id));
+                    }
+                    if (finalArbIds.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the selected filters.</td></tr>`;
                         return;
                     }
-                } else if (profileFilterApplied) {
-                    if (finalArbIds !== null) {
-                        finalArbIds = finalArbIds.filter(id => profileArbIds.includes(id));
-                    } else {
-                        finalArbIds = profileArbIds;
-                    }
                 }
 
-                if (landholdingArbIds !== null) {
-                    if (finalArbIds !== null) {
-                        finalArbIds = finalArbIds.filter(id => landholdingArbIds.includes(id));
-                    } else {
-                        finalArbIds = landholdingArbIds;
-                    }
-                }
-
-                if ((locationFilterActive || profileFilterApplied || landholdingArbIds !== null) && (!finalArbIds || finalArbIds.length === 0)) {
-                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the search.</td></tr>`;
-                    return;
-                }
-
+                // MAIN ARB QUERY
                 let arbQuery = secureDbClient.from('arb').select(`
-                    id,
-                    first_name,
-                    middle_name,
-                    last_name,
-                    validation_status,
-                    life_status,
-                    with_ali_case,
-                    with_ta,
-                    for_disqualificati,
+                    id, first_name, middle_name, last_name, validation_status, with_ali_case, with_ta, for_disqualificati, generated_arb_ic,
                     arbo:arbo_id ( id, name, municipality, barangay )
                 `, { count: 'exact' })
                 .order('id', { ascending: true })
                 .range(page * pageSize, (page + 1) * pageSize - 1);
 
-                if (finalArbIds !== null && finalArbIds.length > 0) {
+                if (finalArbIds !== null) {
                     arbQuery = arbQuery.in('id', finalArbIds);
                 }
+
                 if (validation) arbQuery = arbQuery.eq('validation_status', validation);
                 if (ali !== '') arbQuery = arbQuery.eq('with_ali_case', ali === 'true');
                 if (ta !== '') arbQuery = arbQuery.eq('with_ta', ta === 'true');
@@ -860,12 +795,12 @@
                     } else {
                         const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                         if (tokens.length === 1) {
-                            const pattern = `%${tokens[0].replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                            arbQuery = arbQuery.or(`first_name.ilike.${pattern}, middle_name.ilike.${pattern}, last_name.ilike.${pattern}`);
+                            const p = `%${tokens[0]}%`;
+                            arbQuery = arbQuery.or(`first_name.ilike.${p},middle_name.ilike.${p},last_name.ilike.${p}`);
                         } else {
                             const conditions = tokens.map(token => {
-                                const p = `%${token.replace(/%/g,'\\%').replace(/_/g,'\\_')}%`;
-                                return `first_name.ilike.${p}, last_name.ilike.${p}`;
+                                const p = `%${token}%`;
+                                return `first_name.ilike.${p},last_name.ilike.${p}`;
                             }).join(',');
                             arbQuery = arbQuery.or(conditions);
                         }
@@ -914,7 +849,7 @@
                         
                         html += `<tr>
                             <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
-                            <td><strong>${displayValue(profile.generated_arb_ic || arb.id)}</strong></td>
+                            <td><strong>${displayValue(arb.generated_arb_ic || arb.id)}</strong></td>
                             <td>${safe(fullName(arb))}</td>
                             <td>${displayValue(dispMunicipality)}</td>
                             <td>${displayValue(dispBarangay)}</td>
@@ -939,12 +874,12 @@
                     });
                     tbody.innerHTML = html;
 
-                    // Re-bind Select All Checkbox
+                    // Bind Checkboxes
                     document.getElementById('selectAllArbs')?.addEventListener('change', function() {
                         document.querySelectorAll('.arb-select-cb').forEach(cb => cb.checked = this.checked);
                     });
 
-                    // Attach action event listeners safely
+                    // Bind Table Action Buttons
                     document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
                     document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
                     document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
@@ -964,7 +899,6 @@
             }
         }
 
-        // -------- Populate filter dropdowns --------
         async function populateFilterOptions() {
             const townSelect = document.getElementById('filterTown');
             const towns = Object.keys(locData).sort();
@@ -1036,7 +970,7 @@
                                     ${profile.image_base64 ? `<img src="${profile.image_base64}" alt="Photo">` : safe(arbInitials(arb))}
                                 </div>
                                 <div class="sidebar-name">${safe(fullName(arb))}</div>
-                                <div class="sidebar-id">${displayValue(profile.generated_arb_ic || arb.id)}</div>
+                                <div class="sidebar-id">${displayValue(arb.generated_arb_ic || arb.id)}</div>
                                 <div class="badge-group">
                                     ${badge(profile.life_status || 'Unknown', profile.life_status==='Active'?'success':profile.life_status==='Dead'?'danger':'neutral')}
                                     ${badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning')}
@@ -1205,7 +1139,7 @@
             return html;
         }
 
-        // -------- NEW: FIX STEP-BY-STEP ALI TAGGING WITH DATE --------
+        // -------- FIX: STEP-BY-STEP ALI TAGGING WITH DATE --------
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             
@@ -1353,7 +1287,7 @@
                 const formHtml = `
                     <form id="editArbForm">
                         <div class="form-grid">
-                            <div class="form-group full"><label>ARB ID</label><input value="${safe(profile.generated_arb_ic || arb.id)}" disabled></div>
+                            <div class="form-group full"><label>ARB ID</label><input value="${safe(arb.generated_arb_ic || arb.id)}" disabled></div>
                             <div class="form-group"><label>First Name</label><input name="first_name" value="${safe(arb.first_name||'')}" required></div>
                             <div class="form-group"><label>Middle Name</label><input name="middle_name" value="${safe(arb.middle_name||'')}"></div>
                             <div class="form-group"><label>Last Name</label><input name="last_name" value="${safe(arb.last_name||'')}" required></div>
@@ -1375,8 +1309,7 @@
                         first_name: emptyToNull(fd.get('first_name')),
                         middle_name: emptyToNull(fd.get('middle_name')),
                         last_name: emptyToNull(fd.get('last_name')),
-                        validation_status: fd.get('validation_status'),
-                        updated_at: new Date().toISOString()
+                        validation_status: fd.get('validation_status')
                     };
                     const profilePayload = {
                         fb_name: emptyToNull(fd.get('fb_name')),
@@ -1401,7 +1334,7 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- NEW: SELECTIVE BATCH VALIDATION --------
+        // -------- FIX: SELECTIVE BATCH VALIDATION --------
         async function openBatchValidation() {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
 
@@ -1480,7 +1413,7 @@
             });
         }
 
-        // -------- NEW: jsPDF PDF GENERATION --------
+        // -------- FIX: jsPDF ID GENERATION --------
         async function generateArbId(arbId, arbName) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1496,11 +1429,11 @@
                 }
                 const newId = `DAR-Camsur-${seq}`;
                 
-                // Save ID to DB
+                // Save ID to DB directly using the matching schema column names
                 await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId, sequence_no: seq }).eq('id', profile.id);
                 await secureDbClient.from('arb').update({ generated_arb_ic: newId }).eq('id', arbId);
 
-                // Initialize PDF generation (CR-80 Standard Size)
+                // Initialize PDF generation (CR-80 Standard Size: 85.6mm x 54mm)
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
                 
@@ -1527,12 +1460,126 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Utility Modal Windows --------
+        // -------- FIX: RESTORED FULL FUNCTIONALITIES --------
         async function openPhotoUpload(arbId) {
-            popToast('Photo upload module initialized. (Connected to external DB)', 'info');
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            const formHtml = `
+                <form id="photoForm">
+                    <div class="form-group"><label>Upload Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
+                    <div class="form-group"><label>Or capture from webcam</label><button type="button" class="btn btn-primary" id="startWebcamBtn">Start Webcam</button>
+                        <video id="webcamVideo" autoplay style="width:100%;max-width:320px;border:1px solid #ccc;border-radius:6px;margin-top:6px;display:none;"></video>
+                        <canvas id="webcamCanvas" style="display:none;"></canvas>
+                        <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;">Capture</button>
+                    </div>
+                    <div id="photoPreview"></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
+                </form>
+            `;
+            showModal('Upload ARB Photo', formHtml);
+            document.getElementById('cancelPhotoBtn').addEventListener('click', hideModal);
+
+            let webcamStream = null;
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            const preview = document.getElementById('photoPreview');
+
+            document.getElementById('startWebcamBtn').addEventListener('click', async function() {
+                try {
+                    webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = webcamStream;
+                    video.style.display = 'block';
+                    document.getElementById('captureWebcamBtn').style.display = 'inline-block';
+                } catch(e) {
+                    popToast('Unable to access webcam: ' + e.message, 'err');
+                }
+            });
+
+            document.getElementById('captureWebcamBtn').addEventListener('click', function() {
+                if (!webcamStream) return;
+                canvas.width = video.videoWidth || 320;
+                canvas.height = video.videoHeight || 320;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                preview.innerHTML = `<img src="${dataUrl}" style="max-width:150px;border-radius:8px;">`;
+                let hidden = document.getElementById('photoData');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.id = 'photoData';
+                    hidden.name = 'photo_data';
+                    document.getElementById('photoForm').appendChild(hidden);
+                }
+                hidden.value = dataUrl;
+                if (webcamStream) {
+                    webcamStream.getTracks().forEach(t => t.stop());
+                    webcamStream = null;
+                    video.srcObject = null;
+                    video.style.display = 'none';
+                    document.getElementById('captureWebcamBtn').style.display = 'none';
+                }
+            });
+
+            document.getElementById('photoForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('photoFileInput');
+                let rawImageData = null;
+
+                if (fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    rawImageData = await new Promise((resolve) => {
+                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.readAsDataURL(fileInput.files[0]);
+                    });
+                } else {
+                    const hidden = document.getElementById('photoData');
+                    if (hidden) rawImageData = hidden.value;
+                }
+
+                if (!rawImageData) { popToast('No photo selected or captured.', 'warn'); return; }
+                const compressedImageData = await compressImage(rawImageData, 400, 0.7);
+
+                try {
+                    const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                    if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
+                    const profile = profRes.data;
+                    const { error } = await secureDbClient.from('arb_profiles').update({
+                        image_base64: compressedImageData,
+                        updated_at: new Date().toISOString(),
+                        updated_by: currentUserProfile?.full_name || currentUser?.email || null
+                    }).eq('id', profile.id);
+                    if (error) throw error;
+                    hideModal();
+                    popToast('Photo uploaded successfully.', 'ok');
+                    loadArbs(currentPage);
+                } catch(err) { popToast(err.message, 'err'); }
+            });
         }
+
         async function openAssignArbo(arbId) {
-            popToast('ARBO assign module initialized. (Connected to external DB)', 'info');
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (arboList.length === 0) await loadArboList();
+            const options = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
+            const formHtml = `
+                <form id="assignArboForm">
+                    <div class="form-group"><label for="arboSelect">Select ARBO</label><select id="arboSelect" name="arbo_id" required><option value="">-- Choose --</option>${options}</select></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
+                </form>
+            `;
+            showModal('Assign ARB to ARBO', formHtml);
+            document.getElementById('cancelArboBtn').addEventListener('click', hideModal);
+            document.getElementById('assignArboForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const arboId = document.getElementById('arboSelect').value;
+                if (!arboId) { popToast('Please select an ARBO.','warn'); return; }
+                try {
+                    const { error } = await secureDbClient.from('arb').update({ arbo_id: arboId }).eq('id', arbId);
+                    if (error) throw error;
+                    hideModal();
+                    popToast('ARBO assigned successfully.', 'ok');
+                    loadArbs(currentPage);
+                } catch(err) { popToast(err.message, 'err'); }
+            });
         }
 
         // -------- Listeners --------
