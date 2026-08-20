@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- AutoTable needed for the complex Barangay Report -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
@@ -22,69 +21,68 @@
             --bg-light: #f8fafc;
         }
 
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text-dark); background: #f1f5f9; }
+        
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
-        .profile-header h2 { margin: 0; color: var(--primary-green); }
+        .profile-header h2 { margin: 0; color: var(--primary-green); font-weight: 800; }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
         .validator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
         .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-green); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .validator-item .type-badge { display: inline-block; background: #d1fae5; color: var(--primary-green); padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
-        .validator-item .name { font-weight: 700; font-size: 1.05rem; }
+        .validator-item .type-badge { display: inline-block; background: #d1fae5; color: var(--primary-green); padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+        .validator-item .name { font-weight: 700; font-size: 1.05rem; color: var(--primary-green); }
         .validator-item .detail { font-size: 0.9rem; color: var(--text-muted); }
+        
         .management-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: 1 / -1; }
-        .form-group label { font-weight: 700; color: var(--text-muted); }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: var(--text-dark); transition: border-color 0.2s; }
-        .form-group input:focus, .form-group select:focus { border-color: var(--primary-green); outline: none; }
+        .form-group label { font-weight: 700; font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: var(--text-dark); transition: border-color 0.2s; font-family: inherit; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary-green); outline: none; box-shadow: 0 0 0 3px rgba(6, 95, 70, 0.1); }
         .form-group textarea { min-height: 90px; resize: vertical; }
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
-        .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+        .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; color: var(--text-dark); }
+        
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
         
-        .btn-primary { background: var(--primary-green) !important; color: white !important; border: 1px solid #064E3B !important; transition: all 0.2s; cursor: pointer; }
-        .btn-primary:hover { background: var(--hover-green) !important; }
-        .btn-primary:disabled { background: #94a3b8 !important; border-color: #64748b !important; cursor: not-allowed; opacity: 0.8; }
-
-        .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
-        .search-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
+        .btn-primary { background: var(--primary-green) !important; color: white !important; border: none !important; border-radius: 6px; padding: 8px 16px; font-weight: 600; transition: all 0.2s; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+        .btn-primary:hover { background: var(--hover-green) !important; transform: translateY(-1px); }
+        .btn-primary:disabled { background: #94a3b8 !important; cursor: not-allowed; opacity: 0.8; transform: none; }
         
         /* CLEAN ACTION BUTTON GRID */
-        .action-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; min-width: 140px; }
+        .action-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; min-width: 140px; }
         .update-validation-btn { grid-column: span 2; }
-        .btn-sm { padding: 6px; font-size: 0.75rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 600; }
+        .btn-sm { padding: 5px 8px !important; font-size: 0.7rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
         
-        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
-        .badge-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-        .badge-warning { background: #fef08a; color: #713f12; border: 1px solid #fde047; } /* DAR Gold */
-        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        .badge-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-        .badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge-success { background: #dcfce7; color: #166534; }
+        .badge-warning { background: #fef08a; color: #713f12; } /* DAR Gold */
+        .badge-danger { background: #fee2e2; color: #991b1b; }
+        .badge-info { background: #dbeafe; color: #1e40af; }
+        .badge-neutral { background: #f1f5f9; color: #475569; }
 
-        .arb-table-wrap { overflow-x: auto; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 8px; }
-        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; }
-        .arb-table th { background: var(--bg-light); color: var(--primary-green); padding: 14px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
+        .arb-table-wrap { overflow-x: auto; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 8px; background: white; border: 1px solid #e2e8f0; }
+        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .arb-table th { background: var(--bg-light); color: var(--primary-green); padding: 14px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
         .arb-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
         .arb-table tr:hover { background: #f8fafc; }
         
-        .empty-card { color: #64748b; font-style: italic; }
+        .empty-card { color: var(--text-muted); font-style: italic; text-align: center; padding: 40px; }
         
         .pagination { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
         .pagination button { padding: 6px 14px; }
         
         .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: var(--bg-light); padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .filter-row .form-group { min-width: 140px; flex: 1; }
-        .filter-row .form-group label { font-weight: 600; font-size: 0.8rem; color: var(--primary-green); }
-        .filter-row .form-group select, .filter-row .form-group input { padding: 8px 10px; }
         .filter-actions { display: flex; gap: 8px; align-items: center; }
 
         .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .search-container .search-input-group { flex: 3; min-width: 200px; display: flex; gap: 8px; }
-        .search-container .search-input-group input { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
-        .search-container .search-input-group select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font-size: 0.95rem; min-width: 140px; }
+        .search-container .search-input-group input { flex: 1; }
+        .search-container .search-input-group select { min-width: 140px; }
         .search-container .search-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .toggle-filters-btn { background: none; border: none; color: var(--primary-green); font-weight: 600; cursor: pointer; padding: 8px 12px; border-radius: 6px; transition: background 0.2s; }
+        .toggle-filters-btn { background: none; border: none; color: var(--primary-green); font-weight: 700; cursor: pointer; padding: 8px 12px; border-radius: 6px; transition: background 0.2s; }
         .toggle-filters-btn:hover { background: #ecfdf5; }
         .advanced-filters { margin-top: 12px; padding: 16px; background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .advanced-filters.open { display: block; }
@@ -94,18 +92,17 @@
         .modal.active { display: grid; }
         
         .modal-content { 
-            background: #fff; width: 95%; max-width: 1150px; height: 85vh !important; /* STRICTLY FIXED HEIGHT */
+            background: #fff; width: 95%; max-width: 1200px; height: 88vh !important; /* STRICTLY FIXED HEIGHT */
             border-radius: 12px; display: flex; flex-direction: column; 
-            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); 
         }
 
         /* DYNAMIC HEIGHT FOR POP-UP FORMS OVERLAY */
-        .sub-modal-content {
-            height: auto !important; max-height: 90vh !important; max-width: 650px !important;
-        }
+        .sub-modal-content { height: auto !important; max-height: 90vh !important; max-width: 650px !important; }
         
-        .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--primary-green); color: #fff; border-bottom: 2px solid var(--dar-gold); flex-shrink: 0; }
-        .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; }
+        .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--primary-green); color: #fff; border-bottom: 3px solid var(--dar-gold); flex-shrink: 0; }
+        .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; transition: transform 0.2s; }
+        .window-btn:hover { transform: scale(1.1); }
         .btn-close-win { background: #ff5f56; }
         .btn-min-win { background: #ffbd2e; }
         .btn-max-win { background: #27c93f; }
@@ -115,34 +112,40 @@
         .modal.minimized .modal-body-scroll { display: none !important; }
         .modal.minimized .profile-modal { display: none !important; }
         
-        .modal-body-scroll { padding: 20px; overflow-y: auto; flex: 1; background: var(--bg-light); display: flex; flex-direction: column; height: 100%; } 
+        .modal-body-scroll { padding: 0; overflow-y: auto; flex: 1; background: var(--bg-light); display: flex; flex-direction: column; height: 100%; } 
 
         .profile-modal { display: flex; flex-direction: column; overflow: hidden; height: 100%; flex: 1; } 
-        .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 100%; }
-        .profile-sidebar { width: 270px; min-width: 220px; background: #f8fafc; padding: 24px 18px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; }
-        .profile-sidebar .avatar { width: 130px; height: 130px; border-radius: 50%; background: linear-gradient(145deg, var(--primary-green), #047857); color: white; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #d1fae5; object-fit: cover; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .profile-sidebar .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; color: var(--primary-green); }
-        .profile-sidebar .sidebar-id { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; }
-        .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 24px; }
-        .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
-        .profile-sidebar .sidebar-actions .btn { width: 100%; padding: 10px; font-weight: 600; letter-spacing: 0.03em; }
+        .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; height: 100%; }
         
-        .profile-tabs { flex: 1; padding: 20px 30px; overflow: hidden; background: white; display: flex; flex-direction: column; height: 100%; }
-        .profile-tabs .tab-nav { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; flex-shrink: 0; }
-        .profile-tabs .tab-nav button { background: none; border: none; padding: 10px 20px; font-weight: 700; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem; }
+        .profile-sidebar { width: 280px; min-width: 250px; background: #f8fafc; padding: 30px 20px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; box-sizing: border-box; }
+        .profile-sidebar .avatar { width: 140px; height: 140px; border-radius: 50%; background: linear-gradient(145deg, var(--primary-green), #047857); color: white; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #d1fae5; object-fit: cover; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .profile-sidebar .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--primary-green); line-height: 1.2; }
+        .profile-sidebar .sidebar-id { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; font-family: monospace; }
+        .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 24px; }
+        .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .profile-sidebar .sidebar-actions .btn { width: 100%; padding: 12px; font-weight: 700; letter-spacing: 0.03em; border-radius: 8px; }
+        
+        .profile-tabs { flex: 1; padding: 24px 30px; background: white; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; min-width: 0; }
+        .profile-tabs .tab-nav { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; flex-shrink: 0; }
+        .profile-tabs .tab-nav button { background: none; border: none; padding: 10px 20px; font-weight: 800; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .profile-tabs .tab-nav button:hover { color: var(--primary-green); }
-        .profile-tabs .tab-nav button.active { color: var(--primary-green); border-bottom-color: var(--dar-gold); }
+        .profile-tabs .tab-nav button.active { color: var(--primary-green); border-bottom-color: var(--primary-green); }
         
         /* THIS FIXES THE SHRINKING BUG */
-        .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 10px; min-height: 0; }
-        
+        .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 15px; min-height: 0; }
         .profile-tabs .tab-content.active { display: block; }
-        .profile-tabs .tab-content h4 { margin-top: 0; color: var(--primary-green); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-size: 1.15rem; }
-        .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 30px; margin-bottom: 20px; }
+        
+        .profile-tabs .tab-content h4 { margin-top: 0; color: var(--primary-green); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-size: 1.15rem; font-weight: 800; }
+        .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 40px; margin-bottom: 30px; }
         .profile-tabs .detail-item { display: flex; flex-direction: column; border-bottom: 1px solid #f1f5f9; padding: 8px 0; }
-        .profile-tabs .detail-item .label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-        .profile-tabs .detail-item .value { font-size: 1rem; color: var(--text-dark); font-weight: 500; }
+        .profile-tabs .detail-item .label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+        .profile-tabs .detail-item .value { font-size: 1rem; color: var(--text-dark); font-weight: 600; word-break: break-word; }
+        
+        .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .table-wrap th { background: var(--bg-light); color: var(--primary-green); padding: 12px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
+        .table-wrap td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
         
         @media (max-width: 800px) {
             .profile-modal .modal-body { flex-direction: column; }
@@ -153,7 +156,7 @@
 </head>
 <body>
 <div class="container">
-    <h1 style="color: #065F46;">🏛️ ARB Global Cleansing <small style="color: #D97706;">ARB Management</small></h1>
+    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">🏛️ ARB Global Cleansing <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
@@ -172,7 +175,7 @@
             <button type="button" class="btn btn-primary" id="globalSearchBtn">🔍 Search</button>
             <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
-            <button type="button" class="btn btn-primary" id="searchCcloaBtn" style="background:#D97706; border-color:#b45309;">📂 CCLOA</button>
+            <button type="button" class="btn btn-primary" id="searchCcloaBtn" style="background:var(--dar-gold); border-color:#b45309;">📂 CCLOA</button>
             <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
             <button type="button" class="btn btn-primary" id="generateReportBtn">📄 Generate Form</button>
         </div>
@@ -244,31 +247,31 @@
             <table class="arb-table" id="arbTable">
                 <thead>
                     <tr>
-                        <th style="width:40px;"><input type="checkbox" id="selectAllArbs" title="Select All on page"></th>
-                        <th>ARB ID</th>
+                        <th style="width:30px;"><input type="checkbox" id="selectAllArbs" title="Select All on page"></th>
                         <th>Name</th>
+                        <th>Title Number</th>
+                        <th>Lot No.</th>
+                        <th>Area</th>
+                        <th>Survey No.</th>
                         <th>Municipality</th>
                         <th>Barangay</th>
                         <th>Validation</th>
                         <th>Life</th>
-                        <th>Classification</th>
-                        <th>ALI</th>
-                        <th>TA</th>
                         <th>CoCROM</th>
-                        <th>Title No.</th>
-                        <th>Title Distr.</th>
-                        <th style="min-width: 170px;">Actions</th>
+                        <th>TA</th>
+                        <th>ALI</th>
+                        <th style="min-width: 140px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
-                    <tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">Loading ARBs...</td></tr>
+                    <tr><td colspan="14" class="empty-card">⏳ Loading Data... Please wait.</td></tr>
                 </tbody>
             </table>
         </div>
         
         <div class="pagination" id="paginationControls">
             <button type="button" class="btn btn-primary" id="prevPageBtn" disabled>Previous</button>
-            <span id="pageInfo">Page 1</span>
+            <span id="pageInfo" style="font-weight: 600; color: var(--primary-green);">Page 1</span>
             
             <div style="display:flex; gap:6px; align-items:center; margin-left:20px; padding-left:20px; border-left:2px solid #cbd5e1;">
                 <span style="font-size:0.85rem; font-weight:700; color:var(--primary-green);">Jump to:</span>
@@ -286,7 +289,7 @@
     </div>
 
     <!-- Secondary Forms Modal (Dynamic Size, Overlays Main Modal) -->
-    <div id="subModal" class="modal" style="z-index: 1050; background: rgba(15,23,42,0.8);">
+    <div id="subModal" class="modal" style="z-index: 1050;">
         <div class="modal-content sub-modal-content" id="subModalContentContainer"></div>
     </div>
 
@@ -338,7 +341,7 @@
             const cls = kind==='success'?'badge-success':kind==='danger'?'badge-danger':kind==='info'?'badge-info':kind==='neutral'?'badge-neutral':'badge-warning';
             return `<span class="badge ${cls}">${displayValue(value)}</span>`;
         }
-        function boolBadge(value) { return value ? badge('Yes','warning') : badge('No','success'); }
+        function boolBadge(value) { return value ? badge('YES','success') : badge('NO','neutral'); }
         function emptyToNull(value) { const t = String(value ?? '').trim(); return t === '' ? null : t; }
         function fullName(arb) {
             if (!arb) return '—';
@@ -354,7 +357,7 @@
             const el = document.getElementById('toast');
             if (!el) return;
             const colors = { info:'#1e293b', ok:'#065F46', warn:'#D97706', err:'#991b1b' };
-            el.style.borderLeftColor = type==='ok'?'#10b981':type==='warn'?'#fde047':type==='err'?'#f87171':'#e8a317';
+            el.style.borderLeftColor = type==='ok'?'#10b981':type==='warn'?'#facc15':type==='err'?'#f87171':'#e8a317';
             el.style.background = colors[type] || '#1e293b';
             el.textContent = msg;
             el.classList.add('show');
@@ -415,7 +418,7 @@
             const modalContent = document.getElementById('modalContentContainer');
             modalContent.innerHTML = `
                 <div class="modal-header-bar">
-                    <h3 style="margin:0; font-size:1.05rem; font-weight:700;">${safe(title)}</h3>
+                    <h3 style="margin:0; font-size:1.15rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${safe(title)}</h3>
                     <div class="modal-window-controls" style="display:flex; gap:8px;">
                         <button type="button" class="window-btn btn-min-win" id="winMinBtn" title="Minimize"></button>
                         <button type="button" class="window-btn btn-max-win" id="winMaxBtn" title="Maximize"></button>
@@ -437,22 +440,22 @@
         function showSubModal(title, body) {
             const subModalContent = document.getElementById('subModalContentContainer');
             subModalContent.innerHTML = `
-                <div class="modal-header-bar" style="background:#1e293b; border-bottom: 2px solid #64748b;">
-                    <h3 style="margin:0; font-size:1.05rem; font-weight:700;">${safe(title)}</h3>
+                <div class="modal-header-bar">
+                    <h3 style="margin:0; font-size:1.15rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${safe(title)}</h3>
                     <div class="modal-window-controls" style="display:flex; gap:8px;">
                         <button type="button" class="window-btn btn-close-win" id="subWinCloseBtn" title="Close"></button>
                     </div>
                 </div>
-                <div class="modal-body-scroll">${body}</div>
+                <div class="modal-body-scroll" style="padding: 24px;">${body}</div>
             `;
-            document.getElementById('modal').style.display = 'none'; // Temporarily hide main profile to reduce clutter
+            document.getElementById('modal').style.display = 'none'; 
             document.getElementById('subModal').classList.add('active');
             document.getElementById('subWinCloseBtn').addEventListener('click', hideSubModal);
         }
         function hideSubModal() {
             document.getElementById('subModal').classList.remove('active');
             document.getElementById('subModalContentContainer').innerHTML = '';
-            document.getElementById('modal').style.display = 'grid'; // Restore main profile modal
+            document.getElementById('modal').style.display = 'grid'; 
         }
 
         async function buildNavbar(profile) {
@@ -475,8 +478,8 @@
             }).join('');
             if (profile) {
                 const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || '—');
-                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:600;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
-                html += `<span class="logout-link" id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
+                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
+                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">🚪 Logout</span>`;
             } else {
                 html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">⚠️ Not Logged In</span>`;
                 html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
@@ -502,7 +505,7 @@
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:40px; font-size:1.1rem; color:var(--primary-green);">⏳ Loading Data... Please wait.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" class="empty-card">⏳ Loading Data... Please wait.</td></tr>`;
 
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
@@ -542,7 +545,6 @@
                         let q = secureDbClient.from('arbo').select('id');
                         if (town) q = q.ilike('municipality', town); 
                         if (barangay) {
-                            // Flexible Search logic for barangay
                             const parts = barangay.match(/^(.*?)(?:\((.*?)\))?$/);
                             const p1 = parts[1] ? parts[1].trim() : '';
                             const p2 = parts[2] ? parts[2].trim() : '';
@@ -655,7 +657,7 @@
                         finalIds = finalIds.filter(id => setB.has(id));
                     }
                     if (finalIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">No ARBs match the specific combination of filters.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
                         document.getElementById('pageInfo').textContent = `Page 1 of 1`;
                         document.getElementById('prevPageBtn').disabled = true;
                         document.getElementById('nextPageBtn').disabled = true;
@@ -670,7 +672,7 @@
                     
                     if (pageIds.length > 0) {
                         const res = await secureDbClient.from('arb').select(`
-                            id, first_name, middle_name, last_name, validation_status,
+                            id, first_name, middle_name, last_name, validation_status, life_status,
                             with_ali_case, with_ta, for_disqualificati, 
                             arbo:arbo_id ( id, name, municipality, barangay )
                         `).in('id', pageIds).order('id', { ascending: true });
@@ -680,7 +682,7 @@
                     }
                 } else {
                     const res = await secureDbClient.from('arb').select(`
-                        id, first_name, middle_name, last_name, validation_status,
+                        id, first_name, middle_name, last_name, validation_status, life_status,
                         with_ali_case, with_ta, for_disqualificati, 
                         arbo:arbo_id ( id, name, municipality, barangay )
                     `, { count: 'exact' })
@@ -693,12 +695,12 @@
                 }
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">No ARBs match the filters.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
                         arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status,
-                        arb_landholdings ( municipality, barangay, title_no, ep_cloa_serial_n, ep_cloa_serial_no )
+                        arb_landholdings ( municipality, barangay, title_no, ep_cloa_serial_n, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no )
                     `).in('arb_id', arbIds);
                     
                     const profileMap = {};
@@ -709,48 +711,61 @@
                         const profile = profileMap[String(arb.id)] || {};
                         const arbo = arb.arbo || {};
 
-                        let dispMunicipality = arbo.municipality;
-                        let dispBarangay = arbo.barangay;
+                        let dispMunicipality = arbo.municipality || '—';
+                        let dispBarangay = arbo.barangay || '—';
                         let dispTitle = '—';
+                        let dispLot = '—';
+                        let dispArea = '—';
+                        let dispSurvey = '—';
+                        let dispCocrom = '—';
                         
                         if (profile.arb_landholdings && profile.arb_landholdings.length > 0) {
-                            const validLandholding = profile.arb_landholdings.find(l => l.municipality);
-                            if (validLandholding) {
-                                dispMunicipality = dispMunicipality || validLandholding.municipality;
-                                dispBarangay = dispBarangay || validLandholding.barangay;
-                            }
                             const lh = profile.arb_landholdings[0];
-                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || '—';
+                            dispMunicipality = lh.municipality || dispMunicipality;
+                            dispBarangay = lh.barangay || dispBarangay;
+                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || lh.ccloa_title_raw || '—';
+                            dispLot = lh.lot_no || '—';
+                            dispArea = lh.landholding_area || '—';
+                            dispSurvey = lh.survey_no || '—';
+                            dispCocrom = profile.cocrom_no || lh.cocrom_certificate_no || '—';
+                        } else {
+                            dispCocrom = profile.cocrom_no || '—';
                         }
 
-                        const hasCocrom = profile.cocrom_no && profile.cocrom_no.trim() !== '';
-                        const aliTag = arb.with_ali_case ? badge('ALI','danger') : '—';
-                        const taTag = arb.with_ta ? badge('TA','warning') : '—';
-                        const validationBadge = badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning');
-                        const lifeBadge = badge(profile.life_status || 'Unknown', profile.life_status==='Active'?'success':profile.life_status==='Dead'?'danger':'neutral');
+                        const aliTag = arb.with_ali_case ? badge('YES','danger') : badge('NO', 'neutral');
+                        const taTag = arb.with_ta ? badge('YES','warning') : badge('NO', 'neutral');
+                        const cocromTag = (dispCocrom !== '—') ? badge('YES','success') : badge('NO', 'neutral');
+                        
+                        const validationBadge = badge(arb.validation_status || 'PENDING', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning');
+                        const lStatus = arb.life_status || profile.life_status || 'UNKNOWN';
+                        const lifeBadge = badge(lStatus, lStatus==='Active'?'success':lStatus==='Dead'?'danger':'neutral');
+                        
                         html += `<tr>
                             <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
-                            <td><strong>${displayValue(profile.generated_arb_ic || arb.id)}</strong></td>
-                            <td>${safe(fullName(arb))}</td>
+                            <td>
+                                <strong style="color:var(--text-dark); font-size:0.95rem;">${safe(fullName(arb))}</strong>
+                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${displayValue(profile.generated_arb_ic || arb.id)}</div>
+                            </td>
+                            <td>${displayValue(dispTitle)}</td>
+                            <td>${displayValue(dispLot)}</td>
+                            <td>${displayValue(dispArea)}</td>
+                            <td>${displayValue(dispSurvey)}</td>
                             <td>${displayValue(dispMunicipality)}</td>
                             <td>${displayValue(dispBarangay)}</td>
                             <td>${validationBadge}</td>
                             <td>${lifeBadge}</td>
-                            <td>${displayValue(profile.split_status)}</td>
-                            <td>${aliTag}</td>
+                            <td>${cocromTag}</td>
                             <td>${taTag}</td>
-                            <td>${boolBadge(hasCocrom)}</td>
-                            <td>${displayValue(dispTitle)}</td>
-                            <td>${boolBadge(profile.is_title_distribute)}</td>
+                            <td>${aliTag}</td>
                             <td>
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">Gen ID</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
+                                    <button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>
+                                    <button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>
+                                    <button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>
+                                    <button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>
+                                    <button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>
+                                    <button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>
                                 </div>
                             </td>
                         </tr>`;
@@ -864,7 +879,7 @@
                         dispBarangay = dispBarangay || validLandholding.barangay;
                     }
                     const lh = landholdings[0];
-                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || '—';
+                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || lh.ccloa_title_raw || '—';
                 }
 
                 const body = `
@@ -878,7 +893,7 @@
                                 <div class="sidebar-name">${safe(fullName(arb))}</div>
                                 <div class="sidebar-id">${displayValue(profile.generated_arb_ic || arb.id)}</div>
                                 <div class="badge-group">
-                                    ${badge(profile.life_status || 'Unknown', profile.life_status==='Active'?'success':profile.life_status==='Dead'?'danger':'neutral')}
+                                    ${badge(arb.life_status || profile.life_status || 'Unknown', (arb.life_status || profile.life_status)==='Active'?'success':(arb.life_status || profile.life_status)==='Dead'?'danger':'neutral')}
                                     ${badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning')}
                                     ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                 </div>
@@ -955,7 +970,7 @@
 
             } catch (err) {
                 const mBody = document.getElementById('modalBody');
-                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`;
+                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#991b1b;">❌ ${safe(err.message)}</p>`;
                 popToast(err.message, 'err');
             }
         }
@@ -975,7 +990,7 @@
                 { label: 'District', value: profile.district },
                 { label: 'Title Number', value: dispTitle },
                 { label: 'ARBO', value: arbo.name },
-                { label: 'Life Status', value: profile.life_status, badge: true },
+                { label: 'Life Status', value: arb.life_status || profile.life_status, badge: true },
                 { label: 'Validation Status', value: arb.validation_status, badge: true },
                 { label: 'SPLIT Status', value: profile.split_status, badge: true },
                 { label: 'CCLOA Membership', value: profile.ccloa_membersh },
@@ -1125,7 +1140,7 @@
                         <div class="form-group full"><label for="heirDoc">Supporting Document Reference</label><input id="heirDoc" name="supporting_document_reference"></div>
                         <div class="form-group full"><div class="checkbox-row"><label><input type="checkbox" name="is_verified"> Verified</label><label><input type="checkbox" name="is_selected"> Selected</label></div></div>
                     </div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelHeirBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Heir</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelHeirBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Heir</button></div>
                 </form>
             `;
             showSubModal('Add Heir', formHtml);
@@ -1179,7 +1194,7 @@
                         <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
                         <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference"></div>
                     </div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
                 </form>
             `;
             showSubModal('Add Validation', formHtml);
@@ -1238,7 +1253,7 @@
                             <div class="form-group"><label for="editFirstName">First Name</label><input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required></div>
                             <div class="form-group"><label for="editMiddleName">Middle Name</label><input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}"></div>
                             <div class="form-group"><label for="editLastName">Last Name</label><input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required></div>
-                            <div class="form-group"><label for="editLifeStatus">Life Status</label><select id="editLifeStatus" name="life_status"><option value="Active" ${profile.life_status==='Active'?'selected':''}>Active</option><option value="Dead" ${profile.life_status==='Dead'?'selected':''}>Dead</option><option value="Unknown" ${!profile.life_status?'selected':''}>Unknown</option></select></div>
+                            <div class="form-group"><label for="editLifeStatus">Life Status</label><select id="editLifeStatus" name="life_status"><option value="Active" ${(arb.life_status || profile.life_status)==='Active'?'selected':''}>Active</option><option value="Dead" ${(arb.life_status || profile.life_status)==='Dead'?'selected':''}>Dead</option><option value="Unknown" ${!(arb.life_status || profile.life_status)?'selected':''}>Unknown</option></select></div>
                             <div class="form-group"><label for="editValidationStatus">Validation Status</label><select id="editValidationStatus" name="validation_status"><option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option><option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option></select></div>
                             <div class="form-group full"><label for="editFbName">FB Name</label><input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}"></div>
                             <div class="form-group"><label for="editSplitStatus">SPLIT Status</label><select id="editSplitStatus" name="split_status"><option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option><option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select></div>
@@ -1249,7 +1264,7 @@
                             <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
                             <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option></select></div>
                         </div>
-                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
                 `;
                 showSubModal('Edit ARB Record', formHtml);
@@ -1265,7 +1280,7 @@
                         middle_name: emptyToNull(fd.get('middle_name')),
                         last_name: emptyToNull(fd.get('last_name')),
                         validation_status: fd.get('validation_status'),
-                        life_status: fd.get('life_status'),
+                        life_status: fd.get('life_status'), // Save life status to arb table properly
                         ao8: fd.get('ao8') === 'on',
                         for_ta: fd.get('for_ta') === 'on',
                         with_ta: fd.get('with_ta') === 'on',
@@ -1362,7 +1377,7 @@
                             <div class="form-group full"><label for="tagCaseDetails">Case Details / Reason</label><textarea id="tagCaseDetails" name="case_details"></textarea></div>
                             <div class="form-group full" id="heirSection" style="display:none;"><label>Heirs (for Transfer Action)</label><div id="heirList"></div><button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button></div>
                         </div>
-                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Tag</button></div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelTagBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Tag</button></div>
                     </form>
                 `;
                 showSubModal('Tag ARB', formHtml);
@@ -1434,21 +1449,24 @@
                     switch(tagType) {
                         case 'ALI CASE':
                             arbUpdate.with_ali_case = true;
-                            arbUpdate.ali_case_type = aliCategory === 'SPLIT ALI' ? 'SPLIT' : 'REGULAR';
-                            arbUpdate.ali_type = aliType;
+                            arbUpdate.ali_case_status = status;
+                            arbUpdate.ali_case_type = aliType;
                             break;
                         case 'TRANSFER ACTION':
                             arbUpdate.with_ta = true;
                             arbUpdate.for_ta = true;
+                            arbUpdate.ta_status = status;
                             break;
                         case 'DISQUALIFICATION':
                             arbUpdate.for_disqualificati = true;
                             arbUpdate.disqualification_r = caseDetails || status;
                             break;
                         case 'DEAD':
+                            arbUpdate.life_status = 'Dead';
                             lifeUpdate = 'Dead';
                             break;
                         case 'ALIVE':
+                            arbUpdate.life_status = 'Active';
                             lifeUpdate = 'Active';
                             break;
                         case 'WITH COMPLAIN':
@@ -1632,7 +1650,7 @@
                         <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;margin-top:10px;">Capture</button>
                     </div>
                     <div id="photoPreview" style="margin-top:10px;"></div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn" style="background:#64748b; border-color:#475569;">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
                 </form>
             `;
             showSubModal('Upload ARB Photo', formHtml);
@@ -1737,7 +1755,7 @@
                     <div class="form-group"><label for="arboSelect">Select ARBO</label><select id="arboSelect" name="arbo_id" required><option value="">-- Choose --</option>${options}</select></div>
                     <div class="form-group"><label>Membership Date (Assigned At)</label><input type="date" name="assigned_at" required value="${new Date().toISOString().substring(0,10)}"></div>
                     <div class="form-group"><label>Membership No.</label><input type="text" name="membership_no" placeholder="Optional"></div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
                 </form>
             `;
             showSubModal('Assign ARB to ARBO', formHtml);
@@ -1785,7 +1803,7 @@
             const formHtml = `
                 <form id="updateValForm">
                     <div class="form-group"><label for="newValidationStatus">Validation Status</label><select id="newValidationStatus" name="validation_status"><option value="Pending" ${currentStatus==='Pending'?'selected':''}>Pending</option><option value="Validated" ${currentStatus==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option></select></div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
                 </form>
             `;
             showSubModal('Update Validation Status', formHtml);
@@ -1920,7 +1938,7 @@
                         </div>
                     </div>
                     <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelBatchBtn" style="background:#64748b; border-color:#475569;">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="cancelBatchBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button>
                         <button type="submit" class="btn btn-primary">Apply Validation</button>
                     </div>
                 </form>
@@ -2045,8 +2063,8 @@
                         </select>
                     </div>
                     <div class="modal-actions" style="margin-top:25px;">
-                        <button type="button" class="btn btn-primary" id="cancelReportBtn" style="background:#64748b; border-color:#475569;">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="background:var(--dar-gold); border-color:#b45309; color:#fff;">Generate PDF</button>
+                        <button type="button" class="btn btn-primary" id="cancelReportBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="background:var(--dar-gold) !important; border-color:#b45309 !important; color:#fff !important;">Generate PDF</button>
                     </div>
                 </form>
             `;
@@ -2116,7 +2134,7 @@
                     
                     const p = profMap[lh.arb_profile_id];
                     const a = p ? validArbMap[p.arb_id] : null;
-                    if (!a) return; // Skipped due to validation filter
+                    if (!a) return; 
                     
                     if(!grouped[brgy]) grouped[brgy] = [];
                     matchCount++;
@@ -2138,7 +2156,6 @@
                 }
 
                 const { jsPDF } = window.jspdf;
-                // Legal landscape: 355.6mm x 215.9mm
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'legal' });
                 const brgyKeys = Object.keys(grouped).sort();
 
@@ -2212,7 +2229,7 @@
                         },
                         didDrawPage: function(data) {
                             const pageHeight = doc.internal.pageSize.getHeight();
-                            const y = pageHeight - 15; // Shifted perfectly to the lowest part of the page
+                            const y = pageHeight - 15; 
                             
                             doc.setFontSize(11);
                             doc.setFont("helvetica", "normal");
