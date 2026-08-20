@@ -6,7 +6,6 @@
     <title>ARB Global Cleansing – ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- jsPDF for Standard CR80 ID Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
@@ -103,11 +102,13 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; }
         .modal.active { display: grid; }
         .modal-content { background: #fff; width: 95%; max-width: 1100px; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transition: all 0.3s ease; }
+        
         .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #0a3d62; color: #fff; border-bottom: 1px solid #082f4d; }
         .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; }
         .btn-close-win { background: #ff5f56; }
         .btn-min-win { background: #ffbd2e; }
         .btn-max-win { background: #27c93f; }
+        
         .modal.maximized .modal-content { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; border-radius: 0; }
         .modal.maximized .modal-body-scroll { max-height: calc(100vh - 50px); }
         .modal.minimized .modal-content { width: 300px; height: auto; max-width: 300px; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
@@ -152,7 +153,6 @@
 
     <nav class="nav" id="mainNav"></nav>
 
-    <!-- Professional Search Area -->
     <div class="search-container">
         <div class="search-input-group">
             <input id="globalSearchInput" placeholder="Search ARB name, ID, sequence, or landholding..." autocomplete="off" aria-label="Search">
@@ -168,11 +168,11 @@
             <button type="button" class="btn btn-primary" id="globalSearchBtn">🔍 Search</button>
             <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
+            <button type="button" class="btn btn-primary" id="searchCcloaBtn">📂 CCLOA</button>
             <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
         </div>
     </div>
 
-    <!-- Advanced Filters (collapsible) -->
     <div class="advanced-filters" id="advancedFilters">
         <div class="filter-row" id="filterRow">
             <div class="form-group">
@@ -234,7 +234,6 @@
         </div>
     </div>
 
-    <!-- ARB Table -->
     <div id="arbListContainer">
         <div class="arb-table-wrap">
             <table class="arb-table" id="arbTable">
@@ -267,7 +266,6 @@
         </div>
     </div>
 
-    <!-- UI Fixed Modal -->
     <div id="modal" class="modal">
         <div class="modal-content" id="modalContentContainer"></div>
     </div>
@@ -279,7 +277,6 @@
     (function() {
         "use strict";
 
-        // -------- Globals --------
         let secureDbClient = null;
         let currentUser = null;
         let currentUserProfile = null;
@@ -288,7 +285,6 @@
         let totalRecords = 0;
         let arboList = [];
 
-        // Hardcoded Municipality Database
         const locData = {
             "Cabusao": ["Barcelonita", "Biong", "Camagong", "Castillo", "New Poblacion", "Pandan", "San Pedro", "Santa Cruz", "Santa Lutgarda (Poblacion)"],
             "Del Gallego": ["Bagong Silang", "Bucal", "Cabasag", "Comadaycaday", "Comadogcadog", "Domagondong", "Kinalangan", "Mabini", "Magais I", "Magais II", "Mansalaya", "Nagkalit", "Palaspas", "Pamplona", "Pasay", "Pinagdapian", "Pinugusan", "Poblacion Zone I (Fatima)", "Poblacion Zone II (San Antonio)", "Poblacion Zone III", "Sabang", "Salvacion", "San Juan", "San Pablo", "Santa Rita I", "Santa Rita II", "Sinagawsawan", "Sinuknipan I", "Sinuknipan II", "Sugsugin", "Tabion", "Tomagoktok"],
@@ -311,7 +307,6 @@
             "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "Niño Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo Niño"]
         };
 
-        // -------- Helpers --------
         function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
         function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? '—' : safe(value); }
         function formatDateValue(value) {
@@ -330,11 +325,6 @@
             const parts = [arb.last_name ? arb.last_name+',' : '', arb.first_name || '', arb.middle_name || ''].filter(Boolean);
             return parts.join(' ').trim() || '—';
         }
-        function arbInitials(arb) {
-            const parts = [arb.first_name, arb.last_name].filter(Boolean);
-            if (parts.length === 0) return 'ARB';
-            return parts.map(p => p.charAt(0).toUpperCase()).join('');
-        }
         function popToast(msg, type='info') {
             const el = document.getElementById('toast');
             if (!el) return;
@@ -351,35 +341,51 @@
             return role === 'admin' || role === 'staff';
         }
 
-        // Fetch paginated IDs to bypass Supabase 1000-row limit in Sub-queries
-        async function fetchAllIds(queryFn, column) {
-            let allData = [];
+        function compressImage(dataUrl, maxWidth=400, quality=0.7) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let scaleSize = maxWidth / img.width;
+                    if(scaleSize > 1) scaleSize = 1;
+                    canvas.width = img.width * scaleSize;
+                    canvas.height = img.height * scaleSize;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.src = dataUrl;
+            });
+        }
+
+        // --- FIXED HELPER TO BYPASS SUPABASE 1000-ROW LIMITS ---
+        async function fetchAllRecords(queryBuilderFn) {
+            let allRecords = [];
             let p = 0;
             const size = 1000;
             while(true) {
-                const {data, error} = await queryFn().range(p*size, (p+1)*size - 1);
-                if (error) throw error;
+                const {data, error} = await queryBuilderFn().range(p*size, (p+1)*size - 1);
+                if (error) { console.error('Fetch error:', error); break; }
                 if (!data || data.length === 0) break;
-                allData.push(...data.map(d => String(d[column])));
+                allRecords.push(...data);
                 if (data.length < size) break;
                 p++;
             }
-            return [...new Set(allData.filter(Boolean))];
+            return allRecords;
         }
 
-        // For relationships: arb_landholdings -> arb_profiles -> arb
-        async function fetchArbIdsFromProfileIds(profileIds) {
-            let arbIds = new Set();
+        // --- HELPER TO SAFELY QUERY LARGE ARRAYS (URI TOO LONG FIX) ---
+        async function fetchInChunks(table, selectStr, column, idArray) {
+            let results = [];
             const chunkSize = 200;
-            for(let i=0; i<profileIds.length; i+=chunkSize) {
-                const chunk = profileIds.slice(i, i+chunkSize);
-                const {data} = await secureDbClient.from('arb_profiles').select('arb_id').in('id', chunk);
-                if(data) data.forEach(d => { if(d.arb_id) arbIds.add(String(d.arb_id)) });
+            for(let i=0; i<idArray.length; i+=chunkSize) {
+                const chunk = idArray.slice(i, i+chunkSize);
+                const {data} = await secureDbClient.from(table).select(selectStr).in(column, chunk);
+                if(data) results.push(...data);
             }
-            return [...arbIds];
+            return results;
         }
 
-        // -------- Modal Controls --------
         const modalEl = document.getElementById('modal');
         function showModal(title, body) {
             const modalContent = document.getElementById('modalContentContainer');
@@ -392,20 +398,17 @@
                         <button type="button" class="window-btn btn-close-win" id="winCloseBtn" title="Close"></button>
                     </div>
                 </div>
-                <div class="modal-body-scroll" style="flex:1;">
-                    ${body}
-                </div>
+                <div class="modal-body-scroll" style="flex:1;">${body}</div>
             `;
             modalEl.classList.remove('maximized', 'minimized');
             modalEl.classList.add('active');
 
             document.getElementById('winCloseBtn').addEventListener('click', hideModal);
             document.getElementById('winMaxBtn').addEventListener('click', () => { modalEl.classList.toggle('maximized'); modalEl.classList.remove('minimized'); });
-            document.getElementById('winMinBtn').addEventListener('click', () => modalEl.classList.toggle('minimized'));
+            document.getElementById('winMinBtn').addEventListener('click', () => modalEl.classList.toggle('minimized') );
         }
         function hideModal() { modalEl.classList.remove('active'); document.getElementById('modalContentContainer').innerHTML = ''; }
 
-        // -------- Navigation --------
         async function buildNavbar(profile) {
             const navEl = document.getElementById('mainNav');
             if (!navEl) return;
@@ -439,7 +442,6 @@
             });
         }
 
-        // -------- Supabase client setup --------
         try {
             secureDbClient = window.secureDbClient || window.supabaseClient || window.dbClient || null;
             if (!secureDbClient && window.supabase?.createClient) {
@@ -451,14 +453,11 @@
             }
         } catch(e) { console.error('Supabase init error:', e); }
 
-        // -------- ADVANCED FILTERS FIX: Bypassing the 1000-Row Cutoff --------
+        // -------- ADVANCED FILTER FIX --------
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
             tbody.innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Loading ARBs...</td></tr>`;
-
-            const selectAllCb = document.getElementById('selectAllArbs');
-            if(selectAllCb) selectAllCb.checked = false;
 
             const town = document.getElementById('filterTown').value;
             const barangay = document.getElementById('filterBarangay').value;
@@ -482,80 +481,77 @@
                     }
                 }
 
-                // Check which domain filters are actively applied by the user
-                let hasLocationFilter = Boolean(town || barangay || municipalityPart);
-                let hasProfileFilter = Boolean(split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')));
-                let hasSearchFilter = Boolean(searchTerm && searchField === 'landholding');
-                let hasArbFilter = Boolean(validation || ali !== '' || ta !== '' || (searchTerm && (searchField === 'name' || searchField === 'id')));
-
                 let filterSets = [];
 
-                // 1. Resolve Location Filters Safely
-                if (hasLocationFilter) {
+                // 1. Location (Town/Barangay)
+                if (town || barangay || municipalityPart) {
                     let locIds = new Set();
                     
-                    // A) Through ARBO table
-                    let arboQ = secureDbClient.from('arbo').select('id');
-                    if (town) arboQ = arboQ.ilike('municipality', `%${town}%`);
-                    if (barangay) arboQ = arboQ.ilike('barangay', `%${barangay}%`);
-                    if (municipalityPart) arboQ = arboQ.ilike('municipality', `%${municipalityPart}%`);
-                    
-                    const {data: arboData} = await arboQ;
-                    if (arboData && arboData.length > 0) {
-                        const arboIds = arboData.map(a => a.id);
-                        for(let i=0; i<arboIds.length; i+=200) {
-                            const chunk = arboIds.slice(i, i+200);
-                            const chunkIds = await fetchAllIds(() => secureDbClient.from('arb').select('id').in('arbo_id', chunk), 'id');
-                            chunkIds.forEach(id => locIds.add(id));
-                        }
-                    }
-
-                    // B) Through Landholdings Table
-                    let landQ = () => {
-                        let q = secureDbClient.from('arb_landholdings').select('arb_profile_id');
-                        if (town) q = q.ilike('municipality', `%${town}%`);
-                        if (barangay) q = q.ilike('barangay', `%${barangay}%`);
+                    // Via ARBO
+                    let arboQ = () => {
+                        let q = secureDbClient.from('arbo').select('id');
+                        if (town) q = q.eq('municipality', town);
+                        if (barangay) q = q.eq('barangay', barangay);
                         if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
                         return q;
                     };
-                    const profIds = await fetchAllIds(landQ, 'arb_profile_id');
-                    if (profIds.length > 0) {
-                        const aIds = await fetchArbIdsFromProfileIds(profIds);
-                        aIds.forEach(id => locIds.add(id));
+                    const arboData = await fetchAllRecords(arboQ);
+                    if (arboData.length > 0) {
+                        const arbs = await fetchInChunks('arb', 'id', 'arbo_id', arboData.map(a => a.id));
+                        arbs.forEach(a => locIds.add(String(a.id))); // CAST TO STRING
                     }
-                    
+
+                    // Via Landholdings -> Profiles -> ARB
+                    let landQ = () => {
+                        let q = secureDbClient.from('arb_landholdings').select('arb_profile_id');
+                        if (town) q = q.eq('municipality', town);
+                        if (barangay) q = q.eq('barangay', barangay);
+                        if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
+                        return q;
+                    };
+                    const landData = await fetchAllRecords(landQ);
+                    const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))]; // UUIDs
+                    if (profIds.length > 0) {
+                        const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profIds);
+                        profs.forEach(p => { if(p.arb_id) locIds.add(String(p.arb_id)); }); // CAST TO STRING
+                    }
                     filterSets.push([...locIds]);
                 }
 
-                // 2. Resolve Profile Filters
-                if (hasProfileFilter) {
+                // 2. Profile attributes
+                if (split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField === 'sequence' || searchField === 'fb_name'))) {
                     let profQ = () => {
                         let q = secureDbClient.from('arb_profiles').select('arb_id');
                         if (split) q = q.eq('split_status', split);
-                        if (cocrom === 'true') q = q.neq('cocrom_no', '').not('cocrom_no', 'is', null);
-                        if (cocrom === 'false') q = q.is('cocrom_no', null); // Treating null as missing
+                        if (cocrom === 'true') q = q.not('cocrom_no', 'is', null).neq('cocrom_no', '');
+                        if (cocrom === 'false') q = q.is('cocrom_no', null);
                         if (titleDist !== '') q = q.eq('is_title_distribute', titleDist === 'true');
                         if (searchTerm && searchField === 'sequence') q = q.ilike('sequence_no', `%${searchTerm}%`);
                         if (searchTerm && searchField === 'fb_name') q = q.ilike('fb_name', `%${searchTerm}%`);
                         return q;
                     };
-                    const aIds = await fetchAllIds(profQ, 'arb_id');
-                    filterSets.push(aIds);
+                    const profiles = await fetchAllRecords(profQ);
+                    filterSets.push(profiles.map(p => String(p.arb_id)).filter(Boolean)); // CAST TO STRING
                 }
 
-                // 3. Resolve Landholding Detail Filters
-                if (hasSearchFilter) {
+                // 3. Landholding details
+                if (searchTerm && searchField === 'landholding') {
                     const pattern = `%${searchTerm}%`;
                     let landSearchQ = () => secureDbClient.from('arb_landholdings').select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_n.ilike.${pattern},original_mother_t.ilike.${pattern}`);
+                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
                     
-                    const pIds = await fetchAllIds(landSearchQ, 'arb_profile_id');
-                    const aIds = await fetchArbIdsFromProfileIds(pIds);
-                    filterSets.push(aIds);
+                    const landData = await fetchAllRecords(landSearchQ);
+                    const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
+                    let lhArbIds = [];
+                    if (profIds.length > 0) {
+                        const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profIds);
+                        lhArbIds = profs.map(p => String(p.arb_id)).filter(Boolean); // CAST TO STRING
+                    }
+                    filterSets.push(lhArbIds);
                 }
 
-                // 4. Resolve Base ARB Table Filters
-                if (hasArbFilter) {
+                // 4. Base ARB table properties
+                if (validation || ali !== '' || ta !== '' || (searchTerm && (searchField === 'name' || searchField === 'id'))) {
                     let arbQ = () => {
                         let q = secureDbClient.from('arb').select('id');
                         if (validation) q = q.eq('validation_status', validation);
@@ -576,15 +572,17 @@
                         }
                         return q;
                     };
-                    const baseIds = await fetchAllIds(arbQ, 'id');
-                    filterSets.push(baseIds);
+                    const arbs = await fetchAllRecords(arbQ);
+                    filterSets.push(arbs.map(a => String(a.id))); // CAST TO STRING
                 }
 
+                // INTERSECT ALL SETS (Safely, because they are ALL strings now)
                 let finalIds = null;
                 if (filterSets.length > 0) {
                     finalIds = filterSets[0];
                     for (let i = 1; i < filterSets.length; i++) {
-                        finalIds = finalIds.filter(id => filterSets[i].includes(id));
+                        const setB = new Set(filterSets[i]);
+                        finalIds = finalIds.filter(id => setB.has(id));
                     }
                     if (finalIds.length === 0) {
                         tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
@@ -595,16 +593,14 @@
                     }
                 }
 
-                // Final Output Data Fetching
+                // FINAL FETCH FOR RENDER
                 let arbs = [];
-                let count = 0;
-
                 if (finalIds !== null) {
                     totalRecords = finalIds.length;
                     const pageIds = finalIds.slice(page * pageSize, (page + 1) * pageSize);
                     
                     const res = await secureDbClient.from('arb').select(`
-                        id, first_name, middle_name, last_name, validation_status, life_status, 
+                        id, first_name, middle_name, last_name, validation_status,
                         with_ali_case, with_ta, for_disqualificati, 
                         arbo:arbo_id ( id, name, municipality, barangay )
                     `).in('id', pageIds).order('id', { ascending: true });
@@ -613,7 +609,7 @@
                     arbs = res.data;
                 } else {
                     const res = await secureDbClient.from('arb').select(`
-                        id, first_name, middle_name, last_name, validation_status, life_status, 
+                        id, first_name, middle_name, last_name, validation_status,
                         with_ali_case, with_ta, for_disqualificati, 
                         arbo:arbo_id ( id, name, municipality, barangay )
                     `, { count: 'exact' })
@@ -626,7 +622,7 @@
                 }
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs found.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
@@ -641,7 +637,7 @@
                     arbs.forEach(arb => {
                         const profile = profileMap[String(arb.id)] || {};
                         const arbo = arb.arbo || {};
-
+                        
                         let dispMunicipality = arbo.municipality;
                         let dispBarangay = arbo.barangay;
                         if (!dispMunicipality && profile.arb_landholdings && profile.arb_landholdings.length > 0) {
@@ -657,7 +653,6 @@
                         const taTag = arb.with_ta ? badge('TA','warning') : '—';
                         const validationBadge = badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning');
                         const lifeBadge = badge(profile.life_status || 'Unknown', profile.life_status==='Active'?'success':profile.life_status==='Dead'?'danger':'neutral');
-                        
                         html += `<tr>
                             <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
                             <td><strong>${displayValue(profile.generated_arb_ic || arb.id)}</strong></td>
@@ -679,27 +674,29 @@
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">Gen ID</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">Val. Status</button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
                     });
                     tbody.innerHTML = html;
-
-                    document.getElementById('selectAllArbs')?.addEventListener('change', function() {
-                        document.querySelectorAll('.arb-select-cb').forEach(cb => cb.checked = this.checked);
-                    });
-
-                    document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
-                    document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
-                    document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
-                    document.querySelectorAll('.gen-id-btn').forEach(btn => btn.addEventListener('click', () => generateArbId(btn.dataset.arbId, btn.dataset.name)));
-                    document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
-                    document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
                 }
 
                 document.getElementById('pageInfo').textContent = `Page ${page+1} of ${Math.ceil(totalRecords/pageSize) || 1}`;
                 document.getElementById('prevPageBtn').disabled = (page === 0);
                 document.getElementById('nextPageBtn').disabled = (page * pageSize + pageSize >= totalRecords);
+
+                document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
+                document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
+                document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
+                document.querySelectorAll('.gen-id-btn').forEach(btn => btn.addEventListener('click', () => generateArbId(btn.dataset.arbId, btn.dataset.name)));
+                document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
+                document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
+                document.querySelectorAll('.update-validation-btn').forEach(btn => btn.addEventListener('click', () => openUpdateValidation(btn.dataset.arbId, btn.dataset.current)));
+
+                document.getElementById('selectAllArbs')?.addEventListener('change', function() {
+                    document.querySelectorAll('.arb-select-cb').forEach(cb => cb.checked = this.checked);
+                });
 
             } catch (err) {
                 console.error(err);
@@ -708,7 +705,6 @@
             }
         }
 
-        // -------- Populate filter dropdowns --------
         async function populateFilterOptions() {
             const townSelect = document.getElementById('filterTown');
             const towns = Object.keys(locData).sort();
@@ -733,20 +729,26 @@
             } catch(e) { console.warn('Failed to load ARBO list:', e); }
         }
 
-        // -------- Open ARB Profile --------
+        // -------- PROFILE MODAL --------
         async function openArbProfile(arbId) {
             showModal('ARB Profile', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
+
             try {
-                const arbRes = await secureDbClient.from('arb').select(`*, arbo:arbo_id ( id, name, municipality, barangay )`).eq('id', arbId).single();
+                const arbRes = await secureDbClient.from('arb').select(`
+                    *, arbo:arbo_id ( id, name, municipality, barangay )
+                `).eq('id', arbId).single();
                 if (arbRes.error) throw arbRes.error;
                 const arb = arbRes.data;
 
                 let profile = {};
                 let profileId = null;
                 const profRes = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId)).single();
+                if (profRes.error && profRes.error.code !== 'PGRST116') throw profRes.error;
                 if (profRes.data) {
                     profile = profRes.data;
                     profileId = profile.id;
+                } else {
+                    profile = { id: null };
                 }
 
                 let heirs = [], landholdings = [], tags = [], validations = [];
@@ -768,6 +770,7 @@
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
+                            <!-- Sidebar -->
                             <div class="profile-sidebar">
                                 <div class="avatar">
                                     ${profile.image_base64 ? `<img src="${profile.image_base64}" alt="Photo">` : safe(arbInitials(arb))}
@@ -777,20 +780,40 @@
                                 <div class="badge-group">
                                     ${badge(profile.life_status || 'Unknown', profile.life_status==='Active'?'success':profile.life_status==='Dead'?'danger':'neutral')}
                                     ${badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning')}
+                                    ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                 </div>
                                 <div class="sidebar-actions">
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : ''}
+                                    ${profileId ? (canEdit() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">⚠️ Profile record missing. Please create one via Edit.</p>`}
+                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddHeirBtn">👪 Add Heir</button>` : ''}
+                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ Add Tag</button>` : ''}
+                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Add Validation</button>` : ''}
+                                    ${!profileId && canEdit() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
                                 </div>
                             </div>
+                            <!-- Tabs Content -->
                             <div class="profile-tabs">
                                 <div class="tab-nav">
                                     <button class="active" data-tab="overview">Overview</button>
                                     <button data-tab="landholdings">Landholdings (${landholdings.length})</button>
+                                    <button data-tab="heirs">Heirs (${heirs.length})</button>
                                     <button data-tab="tags">Tags (${tags.length})</button>
+                                    <button data-tab="validations">Validations (${validations.length})</button>
                                 </div>
-                                <div class="tab-content active" id="tab-overview">${renderOverview(arb, profile, arbo)}</div>
-                                <div class="tab-content" id="tab-landholdings">${renderLandholdings(landholdings)}</div>
-                                <div class="tab-content" id="tab-tags">${renderTags(tags)}</div>
+                                <div class="tab-content active" id="tab-overview">
+                                    ${renderOverview(arb, profile, arbo)}
+                                </div>
+                                <div class="tab-content" id="tab-landholdings">
+                                    ${renderLandholdings(landholdings)}
+                                </div>
+                                <div class="tab-content" id="tab-heirs">
+                                    ${renderHeirs(heirs)}
+                                </div>
+                                <div class="tab-content" id="tab-tags">
+                                    ${renderTags(tags)}
+                                </div>
+                                <div class="tab-content" id="tab-validations">
+                                    ${renderValidations(validations)}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -802,28 +825,95 @@
                     btn.addEventListener('click', function() {
                         document.querySelectorAll('.tab-nav button').forEach(b => b.classList.remove('active'));
                         this.classList.add('active');
+                        const tabId = this.dataset.tab;
                         document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-                        document.getElementById('tab-'+this.dataset.tab).classList.add('active');
+                        document.getElementById('tab-'+tabId).classList.add('active');
                     });
                 });
 
-                if (profileId && canEdit()) {
-                    document.getElementById('profileEditBtn')?.addEventListener('click', () => { hideModal(); openEditArb(arbId); });
+                if (canEdit()) {
+                    if (profileId) {
+                        document.getElementById('profileEditBtn')?.addEventListener('click', () => { hideModal(); openEditArb(arbId); });
+                        document.getElementById('profileAddHeirBtn')?.addEventListener('click', () => { hideModal(); openHeirForm(arbId); });
+                        document.getElementById('profileAddTagBtn')?.addEventListener('click', () => { hideModal(); openTagArb(arbId); });
+                        document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { hideModal(); openValidationForm(arbId); });
+                    } else {
+                        document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async () => {
+                            try {
+                                const { data, error } = await secureDbClient.from('arb_profiles').insert({
+                                    arb_id: String(arbId),
+                                    created_at: new Date().toISOString(),
+                                    updated_at: new Date().toISOString()
+                                }).select('id').single();
+                                if (error) { popToast('RLS policy error: ' + error.message, 'err'); return; }
+                                hideModal();
+                                popToast('Profile created successfully. Re-open to edit.', 'ok');
+                                openArbProfile(arbId);
+                            } catch (e) { popToast(e.message, 'err'); }
+                        });
+                    }
                 }
-            } catch (err) { popToast(err.message, 'err'); }
+
+            } catch (err) {
+                const mBody = document.getElementById('modalBody');
+                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(err.message)}</p>`;
+                popToast(err.message, 'err');
+            }
+        }
+
+        function arbInitials(arb) {
+            const parts = [arb.first_name, arb.last_name].filter(Boolean);
+            if (parts.length === 0) return 'ARB';
+            return parts.map(p => p.charAt(0).toUpperCase()).join('');
         }
 
         function renderOverview(arb, profile, arbo) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
+                { label: 'Middle Name', value: arb.middle_name },
                 { label: 'Last Name', value: arb.last_name },
+                { label: 'FB Name', value: profile.fb_name },
+                { label: 'Gender', value: profile.fb_gender },
+                { label: 'Spouse', value: profile.spouse },
+                { label: 'CLOR/Urban', value: profile.clorurban },
+                { label: 'Sequence No.', value: profile.sequence_no },
                 { label: 'Town', value: arbo.municipality },
                 { label: 'Barangay', value: arbo.barangay },
-                { label: 'ARBO', value: arbo.name }
+                { label: 'District', value: profile.district },
+                { label: 'ARBO', value: arbo.name },
+                { label: 'Life Status', value: profile.life_status, badge: true },
+                { label: 'Validation Status', value: arb.validation_status, badge: true },
+                { label: 'SPLIT Status', value: profile.split_status, badge: true },
+                { label: 'CCLOA Membership', value: profile.ccloa_membersh },
+                { label: 'Individual Title / e-Title', value: profile.e_title_no },
+                { label: 'CoCROM No.', value: profile.cocrom_no },
+                { label: 'Title Distributed', value: profile.is_title_distribute ? 'Yes' : 'No' },
+                { label: 'Death Validation', value: profile.death_validation_ },
+                { label: 'Death Document', value: profile.death_document },
+                { label: 'Death Cert Submitted', value: profile.death_cert_subm ? 'Yes' : 'No' },
+                { label: 'Heir Type', value: profile.heir_type },
+                { label: 'Heir Name', value: profile.heir_name },
+                { label: 'Heir Relation', value: profile.heir_relation },
+                { label: 'Has Manual File', value: profile.has_manual_file ? 'Yes' : 'No' },
+                { label: 'Manual File Reco', value: profile.manual_file_reco ? 'Yes' : 'No' },
             ];
+            const legalFlags = [
+                { label: 'AO8', value: arb.ao8 },
+                { label: 'For Transfer Action', value: arb.for_ta },
+                { label: 'With Transfer Action', value: arb.with_ta },
+                { label: 'For Disqualification', value: arb.for_disqualificati },
+                { label: 'With Existing Complain', value: arb.with_existing_con },
+                { label: 'With ALI Case', value: arb.with_ali_case },
+            ];
+
             let html = `<h4>Personal Information</h4><div class="detail-grid">`;
             fields.forEach(f => {
-                html += `<div class="detail-item"><span class="label">${f.label}</span><span class="value">${safe(f.value || '—')}</span></div>`;
+                const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : '—';
+                html += `<div class="detail-item"><span class="label">${f.label}</span><span class="value">${f.badge ? badge(val, val==='Active'?'success':val==='Dead'?'danger':'neutral') : safe(val)}</span></div>`;
+            });
+            html += `</div><h4>Legal Flags</h4><div class="detail-grid" style="grid-template-columns:1fr 1fr 1fr;">`;
+            legalFlags.forEach(f => {
+                html += `<div class="detail-item"><span class="label">${f.label}</span><span class="value">${f.value ? '✅ Yes' : '❌ No'}</span></div>`;
             });
             html += `</div>`;
             return html;
@@ -831,9 +921,46 @@
 
         function renderLandholdings(holdings) {
             if (!holdings || holdings.length === 0) return `<p class="empty-card">No landholding records found.</p>`;
-            let html = `<div class="table-wrap"><table><thead><tr><th>Claim No.</th><th>Survey No.</th><th>Area</th><th>Municipality</th></tr></thead><tbody>`;
+            let html = `
+                <div class="table-wrap">
+                    <table>
+                        <thead><tr>
+                            <th>Claim No.</th><th>LHID</th><th>Survey No.</th><th>ASP No.</th><th>Lot No.</th>
+                            <th>Area</th><th>ARB Share</th><th>CCLOA Area</th><th>Title Type</th>
+                            <th>Title No.</th><th>EP/CLOA Serial</th><th>CoCROM Cert</th>
+                            <th>CoCROM Ref</th><th>CoCROM Serial</th>
+                            <th>Mother Title</th>
+                            <th>Municipality</th><th>Barangay</th><th>Landowner</th>
+                            <th>Mode of Acquisition</th>
+                            <th>Date Generated</th><th>Date Registered</th><th>Date Released</th>
+                            <th>Release Status</th><th>Released Raw</th>
+                            <th>Distributed to DARMO</th>
+                        </tr></thead>
+                        <tbody>
+            `;
             holdings.forEach(h => {
-                html += `<tr><td>${displayValue(h.claim_no)}</td><td>${displayValue(h.survey_no)}</td><td>${displayValue(h.landholding_area)}</td><td>${displayValue(h.municipality)}</td></tr>`;
+                html += `<tr>
+                    <td>${displayValue(h.claim_no)}</td><td>${displayValue(h.lhid)}</td><td>${displayValue(h.survey_no)}</td><td>${displayValue(h.asp_no)}</td><td>${displayValue(h.lot_no)}</td>
+                    <td>${displayValue(h.landholding_area)}</td><td>${displayValue(h.arb_share_area)}</td><td>${displayValue(h.ccloa_area)}</td><td>${displayValue(h.title_type)}</td>
+                    <td>${displayValue(h.title_no)}</td><td>${displayValue(h.ep_cloa_serial_no)}</td><td>${displayValue(h.cocrom_certificate_no)}</td>
+                    <td>${displayValue(h.cocrom_reference_raw)}</td><td>${displayValue(h.cocrom_serial_no)}</td>
+                    <td>${displayValue(h.original_mother_title_no)}</td>
+                    <td>${displayValue(h.municipality)}</td><td>${displayValue(h.barangay)}</td><td>${displayValue(h.landowner)}</td>
+                    <td>${displayValue(h.mode_of_acquisition)}</td>
+                    <td>${formatDateValue(h.date_generated)}</td><td>${formatDateValue(h.date_registered)}</td><td>${formatDateValue(h.date_released)}</td>
+                    <td>${displayValue(h.release_status)}</td><td>${displayValue(h.date_released_raw)}</td>
+                    <td>${formatDateValue(h.date_distributed_to_darmo)}</td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+            return html;
+        }
+
+        function renderHeirs(heirs) {
+            if (!heirs || heirs.length === 0) return `<p class="empty-card">No heirs recorded.</p>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Relation</th><th>Contact</th><th>Email</th><th>Supporting Doc</th><th>Verified</th><th>Selected</th></tr></thead><tbody>`;
+            heirs.forEach(h => {
+                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? '✅' : '❌'}</td><td>${h.is_selected ? '✅' : '❌'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -841,130 +968,119 @@
 
         function renderTags(tags) {
             if (!tags || tags.length === 0) return `<p class="empty-card">No tags recorded.</p>`;
-            let html = `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Tag Type</th><th>Status</th><th>Details</th></tr></thead><tbody>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Tag Type</th><th>Status</th><th>Case Ref</th><th>Details</th><th>Tagged By</th></tr></thead><tbody>`;
             tags.forEach(t => {
-                html += `<tr><td>${formatDateValue(t.created_at)}</td><td>${displayValue(t.tag_type)}</td><td>${displayValue(t.status)}</td><td>${displayValue(t.case_details)}</td></tr>`;
+                html += `<tr><td>${formatDateValue(t.created_at)}</td><td>${displayValue(t.tag_type)}</td><td>${displayValue(t.status)}</td><td>${displayValue(t.case_reference_no)}</td><td>${displayValue(t.case_details)}</td><td>${displayValue(t.tagged_by)}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
         }
 
-        // -------- Tagging (with new Legal Case Monitoring support) --------
-        async function openTagArb(arbId) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
-            const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
-            if (profRes.error) { popToast('Please create a profile first.', 'err'); return; }
-            const profileId = profRes.data.id;
+        function renderValidations(validations) {
+            if (!validations || validations.length === 0) return `<p class="empty-card">No validations recorded.</p>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Position</th><th>Barangay</th><th>Town</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
+            validations.forEach(v => {
+                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td>${displayValue(v.position)}</td><td>${displayValue(v.validator_barangay)}</td><td>${displayValue(v.validator_town)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
+            });
+            html += `</tbody></table></div>`;
+            return html;
+        }
 
+        // -------- Open Heir Form --------
+        async function openHeirForm(arbId) {
+            const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+            if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
+            const profileId = profRes.data.id;
             const formHtml = `
-                <form id="tagArbForm">
+                <form id="heirForm">
                     <div class="form-grid">
-                        <div class="form-group full">
-                            <label>Date of Action / Target Date</label>
-                            <input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="tagType">Tag Type</label>
-                            <select id="tagType" name="tag_type" required>
-                                <option value="">-- Select Type --</option>
-                                <option value="ALI CASE">ALI Case</option>
-                                <option value="TRANSFER ACTION">Transfer Action</option>
-                                <option value="DISQUALIFICATION">Disqualification</option>
-                                <option value="DEAD">Mark as Dead</option>
-                            </select>
-                        </div>
-                        <div class="form-group full" id="reasonGrp" style="display:none;">
-                            <label>Reason for Rollback</label>
-                            <input type="text" name="rollback_reason" placeholder="Required if moving target date backward...">
-                        </div>
-                        <div class="form-group full">
-                            <label for="tagStatus">Status / Phase</label>
-                            <select id="tagStatus" name="status" required></select>
-                        </div>
-                        <div class="form-group full">
-                            <label>Case Details & Remarks</label>
-                            <textarea name="case_details" placeholder="Enter supporting notes..."></textarea>
-                        </div>
+                        <div class="form-group full"><label for="heirName">Heir Name</label><input id="heirName" name="heir_name" required></div>
+                        <div class="form-group"><label for="heirRelation">Relation</label><input id="heirRelation" name="heir_relation"></div>
+                        <div class="form-group"><label for="heirContact">Contact</label><input id="heirContact" name="heir_contact"></div>
+                        <div class="form-group full"><label for="heirAddress">Address</label><input id="heirAddress" name="heir_address"></div>
+                        <div class="form-group full"><label for="heirEmail">Email</label><input id="heirEmail" name="heir_email" type="email"></div>
+                        <div class="form-group full"><label for="heirDoc">Supporting Document Reference</label><input id="heirDoc" name="supporting_document_reference"></div>
+                        <div class="form-group full"><div class="checkbox-row"><label><input type="checkbox" name="is_verified"> Verified</label><label><input type="checkbox" name="is_selected"> Selected</label></div></div>
                     </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save Tag</button>
-                    </div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelHeirBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Heir</button></div>
                 </form>
             `;
-            showModal('Add Legal / Status Tag', formHtml);
-            document.getElementById('cancelTagBtn').addEventListener('click', hideModal);
-
-            const typeSel = document.getElementById('tagType');
-            const statusSel = document.getElementById('tagStatus');
-            const statuses = {
-                'ALI CASE': ['AT DARPO', 'AT LEGAL', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED'],
-                'TRANSFER ACTION': ['AT DARPO', 'FORWARDED TO REGION', 'EXECUTED'],
-                'DISQUALIFICATION': ['FOR DISQUALIFICATION'],
-                'DEAD': ['DECEASED']
-            };
-
-            typeSel.addEventListener('change', () => {
-                const t = typeSel.value;
-                statusSel.innerHTML = (statuses[t] || []).map(s => `<option value="${s}">${s}</option>`).join('');
-                document.getElementById('reasonGrp').style.display = ['ALI CASE', 'TRANSFER ACTION'].includes(t) ? 'flex' : 'none';
-            });
-
-            document.getElementById('tagArbForm').addEventListener('submit', async function(e) {
+            showModal('Add Heir', formHtml);
+            document.getElementById('cancelHeirBtn').addEventListener('click', hideModal);
+            document.getElementById('heirForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const fd = new FormData(e.target);
-                const tagType = fd.get('tag_type');
-                
-                const tagPayload = {
+                const payload = {
                     arb_profile_id: profileId,
-                    tag_type: tagType,
-                    status: fd.get('status'),
-                    case_details: fd.get('case_details'),
-                    created_at: fd.get('action_date') + 'T00:00:00Z', 
-                    tagged_by: currentUserProfile?.full_name || 'System',
+                    heir_name: emptyToNull(fd.get('heir_name')),
+                    heir_relation: emptyToNull(fd.get('heir_relation')),
+                    heir_address: emptyToNull(fd.get('heir_address')),
+                    heir_contact: emptyToNull(fd.get('heir_contact')),
+                    heir_email: emptyToNull(fd.get('heir_email')),
+                    supporting_document_reference: emptyToNull(fd.get('supporting_document_reference')),
+                    is_verified: fd.get('is_verified') === 'on',
+                    is_selected: fd.get('is_selected') === 'on',
+                    created_by: currentUserProfile?.full_name || currentUser?.email || null,
+                    updated_by: currentUserProfile?.full_name || currentUser?.email || null,
+                    created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 };
-
                 try {
-                    // Log to tags table
-                    await secureDbClient.from('arb_tags').insert(tagPayload);
-                    
-                    // Maintain legal monitoring table to leverage backend triggers
-                    if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION'].includes(tagType)) {
-                        const { data: existingMon } = await secureDbClient.from('arb_legal_monitoring').select('id').eq('arb_id', arbId).eq('case_type', tagType).single();
-                        
-                        const trackingPayload = {
-                            arb_id: arbId,
-                            case_type: tagType,
-                            status: fd.get('status'),
-                            current_target_date: fd.get('action_date'),
-                            reason_for_rollback: fd.get('rollback_reason'),
-                            remarks: fd.get('case_details')
-                        };
-
-                        if (existingMon) {
-                            await secureDbClient.from('arb_legal_monitoring').update(trackingPayload).eq('id', existingMon.id);
-                        } else {
-                            await secureDbClient.from('arb_legal_monitoring').insert(trackingPayload);
-                        }
-                    }
-
-                    // Update main ARB flags
-                    let arbUpdate = {};
-                    if (tagType === 'ALI CASE') arbUpdate.with_ali_case = true;
-                    if (tagType === 'TRANSFER ACTION') arbUpdate.with_ta = true;
-                    if (tagType === 'DISQUALIFICATION') arbUpdate.for_disqualificati = true;
-                    if (Object.keys(arbUpdate).length > 0) {
-                        await secureDbClient.from('arb').update(arbUpdate).eq('id', arbId);
-                    }
-                    if (tagType === 'DEAD') {
-                        await secureDbClient.from('arb_profiles').update({ life_status: 'Dead' }).eq('arb_id', String(arbId));
-                    }
-
+                    const { error } = await secureDbClient.from('arb_heirs').insert(payload);
+                    if (error) throw error;
                     hideModal();
-                    popToast('Tag saved successfully.', 'ok');
-                    loadArbs(currentPage);
-                } catch(err) { popToast(err.message, 'err'); }
+                    popToast('Heir added successfully.', 'ok');
+                    openArbProfile(arbId);
+                } catch (err) { popToast(err.message, 'err'); }
+            });
+        }
+
+        // -------- Open Validation Form --------
+        async function openValidationForm(arbId) {
+            const formHtml = `
+                <form id="validationForm">
+                    <div class="form-grid">
+                        <div class="form-group"><label for="valType">Validator Type</label><select id="valType" name="validator_type" required><option value="Barangay">Barangay</option><option value="DARMO">DARMO</option><option value="PBDD">PBDD</option></select></div>
+                        <div class="form-group"><label for="valStatus">Validation Status</label><select id="valStatus" name="validation_status" required><option value="Pending">Pending</option><option value="Validated">Validated</option><option value="Rejected">Rejected</option></select></div>
+                        <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" required></div>
+                        <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position"></div>
+                        <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
+                        <div class="form-group"><label for="valBarangay">Barangay</label><input id="valBarangay" name="validator_barangay"></div>
+                        <div class="form-group"><label for="valTown">Town</label><input id="valTown" name="validator_town"></div>
+                        <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
+                        <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference"></div>
+                    </div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
+                </form>
+            `;
+            showModal('Add Validation', formHtml);
+            document.getElementById('cancelValBtn').addEventListener('click', hideModal);
+            document.getElementById('validationForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const payload = {
+                    arb_id: arbId,
+                    validator_type: fd.get('validator_type'),
+                    validator_name: emptyToNull(fd.get('validator_name')),
+                    position: emptyToNull(fd.get('position')),
+                    date_validated: fd.get('date_validated'),
+                    validator_barangay: emptyToNull(fd.get('validator_barangay')),
+                    validator_town: emptyToNull(fd.get('validator_town')),
+                    validation_basis: emptyToNull(fd.get('validation_basis')),
+                    supporting_document_reference: emptyToNull(fd.get('supporting_document_reference')),
+                    recorded_by: currentUserProfile?.full_name || currentUser?.email || null,
+                    recorded_by_user_id: currentUser?.id || null,
+                    updated_at: new Date().toISOString()
+                };
+                try {
+                    const { error } = await secureDbClient.from('arb_validations').insert(payload);
+                    if (error) throw error;
+                    const valStatus = fd.get('validation_status');
+                    await secureDbClient.from('arb').update({ validation_status: valStatus }).eq('id', arbId);
+                    hideModal();
+                    popToast('Validation added.', 'ok');
+                    openArbProfile(arbId);
+                } catch (err) { popToast(err.message, 'err'); }
             });
         }
 
@@ -982,27 +1098,21 @@
                     <form id="editArbForm">
                         <div class="form-grid">
                             <div class="form-group full"><label>ARB ID</label><input value="${safe(profile.generated_arb_ic || arb.id)}" disabled></div>
-                            <div class="form-group"><label>First Name</label><input name="first_name" value="${safe(arb.first_name||'')}" required></div>
-                            <div class="form-group"><label>Last Name</label><input name="last_name" value="${safe(arb.last_name||'')}" required></div>
-                            <div class="form-group"><label>Validation Status</label>
-                                <select name="validation_status">
-                                    <option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option>
-                                    <option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option>
-                                    <option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>SPLIT Status</label>
-                                <select name="split_status">
-                                    <option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option>
-                                    <option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option>
-                                    <option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option>
-                                </select>
-                            </div>
+                            <div class="form-group"><label for="editFirstName">First Name</label><input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required></div>
+                            <div class="form-group"><label for="editMiddleName">Middle Name</label><input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}"></div>
+                            <div class="form-group"><label for="editLastName">Last Name</label><input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required></div>
+                            <div class="form-group"><label for="editLifeStatus">Life Status</label><select id="editLifeStatus" name="life_status"><option value="Active" ${profile.life_status==='Active'?'selected':''}>Active</option><option value="Dead" ${profile.life_status==='Dead'?'selected':''}>Dead</option><option value="Unknown" ${!profile.life_status?'selected':''}>Unknown</option></select></div>
+                            <div class="form-group"><label for="editValidationStatus">Validation Status</label><select id="editValidationStatus" name="validation_status"><option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option><option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option></select></div>
+                            <div class="form-group full"><label for="editFbName">FB Name</label><input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}"></div>
+                            <div class="form-group"><label for="editSplitStatus">SPLIT Status</label><select id="editSplitStatus" name="split_status"><option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option><option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select></div>
+                            <div class="form-group"><label for="editCocrom">CoCROM No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}"></div>
+                            <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
+                            <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
+                            <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
+                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
+                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option></select></div>
                         </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
-                        </div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
                 `;
                 showModal('Edit ARB Record', formHtml);
@@ -1010,66 +1120,237 @@
                 document.getElementById('editArbForm').addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const fd = new FormData(e.target);
+                    const payload = {
+                        first_name: emptyToNull(fd.get('first_name')),
+                        middle_name: emptyToNull(fd.get('middle_name')),
+                        last_name: emptyToNull(fd.get('last_name')),
+                        validation_status: fd.get('validation_status'),
+                        life_status: fd.get('life_status'),
+                        ao8: fd.get('ao8') === 'on',
+                        for_ta: fd.get('for_ta') === 'on',
+                        with_ta: fd.get('with_ta') === 'on',
+                        for_disqualificati: fd.get('for_disqualificati') === 'on',
+                        with_existing_con: fd.get('with_existing_con') === 'on',
+                        disqualification_r: emptyToNull(fd.get('disqualification_r')),
+                        updated_at: new Date().toISOString()
+                    };
+                    const profilePayload = {
+                        fb_name: emptyToNull(fd.get('fb_name')),
+                        split_status: fd.get('split_status'),
+                        cocrom_no: emptyToNull(fd.get('cocrom_no')),
+                        is_title_distribute: fd.get('is_title_distribute') === 'true',
+                        e_title_no: emptyToNull(fd.get('e_title_no')),
+                        district: emptyToNull(fd.get('district')),
+                        updated_at: new Date().toISOString(),
+                        updated_by: currentUserProfile?.full_name || currentUser?.email || null
+                    };
                     try {
-                        await secureDbClient.from('arb').update({
-                            first_name: emptyToNull(fd.get('first_name')),
-                            last_name: emptyToNull(fd.get('last_name')),
-                            validation_status: fd.get('validation_status')
-                        }).eq('id', arbId);
-                        
+                        const { error: e1 } = await secureDbClient.from('arb').update(payload).eq('id', arbId);
+                        if (e1) throw e1;
                         if (profile.id) {
-                            await secureDbClient.from('arb_profiles').update({ split_status: fd.get('split_status') }).eq('id', profile.id);
+                            const { error: e2 } = await secureDbClient.from('arb_profiles').update(profilePayload).eq('id', profile.id);
+                            if (e2) throw e2;
+                        } else {
+                            profilePayload.arb_id = String(arbId);
+                            const { error: e2 } = await secureDbClient.from('arb_profiles').insert(profilePayload);
+                            if (e2) throw e2;
                         }
                         hideModal();
                         popToast('ARB updated successfully.', 'ok');
                         loadArbs(currentPage);
-                    } catch(err) { popToast(err.message, 'err'); }
+                    } catch(err) {
+                        if (err.message && err.message.includes('policy')) {
+                            popToast('RLS policy error: Please ensure you have insert/update permission on arb_profiles.', 'err');
+                        } else {
+                            popToast(err.message, 'err');
+                        }
+                    }
                 });
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Batch Validation --------
-        async function openBatchValidation() {
+        // -------- Tag ARB --------
+        async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
-            const selectedCbs = document.querySelectorAll('.arb-select-cb:checked');
-            if (selectedCbs.length === 0) {
-                popToast('Please select at least one ARB.', 'warn');
-                return;
-            }
+            try {
+                const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
+                const profileId = profRes.data.id;
 
-            const formHtml = `
-                <form id="batchValForm">
-                    <p><strong>Applying validation to ${selectedCbs.length} selected ARB(s).</strong></p>
-                    <div class="form-group">
-                        <label>Validation Status</label>
-                        <select name="validation_status" required>
-                            <option value="Validated">Validated</option>
-                            <option value="Rejected">Rejected</option>
-                        </select>
-                    </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelBatchBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Process</button>
-                    </div>
-                </form>
-            `;
-            showModal('Batch Validate', formHtml);
-            document.getElementById('cancelBatchBtn').addEventListener('click', hideModal);
-            document.getElementById('batchValForm').addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const fd = new FormData(e.target);
-                try {
-                    for (let cb of selectedCbs) {
-                        await secureDbClient.from('arb').update({ validation_status: fd.get('validation_status') }).eq('id', cb.value);
+                const tagTypes = [
+                    { value: 'ALI CASE', label: 'ALI Case' },
+                    { value: 'TRANSFER ACTION', label: 'Transfer Action' },
+                    { value: 'DISQUALIFICATION', label: 'Disqualification' },
+                    { value: 'DEAD', label: 'Mark as Dead' },
+                    { value: 'ALIVE', label: 'Mark as Alive' },
+                    { value: 'WITH COMPLAIN', label: 'With Existing Complain' }
+                ];
+                const statusOptions = {
+                    'ALI CASE': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
+                    'TRANSFER ACTION': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
+                    'DISQUALIFICATION': ['FOR DISQUALIFICATION'],
+                    'DEAD': ['DECEASED'],
+                    'ALIVE': ['ACTIVE'],
+                    'WITH COMPLAIN': ['EXISTING']
+                };
+
+                const formHtml = `
+                    <form id="tagArbForm">
+                        <div class="form-grid">
+                            <div class="form-group full"><label>Date of Tagging / Target Date</label><input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required></div>
+                            <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}</select></div>
+                            
+                            <div class="form-group full" id="reasonGrp" style="display:none;"><label>Reason for Rollback</label><input type="text" name="rollback_reason" placeholder="Required if moving target date backward..."></div>
+
+                            <div class="form-group"><label for="tagStatus">Status</label><select id="tagStatus" name="status"></select></div>
+                            <div class="form-group full"><label for="tagCaseRef">Case Reference No.</label><input id="tagCaseRef" name="case_reference_no"></div>
+                            <div class="form-group full"><label for="tagCaseDetails">Case Details / Reason</label><textarea id="tagCaseDetails" name="case_details"></textarea></div>
+                            <div class="form-group full" id="heirSection" style="display:none;"><label>Heirs (for Transfer Action)</label><div id="heirList"></div><button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button></div>
+                        </div>
+                        <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelTagBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Tag</button></div>
+                    </form>
+                `;
+                showModal('Tag ARB', formHtml);
+
+                const tagTypeSelect = document.getElementById('tagType');
+                const tagStatusSelect = document.getElementById('tagStatus');
+                function updateStatuses() {
+                    const type = tagTypeSelect.value;
+                    const opts = statusOptions[type] || [];
+                    tagStatusSelect.innerHTML = opts.map(s => `<option value="${s}">${s}</option>`).join('');
+                    document.getElementById('heirSection').style.display = (type === 'TRANSFER ACTION') ? 'block' : 'none';
+                    document.getElementById('reasonGrp').style.display = ['ALI CASE', 'TRANSFER ACTION'].includes(type) ? 'flex' : 'none';
+                }
+                tagTypeSelect.addEventListener('change', updateStatuses);
+                updateStatuses();
+
+                document.getElementById('addHeirRowBtn')?.addEventListener('click', function() {
+                    const container = document.getElementById('heirList');
+                    const row = document.createElement('div');
+                    row.style.marginBottom = '6px';
+                    row.innerHTML = `
+                        <input type="text" name="heir_name[]" placeholder="Heir Name" style="width:40%;">
+                        <input type="text" name="heir_relation[]" placeholder="Relation" style="width:30%;">
+                        <input type="text" name="heir_contact[]" placeholder="Contact" style="width:25%;">
+                        <button type="button" class="btn btn-danger btn-sm remove-heir-btn">✕</button>
+                    `;
+                    container.appendChild(row);
+                    row.querySelector('.remove-heir-btn').addEventListener('click', function() { row.remove(); });
+                });
+
+                document.getElementById('cancelTagBtn').addEventListener('click', hideModal);
+                document.getElementById('tagArbForm').addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    const fd = new FormData(e.target);
+                    const tagType = fd.get('tag_type');
+                    const status = fd.get('status');
+                    const caseRef = emptyToNull(fd.get('case_reference_no'));
+                    const caseDetails = emptyToNull(fd.get('case_details'));
+                    const targetDate = fd.get('action_date');
+
+                    const tagPayload = {
+                        arb_profile_id: profileId,
+                        tag_type: tagType,
+                        status: status,
+                        case_reference_no: caseRef,
+                        case_details: caseDetails,
+                        tagged_by: currentUserProfile?.full_name || currentUser?.email || null,
+                        tagged_by_user_id: currentUser?.id || null,
+                        updated_at: new Date().toISOString(),
+                        updated_by: currentUserProfile?.full_name || currentUser?.email || null,
+                        created_at: targetDate + 'T00:00:00Z'
+                    };
+
+                    const arbUpdate = {};
+                    let lifeUpdate = null;
+                    switch(tagType) {
+                        case 'ALI CASE':
+                            arbUpdate.with_ali_case = true;
+                            arbUpdate.ali_case_type = status.includes('SPLIT') ? 'SPLIT' : 'REGULAR';
+                            break;
+                        case 'TRANSFER ACTION':
+                            arbUpdate.with_ta = true;
+                            arbUpdate.for_ta = true;
+                            break;
+                        case 'DISQUALIFICATION':
+                            arbUpdate.for_disqualificati = true;
+                            arbUpdate.disqualification_r = caseDetails || status;
+                            break;
+                        case 'DEAD':
+                            lifeUpdate = 'Dead';
+                            break;
+                        case 'ALIVE':
+                            lifeUpdate = 'Active';
+                            break;
+                        case 'WITH COMPLAIN':
+                            arbUpdate.with_existing_con = true;
+                            break;
                     }
-                    hideModal();
-                    popToast(`Successfully validated ${selectedCbs.length} ARB(s).`, 'ok');
-                    loadArbs(currentPage);
-                } catch (err) { popToast(err.message, 'err'); }
-            });
+
+                    try {
+                        const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
+                        if (tagErr) throw tagErr;
+
+                        // Insert into monitoring table for legal cases
+                        if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION'].includes(tagType)) {
+                            const { data: existingMon } = await secureDbClient.from('arb_legal_monitoring').select('id').eq('arb_id', arbId).eq('case_type', tagType).single();
+                            const trackingPayload = {
+                                arb_id: arbId,
+                                case_type: tagType,
+                                status: status,
+                                current_target_date: targetDate,
+                                reason_for_rollback: fd.get('rollback_reason'),
+                                remarks: caseDetails
+                            };
+                            if (existingMon) {
+                                await secureDbClient.from('arb_legal_monitoring').update(trackingPayload).eq('id', existingMon.id);
+                            } else {
+                                await secureDbClient.from('arb_legal_monitoring').insert(trackingPayload);
+                            }
+                        }
+
+                        if (Object.keys(arbUpdate).length > 0) {
+                            const { error: arbErr } = await secureDbClient.from('arb').update(arbUpdate).eq('id', arbId);
+                            if (arbErr) throw arbErr;
+                        }
+                        if (lifeUpdate) {
+                            const { error: lifeErr } = await secureDbClient.from('arb_profiles').update({ life_status: lifeUpdate }).eq('arb_id', String(arbId));
+                            if (lifeErr) throw lifeErr;
+                        }
+
+                        const heirNamesArr = fd.getAll('heir_name[]').filter(Boolean);
+                        if (heirNamesArr.length > 0) {
+                            const heirs = heirNamesArr.map((name, i) => ({
+                                arb_profile_id: profileId,
+                                heir_name: name,
+                                heir_relation: fd.getAll('heir_relation[]')[i] || null,
+                                heir_contact: fd.getAll('heir_contact[]')[i] || null,
+                                is_verified: false,
+                                is_selected: false,
+                                created_by: currentUserProfile?.full_name || currentUser?.email || null,
+                                updated_by: currentUserProfile?.full_name || currentUser?.email || null,
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            }));
+                            const { error: heirErr } = await secureDbClient.from('arb_heirs').insert(heirs);
+                            if (heirErr) throw heirErr;
+                        }
+
+                        hideModal();
+                        popToast('Tag applied successfully.', 'ok');
+                        loadArbs(currentPage);
+                    } catch(err) {
+                        if (err.message && err.message.includes('policy')) {
+                            popToast('RLS policy error: Please ensure you have insert permission on arb_tags and arb_heirs.', 'err');
+                        } else {
+                            popToast(err.message, 'err');
+                        }
+                    }
+                });
+            } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- CR80 Standard ID Generation --------
+        // -------- Generate Standard ARB ID --------
         async function generateArbId(arbId, arbName) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1079,8 +1360,7 @@
 
                 const profRes = await secureDbClient.from('arb_profiles').select('id, sequence_no, generated_arb_ic, image_base64').eq('arb_id', String(arbId)).single();
                 let profile = profRes.data;
-                
-                if (!profile) { popToast('Profile not found. Please edit to create one.', 'err'); return; }
+                if (!profile) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                 
                 let seq = profile.sequence_no;
                 if (!seq) {
@@ -1094,12 +1374,10 @@
                 await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId, sequence_no: seq }).eq('id', profile.id);
                 await secureDbClient.from('arb').update({ generated_arb_ic: newId }).eq('id', arbId);
 
-                // Initialize standard CR80 size (85.6mm x 54mm)
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
                 
-                // 1. Header Banner
-                doc.setFillColor(10, 61, 98); // Blue
+                doc.setFillColor(10, 61, 98);
                 doc.rect(0, 0, 85.6, 12, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(8);
@@ -1108,9 +1386,9 @@
                 doc.setFontSize(6);
                 doc.setFont("helvetica", "normal");
                 doc.text("Beneficiary Identity Card", 42.8, 10, { align: "center" });
+                
                 doc.setTextColor(0, 0, 0);
-
-                // 2. Picture Box
+                
                 const imgWidth = 20;
                 const imgHeight = 22;
                 if (profile.image_base64) {
@@ -1122,10 +1400,9 @@
                     doc.text("NO PHOTO", 14, 26, { align: "center" });
                 }
 
-                // 3. Demographics
                 doc.setFontSize(9);
                 doc.setFont("helvetica", "bold");
-                doc.text(safe(arbName).toUpperCase(), 28, 19);
+                doc.text(safe(arbName || fullName(arb)).toUpperCase(), 28, 19);
                 
                 doc.setFontSize(7);
                 doc.setFont("helvetica", "normal");
@@ -1139,33 +1416,380 @@
                 const splitAddress = doc.splitTextToSize(`Address : ${address}`, 55);
                 doc.text(splitAddress, 28, 33);
 
-                // 4. Footers / Signatures
                 doc.setDrawColor(0, 0, 0);
-                doc.line(4, 46, 26, 46); // Left Line
+                doc.line(4, 46, 26, 46); 
                 doc.setFontSize(5);
                 doc.text("ARB Signature", 15, 49, { align: "center" });
 
-                doc.line(50, 46, 80, 46); // Right Line
+                doc.line(50, 46, 80, 46); 
                 doc.text("Authorized Signature", 65, 49, { align: "center" });
 
                 doc.setTextColor(100, 100, 100);
                 doc.text(`Generated: ${new Date().toLocaleDateString()}`, 42.8, 52, { align: "center" });
 
                 doc.save(`ARB_ID_${newId}.pdf`);
+
                 popToast(`ARB ID generated and downloaded: ${newId}`, 'ok');
                 loadArbs(currentPage);
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Utility Modal Windows --------
+        // -------- Upload Photo --------
         async function openPhotoUpload(arbId) {
-            popToast('Photo upload module initialized. (Connected to external DB)', 'info');
-        }
-        async function openAssignArbo(arbId) {
-            popToast('ARBO assign module initialized. (Connected to external DB)', 'info');
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            const formHtml = `
+                <form id="photoForm">
+                    <div class="form-group"><label>Upload Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
+                    <div class="form-group"><label>Or capture from webcam</label><button type="button" class="btn btn-primary" id="startWebcamBtn">Start Webcam</button>
+                        <video id="webcamVideo" autoplay style="width:100%;max-width:320px;border:1px solid #ccc;border-radius:6px;margin-top:6px;display:none;"></video>
+                        <canvas id="webcamCanvas" style="display:none;"></canvas>
+                        <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;margin-top:10px;">Capture</button>
+                    </div>
+                    <div id="photoPreview" style="margin-top:10px;"></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
+                </form>
+            `;
+            showModal('Upload ARB Photo', formHtml);
+            document.getElementById('cancelPhotoBtn').addEventListener('click', hideModal);
+
+            let webcamStream = null;
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            const preview = document.getElementById('photoPreview');
+
+            document.getElementById('startWebcamBtn').addEventListener('click', async function() {
+                try {
+                    webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = webcamStream;
+                    video.style.display = 'block';
+                    document.getElementById('captureWebcamBtn').style.display = 'inline-block';
+                } catch(e) {
+                    popToast('Unable to access webcam: ' + e.message, 'err');
+                }
+            });
+
+            document.getElementById('captureWebcamBtn').addEventListener('click', function() {
+                if (!webcamStream) return;
+                canvas.width = video.videoWidth || 320;
+                canvas.height = video.videoHeight || 320;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg');
+                preview.innerHTML = `<img src="${dataUrl}" style="max-width:150px;border-radius:8px;">`;
+                let hidden = document.getElementById('photoData');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.id = 'photoData';
+                    hidden.name = 'photo_data';
+                    document.getElementById('photoForm').appendChild(hidden);
+                }
+                hidden.value = dataUrl;
+                if (webcamStream) {
+                    webcamStream.getTracks().forEach(t => t.stop());
+                    webcamStream = null;
+                    video.srcObject = null;
+                    video.style.display = 'none';
+                    document.getElementById('captureWebcamBtn').style.display = 'none';
+                }
+            });
+
+            document.getElementById('photoForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('photoFileInput');
+                let rawImageData = null;
+
+                if (fileInput.files && fileInput.files[0]) {
+                    const reader = new FileReader();
+                    rawImageData = await new Promise((resolve) => {
+                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.readAsDataURL(fileInput.files[0]);
+                    });
+                } else {
+                    const hidden = document.getElementById('photoData');
+                    if (hidden) rawImageData = hidden.value;
+                }
+
+                if (!rawImageData) { popToast('No photo selected or captured.', 'warn'); return; }
+                
+                const compressedImageData = await compressImage(rawImageData, 400, 0.7);
+
+                try {
+                    const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                    if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
+                    const profile = profRes.data;
+                    const { error } = await secureDbClient.from('arb_profiles').update({
+                        image_base64: compressedImageData,
+                        updated_at: new Date().toISOString(),
+                        updated_by: currentUserProfile?.full_name || currentUser?.email || null
+                    }).eq('id', profile.id);
+                    if (error) throw error;
+                    hideModal();
+                    popToast('Photo uploaded successfully.', 'ok');
+                    loadArbs(currentPage);
+                } catch(err) {
+                    popToast(err.message, 'err');
+                }
+            });
         }
 
-        // -------- Listeners --------
+        // -------- Assign to ARBO --------
+        async function openAssignArbo(arbId) {
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (arboList.length === 0) await loadArboList();
+            const options = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
+            const formHtml = `
+                <form id="assignArboForm">
+                    <div class="form-group"><label for="arboSelect">Select ARBO</label><select id="arboSelect" name="arbo_id" required><option value="">-- Choose --</option>${options}</select></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
+                </form>
+            `;
+            showModal('Assign ARB to ARBO', formHtml);
+            document.getElementById('cancelArboBtn').addEventListener('click', hideModal);
+            document.getElementById('assignArboForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const arboId = document.getElementById('arboSelect').value;
+                if (!arboId) { popToast('Please select an ARBO.','warn'); return; }
+                try {
+                    const { error } = await secureDbClient.from('arb').update({ arbo_id: arboId }).eq('id', arbId);
+                    if (error) throw error;
+                    hideModal();
+                    popToast('ARBO assigned successfully.', 'ok');
+                    loadArbs(currentPage);
+                } catch(err) { popToast(err.message, 'err'); }
+            });
+        }
+
+        // -------- Update Validation Status --------
+        function openUpdateValidation(arbId, currentStatus) {
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            const formHtml = `
+                <form id="updateValForm">
+                    <div class="form-group"><label for="newValidationStatus">Validation Status</label><select id="newValidationStatus" name="validation_status"><option value="Pending" ${currentStatus==='Pending'?'selected':''}>Pending</option><option value="Validated" ${currentStatus==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option></select></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn">Cancel</button><button type="submit" class="btn btn-primary">Update</button></div>
+                </form>
+            `;
+            showModal('Update Validation Status', formHtml);
+            document.getElementById('cancelValBtn').addEventListener('click', hideModal);
+            document.getElementById('updateValForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const status = document.getElementById('newValidationStatus').value;
+                try {
+                    const { error } = await secureDbClient.from('arb').update({ validation_status: status }).eq('id', arbId);
+                    if (error) throw error;
+                    hideModal();
+                    popToast('Validation status updated.', 'ok');
+                    loadArbs(currentPage);
+                } catch(err) { popToast(err.message, 'err'); }
+            });
+        }
+
+        // -------- Search CCLOA --------
+        async function openCcloaSearch() {
+            showModal('Search CCLOA', `
+                <div class="search-row">
+                    <input id="ccloaSearchInput" placeholder="Enter CCLOA number">
+                    <button type="button" class="btn btn-primary" id="runCcloaSearchBtn">Search</button>
+                </div>
+                <div id="ccloaSearchResults"><p class="empty-msg">Enter an existing CCLOA number.</p></div>
+            `);
+            document.getElementById('runCcloaSearchBtn').addEventListener('click', runCcloaSearch);
+            document.getElementById('ccloaSearchInput').addEventListener('keydown', function(e) { if (e.key==='Enter') runCcloaSearch(); });
+        }
+
+        async function runCcloaSearch() {
+            const term = document.getElementById('ccloaSearchInput').value.trim();
+            const resultsEl = document.getElementById('ccloaSearchResults');
+            if (!term) { resultsEl.innerHTML = '<p class="empty-msg">Enter a CCLOA number.</p>'; return; }
+            resultsEl.innerHTML = '<p class="empty-msg">⏳ Searching...</p>';
+            try {
+                const { data, error } = await secureDbClient.from('mother_titles').select('*').ilike('mother_title_no', `%${term}%`).order('mother_title_no').limit(50);
+                if (error) throw error;
+                if (!data || data.length === 0) {
+                    resultsEl.innerHTML = '<p class="empty-msg">No matching CCLOA found.</p>';
+                    return;
+                }
+                let html = `<table class="modal-table"><thead><tr><th>CCLOA No.</th><th>Landowner</th><th>Municipality</th><th>Barangay</th><th>SPLIT Status</th><th>Remarks</th><th>Action</th></tr></thead><tbody>`;
+                data.forEach(t => {
+                    html += `<tr><td><strong>${safe(t.mother_title_no)}</strong></td><td>${safe(t.landowner)}</td><td>${safe(t.municipality)}</td><td>${safe(t.barangay)}</td><td>${safe(t.split_status)}</td><td>${safe(t.remarks)}</td><td><button class="btn btn-primary btn-sm show-members-btn" data-title-id="${t.id}">View ARBs</button></td></tr>`;
+                });
+                resultsEl.innerHTML = html + '</tbody></table>';
+                resultsEl.querySelectorAll('.show-members-btn').forEach(btn => btn.addEventListener('click', function() {
+                    showCcloaMembers(this.dataset.titleId);
+                }));
+            } catch(e) { resultsEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
+        }
+
+        async function showCcloaMembers(motherTitleId) {
+            showModal('ARBs under CCLOA', '<p class="empty-msg">⏳ Loading...</p>');
+            try {
+                const { data: title } = await secureDbClient.from('mother_titles').select('*').eq('id', motherTitleId).single();
+                const { data: holdings } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').eq('mother_title_id', motherTitleId);
+                const profileIds = [...new Set(holdings?.map(h => h.arb_profile_id).filter(Boolean))];
+                if (!profileIds.length) {
+                    document.querySelector('.modal-body-scroll').innerHTML = `<p>CCLOA: ${safe(title?.mother_title_no)}</p><p class="empty-msg">No ARBs found.</p>`;
+                    return;
+                }
+                const { data: profiles } = await secureDbClient.from('arb_profiles').select('arb_id, fb_name, life_status, split_status, e_title_no').in('id', profileIds);
+                const arbIds = profiles.map(p => p.arb_id).filter(Boolean);
+                const { data: arbs } = await secureDbClient.from('arb').select('id, first_name, middle_name, last_name, validation_status').in('id', arbIds);
+                let html = `<p><strong>CCLOA:</strong> ${safe(title?.mother_title_no)} &nbsp; <strong>Landowner:</strong> ${safe(title?.landowner)}</p><table class="modal-table"><thead><tr><th>ARB</th><th>Validation</th><th>Life</th><th>Classification</th><th>e-Title</th><th>Action</th></tr></thead><tbody>`;
+                arbs?.forEach(arb => {
+                    const prof = profiles.find(p => p.arb_id === String(arb.id)) || {};
+                    html += `<tr><td>${safe(fullName(arb))}</td><td>${safe(arb.validation_status)}</td><td>${safe(prof.life_status)}</td><td>${safe(prof.split_status)}</td><td>${safe(prof.e_title_no)}</td><td><button class="btn btn-primary btn-sm" onclick="openArbProfile('${arb.id}')">Open</button></td></tr>`;
+                });
+                document.querySelector('.modal-body-scroll').innerHTML = html + '</tbody></table>';
+            } catch(e) { document.querySelector('.modal-body-scroll').innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
+        }
+
+        // -------- Batch Validation (Fixed Town/Barangay Options) --------
+        async function openBatchValidation() {
+            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            
+            const munSet = Object.keys(locData).sort();
+            const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
+
+            const formHtml = `
+                <form id="batchValForm">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="batchMunicipality">Municipality</label>
+                            <select id="batchMunicipality" name="municipality" required>
+                                <option value="">Select Municipality</option>
+                                ${munSelect}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchBarangay">Barangay</label>
+                            <select id="batchBarangay" name="barangay" required>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchValidationStatus">Validation Status</label>
+                            <select id="batchValidationStatus" name="validation_status" required>
+                                <option value="Pending">Pending</option>
+                                <option value="Validated">Validated</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="batchValidatorType">Validator Type</label>
+                            <select id="batchValidatorType" name="validator_type">
+                                <option value="Barangay">Barangay</option>
+                                <option value="DARMO">DARMO</option>
+                                <option value="PBDD">PBDD</option>
+                            </select>
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchValidatorName">Validator Name (optional)</label>
+                            <input id="batchValidatorName" name="validator_name" placeholder="If left blank, current user will be used">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchBarangayCaptain">Barangay Captain Name (if Barangay validation)</label>
+                            <input id="batchBarangayCaptain" name="barangay_captain">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchValidationBasis">Validation Basis (optional)</label>
+                            <input id="batchValidationBasis" name="validation_basis">
+                        </div>
+                        <div class="form-group full">
+                            <label for="batchSupportingDoc">Supporting Document Reference (optional)</label>
+                            <input id="batchSupportingDoc" name="supporting_document_reference">
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-primary" id="cancelBatchBtn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Apply to All ARBs in Location</button>
+                    </div>
+                </form>
+            `;
+            showModal('Batch Validate Location', formHtml);
+            document.getElementById('cancelBatchBtn').addEventListener('click', hideModal);
+
+            document.getElementById('batchMunicipality').addEventListener('change', function() {
+                const mun = this.value;
+                const barangaySelect = document.getElementById('batchBarangay');
+                if (!mun) {
+                    barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+                    return;
+                }
+                const barangays = locData[mun].sort();
+                const options = barangays.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+                barangaySelect.innerHTML = `<option value="">Select Barangay</option>${options}`;
+            });
+
+            document.getElementById('batchValForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const municipality = fd.get('municipality');
+                const barangay = fd.get('barangay');
+                const validationStatus = fd.get('validation_status');
+                const validatorType = fd.get('validator_type');
+                const validatorName = emptyToNull(fd.get('validator_name')) || currentUserProfile?.full_name || currentUser?.email || 'System';
+                const barangayCaptain = emptyToNull(fd.get('barangay_captain'));
+                const validationBasis = emptyToNull(fd.get('validation_basis'));
+                const supportingDoc = emptyToNull(fd.get('supporting_document_reference'));
+
+                if (!municipality || !barangay) {
+                    popToast('Please select both Municipality and Barangay.', 'warn');
+                    return;
+                }
+
+                try {
+                    const { data: arboList } = await secureDbClient.from('arbo').select('id').eq('municipality', municipality).eq('barangay', barangay);
+                    const arboIds = arboList.map(a => a.id);
+                    let arbIds = [];
+                    if (arboIds.length > 0) {
+                        const { data: arbs } = await secureDbClient.from('arb').select('id').in('arbo_id', arboIds);
+                        arbIds = arbs.map(a => String(a.id));
+                    }
+                    const { data: landProfiles } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').eq('municipality', municipality).eq('barangay', barangay);
+                    const profileIds = landProfiles.map(l => l.arb_profile_id).filter(Boolean);
+                    let landArbIds = [];
+                    if (profileIds.length > 0) {
+                        const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profileIds);
+                        landArbIds = profs.map(p => String(p.arb_id)).filter(Boolean);
+                    }
+                    const allArbIds = [...new Set([...arbIds, ...landArbIds])];
+                    
+                    if (allArbIds.length === 0) {
+                        popToast('No ARBs found in that municipality/barangay.', 'warn');
+                        return;
+                    }
+
+                    const today = new Date().toISOString().substring(0,10);
+                    const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
+                    const userId = currentUser?.id || null;
+
+                    for (const arbId of allArbIds) {
+                        await secureDbClient.from('arb').update({ validation_status: validationStatus }).eq('id', arbId);
+                        await secureDbClient.from('arb_validations').insert({
+                            arb_id: arbId,
+                            validator_type: validatorType,
+                            validator_name: validatorName,
+                            validator_barangay: barangay,
+                            validator_town: municipality,
+                            position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
+                            date_validated: today,
+                            validation_basis: validationBasis,
+                            supporting_document_reference: supportingDoc,
+                            recorded_by: userName,
+                            recorded_by_user_id: userId,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                    hideModal();
+                    popToast(`Batch validation applied to ${allArbIds.length} ARB(s).`, 'ok');
+                    loadArbs(currentPage);
+                } catch (err) {
+                    popToast(err.message, 'err');
+                }
+            });
+        }
+
+        // -------- Listeners & Initialization --------
+        document.getElementById('searchCcloaBtn')?.addEventListener('click', openCcloaSearch);
         document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
         document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
         document.getElementById('batchValidateBtn')?.addEventListener('click', openBatchValidation);
@@ -1187,29 +1811,36 @@
             this.textContent = filters.classList.contains('open') ? '🔽 Hide Filters' : '⚙️ Advanced Filters';
         });
 
-        // -------- Initialization --------
         (async function init() {
             try {
                 if (!secureDbClient) {
                     await buildNavbar(null);
-                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Database connection required.</td></tr>`;
+                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Database connection required.</td></tr>`;
                     return;
                 }
+
                 const { data: authData } = await secureDbClient.auth.getUser();
                 if (!authData?.user) {
                     await buildNavbar(null);
-                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Please <a href="login.html">login</a> to continue.</td></tr>`;
+                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;">Please <a href="login.html">login</a> to continue.</td></tr>`;
                     return;
                 }
                 currentUser = authData.user;
-                const { data: profile } = await secureDbClient.from('profiles').select('*').eq('id', currentUser.id).single();
+                const { data: profile, error: profErr } = await secureDbClient.from('profiles').select('*').eq('id', currentUser.id).single();
+                if (profErr && profErr.code !== 'PGRST116') throw profErr;
                 currentUserProfile = profile;
                 await buildNavbar(profile);
+
                 await populateFilterOptions();
                 await loadArboList();
                 await loadArbs(0);
-            } catch(e) { console.error(e); }
+                popToast('ARB Management initialized successfully.', 'ok');
+            } catch(e) {
+                console.error(e);
+                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="12" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">❌ ${safe(e.message)}</td></tr>`;
+            }
         })();
+
     })();
 </script>
 </body>
