@@ -73,8 +73,29 @@
         .filter-actions { display: flex; gap: 8px; align-items: center; }
 
         .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border-light); }
-        .search-container .search-input-group { flex: 3; min-width: 200px; display: flex; gap: 8px; }
-        .search-container .search-input-group input { flex: 1; }
+        .search-container .search-input-group { flex: 3; min-width: 300px; display: flex; }
+        
+        /* -------- NEW INTELLIGENT SEARCH INPUT -------- */
+        .omni-search-input {
+            flex: 1;
+            width: 100%;
+            padding: 14px 20px;
+            font-size: 1.05rem;
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            background: #f8fafc;
+            color: var(--text-dark);
+            font-family: inherit;
+            transition: all 0.25s ease-in-out;
+            box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);
+        }
+        .omni-search-input:focus {
+            border-color: var(--primary-green);
+            background: #ffffff;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(6, 95, 70, 0.15);
+        }
+
         .search-container .search-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .toggle-filters-btn { background: none; border: none; color: var(--primary-green); font-weight: 700; cursor: pointer; padding: 8px 12px; border-radius: 6px; transition: background 0.2s; }
         .toggle-filters-btn:hover { background: #ecfdf5; }
@@ -151,17 +172,10 @@
 
     <div class="search-container">
         <div class="search-input-group">
-            <input id="globalSearchInput" placeholder="Search ARB name, ID, sequence, or landholding..." autocomplete="off" aria-label="Search">
-            <select id="globalSearchField">
-                <option value="name">Name</option>
-                <option value="id">ARB ID</option>
-                <option value="sequence">Sequence No.</option>
-                <option value="fb_name">FB Name</option>
-                <option value="landholding">Landholding / Title / CoCROM</option>
-            </select>
+            <input id="globalSearchInput" class="omni-search-input" placeholder="✨ Intelligent Search: Type Name, ID, Title, Landholding, CoCROM, Sequence, or Location..." autocomplete="off" aria-label="Search">
         </div>
         <div class="search-actions">
-            <button type="button" class="btn btn-primary" id="globalSearchBtn">🔍 Search</button>
+            <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">🔍 Search</button>
             <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
             <button type="button" class="btn btn-primary" id="searchCcloaBtn" style="background:var(--dar-gold); border-color:#b45309;">📂 CCLOA</button>
@@ -514,26 +528,15 @@
             const cocrom = document.getElementById('filterCocrom').value;
             const titleDist = document.getElementById('filterTitleDist').value;
             const searchTerm = document.getElementById('globalSearchInput').value.trim();
-            const searchField = document.getElementById('globalSearchField').value;
 
             try {
-                let namePart = searchTerm;
-                let municipalityPart = null;
-                if (searchTerm && searchField === 'name') {
-                    const parts = searchTerm.split(',').map(s => s.trim());
-                    if (parts.length >= 2) {
-                        namePart = parts[0];
-                        municipalityPart = parts.slice(1).join(' ');
-                    }
-                }
-
-                let locationFilterActive = Boolean(town || barangay || municipalityPart);
-                let profileFilterActive = Boolean(split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')));
-                let landholdingFilterActive = Boolean(searchTerm && searchField === 'landholding');
-                let baseArbFilterActive = Boolean(validation || ali !== '' || ta !== '' || (searchTerm && (searchField === 'name' || searchField === 'id')));
-
                 let filterSets = [];
 
+                let locationFilterActive = Boolean(town || barangay);
+                let profileFilterActive = Boolean(split || cocrom !== '' || titleDist !== '');
+                let baseArbFilterActive = Boolean(validation || ali !== '' || ta !== '');
+
+                // Explicit Location Filters
                 if (locationFilterActive) {
                     let locIds = new Set();
                     let arboQ = () => {
@@ -548,7 +551,6 @@
                             if (p2) conds.push(`barangay.ilike.%${p2}%`);
                             q = q.or(conds.join(','));
                         }
-                        if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
                         return q;
                     };
                     const arboData = await fetchAllRecords(arboQ);
@@ -569,7 +571,6 @@
                             if (p2) conds.push(`barangay.ilike.%${p2}%`);
                             q = q.or(conds.join(','));
                         }
-                        if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
                         return q;
                     };
                     const landData = await fetchAllRecords(landQ);
@@ -581,6 +582,7 @@
                     filterSets.push([...locIds]);
                 }
 
+                // Explicit Profile Filters
                 if (profileFilterActive) {
                     let profQ = () => {
                         let q = secureDbClient.from('arb_profiles').select('arb_id');
@@ -588,60 +590,67 @@
                         if (cocrom === 'true') q = q.not('cocrom_no', 'is', null).neq('cocrom_no', '');
                         if (cocrom === 'false') q = q.is('cocrom_no', null);
                         if (titleDist !== '') q = q.eq('is_title_distribute', titleDist === 'true');
-                        if (searchTerm && searchField === 'sequence') q = q.ilike('sequence_no', `%${searchTerm}%`);
-                        if (searchTerm && searchField === 'fb_name') q = q.ilike('fb_name', `%${searchTerm}%`);
                         return q;
                     };
                     const profiles = await fetchAllRecords(profQ);
                     filterSets.push(profiles.map(p => String(p.arb_id)).filter(Boolean));
                 }
 
-                if (landholdingFilterActive) {
-                    const pattern = `%${searchTerm}%`;
-                    let landSearchQ = () => secureDbClient.from('arb_landholdings').select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
-
-                    let backupQ = () => secureDbClient.from('epcloais_import_profile_matches').select('arb_profile_id')
-                        .or(`cocrom_certificate_no.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},title_no.ilike.${pattern},claim_no.ilike.${pattern},lhid_raw.ilike.${pattern}`);
-
-                    const [landData, backupData] = await Promise.all([
-                        fetchAllRecords(landSearchQ),
-                        fetchAllRecords(backupQ)
-                    ]);
-
-                    const profIds = [...new Set([...landData.map(l => l.arb_profile_id), ...backupData.map(b => b.arb_profile_id)].filter(Boolean))];
-
-                    let lhArbIds = [];
-                    if (profIds.length > 0) {
-                        const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profIds);
-                        lhArbIds = profs.map(p => String(p.arb_id)).filter(Boolean);
-                    }
-                    filterSets.push(lhArbIds);
-                }
-
+                // Explicit Arb Flags
                 if (baseArbFilterActive) {
                     let arbQ = () => {
                         let q = secureDbClient.from('arb').select('id');
                         if (validation) q = q.eq('validation_status', validation);
                         if (ali !== '') q = q.eq('with_ali_case', ali === 'true');
                         if (ta !== '') q = q.eq('with_ta', ta === 'true');
-
-                        if (searchTerm && searchField === 'id') {
-                            if (!isNaN(searchTerm)) q = q.or(`id.eq.${searchTerm},generated_arb_id.ilike.%${searchTerm}%`);
-                            else q = q.ilike('generated_arb_id', `%${searchTerm}%`);
-                        } else if (searchTerm && searchField === 'name') {
-                            const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
-                            if (tokens.length === 1) {
-                                q = q.or(`first_name.ilike.%${tokens[0]}%,middle_name.ilike.%${tokens[0]}%,last_name.ilike.%${tokens[0]}%`);
-                            } else {
-                                const conditions = tokens.map(token => `first_name.ilike.%${token}%,last_name.ilike.%${token}%`).join(',');
-                                q = q.or(conditions);
-                            }
-                        }
                         return q;
                     };
                     const arbs = await fetchAllRecords(arbQ);
                     filterSets.push(arbs.map(a => String(a.id)));
+                }
+
+                // INTELLIGENT OMNI-SEARCH
+                if (searchTerm) {
+                    let globalSearchIds = new Set();
+                    const safeTerm = searchTerm.replace(/[,"]/g, ' ').replace(/\s+/g, ' ').trim();
+                    const pattern = `%${safeTerm}%`;
+                    const tokens = safeTerm.split(' ').filter(t => t.length > 0);
+                    
+                    let arbOr = `generated_arb_id.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern},middle_name.ilike.${pattern}`;
+                    if (!isNaN(safeTerm) && safeTerm.trim() !== '') arbOr += `,id.eq.${safeTerm}`;
+                    if (tokens.length > 1) {
+                        const conditions = tokens.map(token => `first_name.ilike.%${token}%,last_name.ilike.%${token}%`).join(',');
+                        arbOr += `,` + conditions;
+                    }
+
+                    const [arbRes, profRes, lhRes, epcRes, arboRes] = await Promise.all([
+                        fetchAllRecords(() => secureDbClient.from('arb').select('id').or(arbOr)),
+                        fetchAllRecords(() => secureDbClient.from('arb_profiles').select('arb_id').or(`sequence_no.ilike.${pattern},fb_name.ilike.${pattern}`)),
+                        fetchAllRecords(() => secureDbClient.from('arb_landholdings').select('arb_profile_id')
+                            .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern},municipality.ilike.${pattern},barangay.ilike.${pattern},landowner.ilike.${pattern}`)),
+                        fetchAllRecords(() => secureDbClient.from('epcloais_import_profile_matches').select('arb_profile_id')
+                            .or(`cocrom_certificate_no.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},title_no.ilike.${pattern},claim_no.ilike.${pattern},lhid_raw.ilike.${pattern}`)),
+                        fetchAllRecords(() => secureDbClient.from('arbo').select('id').or(`name.ilike.${pattern},municipality.ilike.${pattern},barangay.ilike.${pattern}`))
+                    ]);
+
+                    arbRes.forEach(r => globalSearchIds.add(String(r.id)));
+                    profRes.forEach(r => globalSearchIds.add(String(r.arb_id)));
+
+                    const combinedProfIds = [...new Set([...lhRes.map(r => r.arb_profile_id), ...epcRes.map(r => r.arb_profile_id)].filter(Boolean))];
+                    const arboIds = arboRes.map(a => a.id);
+
+                    const resolvingPromises = [];
+                    if (combinedProfIds.length > 0) resolvingPromises.push(fetchInChunks('arb_profiles', 'arb_id', 'id', combinedProfIds));
+                    else resolvingPromises.push(Promise.resolve([]));
+                    
+                    if (arboIds.length > 0) resolvingPromises.push(fetchInChunks('arb', 'id', 'arbo_id', arboIds));
+                    else resolvingPromises.push(Promise.resolve([]));
+
+                    const [resolvedProfs, resolvedArbs] = await Promise.all(resolvingPromises);
+                    resolvedProfs.forEach(p => { if (p.arb_id) globalSearchIds.add(String(p.arb_id)); });
+                    resolvedArbs.forEach(a => globalSearchIds.add(String(a.id)));
+
+                    filterSets.push([...globalSearchIds]);
                 }
 
                 let finalIds = null;
@@ -1138,9 +1147,9 @@
 
         function renderValidations(validations) {
             if (!validations || validations.length === 0) return `<p class="empty-card">No validations recorded.</p>`;
-            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Position</th><th>Barangay</th><th>Town</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Position</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
             validations.forEach(v => {
-                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td>${displayValue(v.position)}</td><td>${displayValue(v.validator_barangay)}</td><td>${displayValue(v.validator_town)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
+                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td>${displayValue(v.position)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -2401,7 +2410,6 @@
         document.getElementById('clearFiltersBtn')?.addEventListener('click', function() {
             document.querySelectorAll('#filterRow select').forEach(s => s.value = '');
             document.getElementById('globalSearchInput').value = '';
-            document.getElementById('globalSearchField').value = 'name';
             currentPage = 0;
             loadArbs(currentPage);
         });
