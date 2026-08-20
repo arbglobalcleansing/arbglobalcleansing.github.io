@@ -12,110 +12,99 @@
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
-        /* -------- All styles -------- */
+        /* -------- Modern DAR Color Scheme (Green & Gold) -------- */
+        :root {
+            --primary-green: #065F46;
+            --hover-green: #047857;
+            --dar-gold: #D97706;
+            --text-dark: #0f172a;
+            --text-muted: #475569;
+            --bg-light: #f8fafc;
+        }
+
         .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
-        .profile-header h2 { margin: 0; }
+        .profile-header h2 { margin: 0; color: var(--primary-green); }
         .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
         .validator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
-        .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #0a3d62; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .validator-item .type-badge { display: inline-block; background: #dbeafe; color: #0a3d62; padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
+        .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-green); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .validator-item .type-badge { display: inline-block; background: #d1fae5; color: var(--primary-green); padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; }
         .validator-item .name { font-weight: 700; font-size: 1.05rem; }
-        .validator-item .detail { font-size: 0.9rem; color: #334155; }
+        .validator-item .detail { font-size: 0.9rem; color: var(--text-muted); }
         .management-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .form-group { display: flex; flex-direction: column; gap: 6px; }
         .form-group.full { grid-column: 1 / -1; }
-        .form-group label { font-weight: 700; color: #334155; }
-        .form-group input, .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #0f172a; }
+        .form-group label { font-weight: 700; color: var(--text-muted); }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: var(--text-dark); transition: border-color 0.2s; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--primary-green); outline: none; }
         .form-group textarea { min-height: 90px; resize: vertical; }
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
         .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-        .section-note { color: #64748b; font-size: 0.9rem; margin-top: 0; }
+        
+        .btn-primary { background: var(--primary-green) !important; color: white !important; border: 1px solid #064E3B !important; transition: all 0.2s; cursor: pointer; }
+        .btn-primary:hover { background: var(--hover-green) !important; }
+        .btn-primary:disabled { background: #94a3b8 !important; border-color: #64748b !important; cursor: not-allowed; opacity: 0.8; }
+
         .search-row { display: flex; gap: 10px; margin-bottom: 18px; }
         .search-row input { flex: 1; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; }
-        .filter-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
-        .tag-list { width: 100%; border-collapse: collapse; }
-        .tag-list th, .tag-list td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
-        .tag-list th { color: #334155; background: #f8fafc; }
-        .empty-card { color: #64748b; font-style: italic; }
-        .profile-grid.arb-editor-grid { grid-template-columns: 0.9fr 1.15fr 1.15fr; gap: 0; overflow: hidden; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; box-shadow: 0 12px 34px rgba(15,23,42,0.08); }
-        .profile-grid.arb-editor-grid > .profile-card { margin: 0; border: 0; border-right: 1px solid #e2e8f0; border-radius: 0; box-shadow: none; }
-        .profile-grid.arb-editor-grid > .profile-card:last-child { border-right: 0; }
-        .arb-avatar { display: grid; place-items: center; width: 104px; height: 104px; margin: 4px auto 18px; border: 5px solid #f1f5f9; border-radius: 50%; color: #ffffff; background: linear-gradient(145deg, #0a3d62, #1d6fa5); font-size: 1.65rem; font-weight: 800; letter-spacing: 0.05em; }
-        .profile-grid.arb-editor-grid .field { padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
-        .profile-grid.arb-editor-grid .field:last-child { border-bottom: 0; }
-        @media (max-width: 700px) {
-            .profile-grid, .form-grid, .filter-grid { grid-template-columns: 1fr; }
-            .profile-grid.arb-editor-grid { grid-template-columns: 1fr; }
-            .profile-grid.arb-editor-grid > .profile-card { border-right: 0; border-bottom: 1px solid #e2e8f0; }
-            .profile-grid.arb-editor-grid > .profile-card:last-child { border-bottom: 0; }
-            .profile-header { flex-direction: column; align-items: stretch; gap: 12px; }
-            .form-group.full { grid-column: auto; }
-            .search-row { flex-direction: column; }
-            .arb-quick-search { align-items: stretch; flex-direction: column; }
-        }
-
-        .arb-table-wrap { overflow-x: auto; margin-top: 20px; }
-        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-        .arb-table th { background: #f1f5f9; color: #1e293b; padding: 12px 8px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-        .arb-table td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-        .arb-table tr:hover { background: #f8fafc; }
         
         /* CLEAN ACTION BUTTON GRID */
-        .action-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 150px; }
-        .btn-sm { padding: 5px; font-size: 0.7rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .action-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; min-width: 140px; }
+        .update-validation-btn { grid-column: span 2; }
+        .btn-sm { padding: 6px; font-size: 0.75rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 600; }
         
-        .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
-        .badge-success { background: #dcfce7; color: #166534; }
-        .badge-warning { background: #fef9c3; color: #854d0e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .badge-info { background: #dbeafe; color: #1e40af; }
-        .badge-neutral { background: #e2e8f0; color: #475569; }
-        .tag-indicator { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
-        .tag-indicator.ali { background: #dc2626; }
-        .tag-indicator.ta { background: #f59e0b; }
-        .tag-indicator.dq { background: #8b5cf6; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; }
+        .badge-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .badge-warning { background: #fef08a; color: #713f12; border: 1px solid #fde047; } /* DAR Gold */
+        .badge-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .badge-info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+        .badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+
+        .arb-table-wrap { overflow-x: auto; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 8px; }
+        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; }
+        .arb-table th { background: var(--bg-light); color: var(--primary-green); padding: 14px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
+        .arb-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        .arb-table tr:hover { background: #f8fafc; }
+        
+        .empty-card { color: #64748b; font-style: italic; }
+        
         .pagination { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
         .pagination button { padding: 6px 14px; }
-        .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: #f8fafc; padding: 16px; border-radius: 10px; margin-bottom: 20px; }
+        
+        .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: var(--bg-light); padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .filter-row .form-group { min-width: 140px; flex: 1; }
-        .filter-row .form-group label { font-weight: 600; font-size: 0.8rem; }
+        .filter-row .form-group label { font-weight: 600; font-size: 0.8rem; color: var(--primary-green); }
         .filter-row .form-group select, .filter-row .form-group input { padding: 8px 10px; }
         .filter-actions { display: flex; gap: 8px; align-items: center; }
-        .webcam-preview { width: 100%; max-width: 320px; border: 1px solid #ccc; border-radius: 6px; margin: 10px 0; }
-        .hidden { display: none; }
 
-        .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 14px 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .search-container .search-input-group { flex: 3; min-width: 200px; display: flex; gap: 8px; }
         .search-container .search-input-group input { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
         .search-container .search-input-group select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font-size: 0.95rem; min-width: 140px; }
         .search-container .search-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .search-container .search-actions .btn { white-space: nowrap; }
-        .toggle-filters-btn { background: none; border: none; color: #0a3d62; font-weight: 600; cursor: pointer; padding: 6px 12px; border-radius: 6px; transition: background 0.2s; }
-        .toggle-filters-btn:hover { background: #f1f5f9; }
-        .advanced-filters { margin-top: 12px; padding: 16px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0; display: none; }
+        .toggle-filters-btn { background: none; border: none; color: var(--primary-green); font-weight: 600; cursor: pointer; padding: 8px 12px; border-radius: 6px; transition: background 0.2s; }
+        .toggle-filters-btn:hover { background: #ecfdf5; }
+        .advanced-filters { margin-top: 12px; padding: 16px; background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .advanced-filters.open { display: block; }
-        .advanced-filters .filter-row { background: transparent; padding: 0; margin-bottom: 0; border: none; }
-        .advanced-filters .filter-actions { margin-top: 12px; justify-content: flex-end; }
 
-        /* -------- FIXED SIZE MODAL UI -------- */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; transition: all 0.3s ease; }
+        /* -------- STRICT CONSTANT MODAL UI -------- */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.7); z-index: 1000; place-items: center; transition: all 0.3s ease; }
         .modal.active { display: grid; }
         
         .modal-content { 
-            background: #fff; width: 95%; max-width: 1100px; height: 85vh !important; /* CONSTANT PROFILE HEIGHT */
+            background: #fff; width: 95%; max-width: 1150px; height: 85vh !important; /* STRICTLY FIXED HEIGHT */
             border-radius: 12px; display: flex; flex-direction: column; 
-            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transition: all 0.3s ease; 
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); 
         }
 
-        /* DYNAMIC HEIGHT FOR POP-UP FORMS */
+        /* DYNAMIC HEIGHT FOR POP-UP FORMS OVERLAY */
         .sub-modal-content {
-            height: auto !important; max-height: 90vh; max-width: 650px !important;
+            height: auto !important; max-height: 90vh !important; max-width: 650px !important;
         }
         
-        .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #0a3d62; color: #fff; border-bottom: 1px solid #082f4d; flex-shrink: 0; }
+        .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: var(--primary-green); color: #fff; border-bottom: 2px solid var(--dar-gold); flex-shrink: 0; }
         .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; }
         .btn-close-win { background: #ff5f56; }
         .btn-min-win { background: #ffbd2e; }
@@ -126,43 +115,45 @@
         .modal.minimized .modal-body-scroll { display: none !important; }
         .modal.minimized .profile-modal { display: none !important; }
         
-        .modal-body-scroll { padding: 20px; overflow-y: auto; flex: 1; background: #fafafa; display: flex; flex-direction: column; height: 100%; } 
+        .modal-body-scroll { padding: 20px; overflow-y: auto; flex: 1; background: var(--bg-light); display: flex; flex-direction: column; height: 100%; } 
 
         .profile-modal { display: flex; flex-direction: column; overflow: hidden; height: 100%; flex: 1; } 
         .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 100%; }
-        .profile-sidebar { width: 260px; min-width: 200px; background: #f8fafc; padding: 20px 16px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; }
-        .profile-sidebar .avatar { width: 120px; height: 120px; border-radius: 50%; background: #0a3d62; color: white; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #dbeafe; object-fit: cover; overflow: hidden; }
+        .profile-sidebar { width: 270px; min-width: 220px; background: #f8fafc; padding: 24px 18px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; }
+        .profile-sidebar .avatar { width: 130px; height: 130px; border-radius: 50%; background: linear-gradient(145deg, var(--primary-green), #047857); color: white; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #d1fae5; object-fit: cover; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .profile-sidebar .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
-        .profile-sidebar .sidebar-id { text-align: center; font-size: 0.85rem; color: #64748b; margin-bottom: 16px; }
-        .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 20px; }
-        .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-        .profile-sidebar .sidebar-actions .btn { width: 100%; }
-        .profile-tabs { flex: 1; padding: 16px 24px; overflow: hidden; background: white; display: flex; flex-direction: column; height: 100%; }
-        .profile-tabs .tab-nav { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; flex-shrink: 0; }
-        .profile-tabs .tab-nav button { background: none; border: none; padding: 8px 18px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.2s; }
-        .profile-tabs .tab-nav button.active { color: #0a3d62; border-bottom-color: #0a3d62; }
-        .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 10px; }
+        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; color: var(--primary-green); }
+        .profile-sidebar .sidebar-id { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px; background: #e2e8f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; }
+        .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 24px; }
+        .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .profile-sidebar .sidebar-actions .btn { width: 100%; padding: 10px; font-weight: 600; letter-spacing: 0.03em; }
+        
+        .profile-tabs { flex: 1; padding: 20px 30px; overflow: hidden; background: white; display: flex; flex-direction: column; height: 100%; }
+        .profile-tabs .tab-nav { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; flex-shrink: 0; }
+        .profile-tabs .tab-nav button { background: none; border: none; padding: 10px 20px; font-weight: 700; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem; }
+        .profile-tabs .tab-nav button:hover { color: var(--primary-green); }
+        .profile-tabs .tab-nav button.active { color: var(--primary-green); border-bottom-color: var(--dar-gold); }
+        
+        /* THIS FIXES THE SHRINKING BUG */
+        .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 10px; min-height: 0; }
+        
         .profile-tabs .tab-content.active { display: block; }
-        .profile-tabs .tab-content h4 { margin-top: 0; color: #0a3d62; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-        .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
-        .profile-tabs .detail-item { display: flex; flex-direction: column; border-bottom: 1px solid #f1f5f9; padding: 6px 0; }
-        .profile-tabs .detail-item .label { font-size: 0.75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; }
-        .profile-tabs .detail-item .value { font-size: 0.95rem; color: #0f172a; }
-        .profile-tabs .table-wrap { overflow-x: auto; }
-        .profile-tabs .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .profile-tabs .table-wrap th { background: #f1f5f9; padding: 8px 6px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-        .profile-tabs .table-wrap td { padding: 8px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
-        @media (max-width: 700px) {
+        .profile-tabs .tab-content h4 { margin-top: 0; color: var(--primary-green); border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; font-size: 1.15rem; }
+        .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 30px; margin-bottom: 20px; }
+        .profile-tabs .detail-item { display: flex; flex-direction: column; border-bottom: 1px solid #f1f5f9; padding: 8px 0; }
+        .profile-tabs .detail-item .label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .profile-tabs .detail-item .value { font-size: 1rem; color: var(--text-dark); font-weight: 500; }
+        
+        @media (max-width: 800px) {
             .profile-modal .modal-body { flex-direction: column; }
-            .profile-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e2e8f0; padding: 16px; }
+            .profile-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e2e8f0; padding: 20px; }
             .profile-tabs .detail-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🏛️ ARB Global Cleansing <small>ARB Management</small></h1>
+    <h1 style="color: #065F46;">🏛️ ARB Global Cleansing <small style="color: #D97706;">ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
@@ -181,16 +172,16 @@
             <button type="button" class="btn btn-primary" id="globalSearchBtn">🔍 Search</button>
             <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
-            <button type="button" class="btn btn-primary" id="searchCcloaBtn">📂 CCLOA</button>
+            <button type="button" class="btn btn-primary" id="searchCcloaBtn" style="background:#D97706; border-color:#b45309;">📂 CCLOA</button>
             <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
-            <button type="button" class="btn btn-primary" id="generateReportBtn" style="background:#059669; border-color:#059669;">📄 Generate Form</button>
+            <button type="button" class="btn btn-primary" id="generateReportBtn">📄 Generate Form</button>
         </div>
     </div>
 
     <div class="advanced-filters" id="advancedFilters">
         <div class="filter-row" id="filterRow">
             <div class="form-group">
-                <label for="filterTown">Town</label>
+                <label for="filterTown">Municipality</label>
                 <select id="filterTown"><option value="">All</option></select>
             </div>
             <div class="form-group">
@@ -243,7 +234,7 @@
             </div>
             <div class="filter-actions">
                 <button type="button" class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
-                <button type="button" class="btn btn-primary" id="clearFiltersBtn">Clear</button>
+                <button type="button" class="btn btn-primary" id="clearFiltersBtn" style="background:#64748b; border-color:#475569;">Clear</button>
             </div>
         </div>
     </div>
@@ -256,7 +247,7 @@
                         <th style="width:40px;"><input type="checkbox" id="selectAllArbs" title="Select All on page"></th>
                         <th>ARB ID</th>
                         <th>Name</th>
-                        <th>Town</th>
+                        <th>Municipality</th>
                         <th>Barangay</th>
                         <th>Validation</th>
                         <th>Life</th>
@@ -266,7 +257,7 @@
                         <th>CoCROM</th>
                         <th>Title No.</th>
                         <th>Title Distr.</th>
-                        <th style="min-width: 160px;">Actions</th>
+                        <th style="min-width: 170px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
@@ -279,15 +270,14 @@
             <button type="button" class="btn btn-primary" id="prevPageBtn" disabled>Previous</button>
             <span id="pageInfo">Page 1</span>
             
-            <div style="display:flex; gap:4px; align-items:center; margin-left:15px; padding-left:15px; border-left:2px solid #e2e8f0;">
-                <span style="font-size:0.85rem; font-weight:600; color:#64748b;">Jump to:</span>
-                <input type="number" id="pageJumpInput" min="1" style="width:60px; padding:6px; border:1px solid #cbd5e1; border-radius:4px; text-align:center;">
-                <button type="button" class="btn btn-primary btn-sm" id="pageJumpBtn" style="width:auto;">Go</button>
+            <div style="display:flex; gap:6px; align-items:center; margin-left:20px; padding-left:20px; border-left:2px solid #cbd5e1;">
+                <span style="font-size:0.85rem; font-weight:700; color:var(--primary-green);">Jump to:</span>
+                <input type="number" id="pageJumpInput" min="1" style="width:65px; padding:8px; border:1px solid #cbd5e1; border-radius:6px; text-align:center; font-weight:bold;">
+                <button type="button" class="btn btn-primary btn-sm" id="pageJumpBtn" style="width:auto; padding: 8px 14px;">Go</button>
             </div>
 
             <button type="button" class="btn btn-primary" id="nextPageBtn" style="margin-left:auto;">Next</button>
         </div>
-
     </div>
 
     <!-- Main Profile Modal (Fixed Size) -->
@@ -363,8 +353,8 @@
         function popToast(msg, type='info') {
             const el = document.getElementById('toast');
             if (!el) return;
-            const colors = { info:'#1e293b', ok:'#14532d', warn:'#78350f', err:'#7f1d1d' };
-            el.style.borderLeftColor = type==='ok'?'#4ade80':type==='warn'?'#facc15':type==='err'?'#f87171':'#e8a317';
+            const colors = { info:'#1e293b', ok:'#065F46', warn:'#D97706', err:'#991b1b' };
+            el.style.borderLeftColor = type==='ok'?'#10b981':type==='warn'?'#fde047':type==='err'?'#f87171':'#e8a317';
             el.style.background = colors[type] || '#1e293b';
             el.textContent = msg;
             el.classList.add('show');
@@ -447,7 +437,7 @@
         function showSubModal(title, body) {
             const subModalContent = document.getElementById('subModalContentContainer');
             subModalContent.innerHTML = `
-                <div class="modal-header-bar" style="background:#1e293b;">
+                <div class="modal-header-bar" style="background:#1e293b; border-bottom: 2px solid #64748b;">
                     <h3 style="margin:0; font-size:1.05rem; font-weight:700;">${safe(title)}</h3>
                     <div class="modal-window-controls" style="display:flex; gap:8px;">
                         <button type="button" class="window-btn btn-close-win" id="subWinCloseBtn" title="Close"></button>
@@ -455,14 +445,14 @@
                 </div>
                 <div class="modal-body-scroll">${body}</div>
             `;
-            document.getElementById('modal').classList.add('minimized'); // Minimize main profile modal
+            document.getElementById('modal').style.display = 'none'; // Temporarily hide main profile to reduce clutter
             document.getElementById('subModal').classList.add('active');
             document.getElementById('subWinCloseBtn').addEventListener('click', hideSubModal);
         }
         function hideSubModal() {
             document.getElementById('subModal').classList.remove('active');
             document.getElementById('subModalContentContainer').innerHTML = '';
-            document.getElementById('modal').classList.remove('minimized'); // Restore main profile modal
+            document.getElementById('modal').style.display = 'grid'; // Restore main profile modal
         }
 
         async function buildNavbar(profile) {
@@ -485,11 +475,11 @@
             }).join('');
             if (profile) {
                 const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || '—');
-                html += `<span class="user-badge" style="margin-left:auto;color:#0a3d62;font-weight:600;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
+                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:600;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
                 html += `<span class="logout-link" id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
             } else {
                 html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">⚠️ Not Logged In</span>`;
-                html += `<span class="logout-link" style="color:#0a3d62;margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
+                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
             }
             navEl.innerHTML = html;
             document.getElementById('navLogoutBtn')?.addEventListener('click', async function() {
@@ -512,7 +502,7 @@
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:40px; font-size:1.1rem; color:var(--primary-green);">⏳ Loading Data... Please wait.</td></tr>`;
 
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
@@ -552,12 +542,14 @@
                         let q = secureDbClient.from('arbo').select('id');
                         if (town) q = q.ilike('municipality', town); 
                         if (barangay) {
-                            const fb = barangay.match(/\((.*?)\)/);
-                            if (fb) {
-                                q = q.or(`barangay.ilike.%${barangay}%,barangay.ilike.%${fb[1]}%`);
-                            } else {
-                                q = q.ilike('barangay', `%${barangay}%`);
-                            }
+                            // Flexible Search logic for barangay
+                            const parts = barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                            const p1 = parts[1] ? parts[1].trim() : '';
+                            const p2 = parts[2] ? parts[2].trim() : '';
+                            let conds = [`barangay.ilike.%${barangay}%`];
+                            if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                            if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                            q = q.or(conds.join(','));
                         }
                         if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
                         return q;
@@ -572,12 +564,13 @@
                         let q = secureDbClient.from('arb_landholdings').select('arb_profile_id');
                         if (town) q = q.ilike('municipality', town);
                         if (barangay) {
-                            const fb = barangay.match(/\((.*?)\)/);
-                            if (fb) {
-                                q = q.or(`barangay.ilike.%${barangay}%,barangay.ilike.%${fb[1]}%`);
-                            } else {
-                                q = q.ilike('barangay', `%${barangay}%`);
-                            }
+                            const parts = barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                            const p1 = parts[1] ? parts[1].trim() : '';
+                            const p2 = parts[2] ? parts[2].trim() : '';
+                            let conds = [`barangay.ilike.%${barangay}%`];
+                            if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                            if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                            q = q.or(conds.join(','));
                         }
                         if (municipalityPart) q = q.ilike('municipality', `%${municipalityPart}%`);
                         return q;
@@ -662,7 +655,7 @@
                         finalIds = finalIds.filter(id => setB.has(id));
                     }
                     if (finalIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">No ARBs match the specific combination of filters.</td></tr>`;
                         document.getElementById('pageInfo').textContent = `Page 1 of 1`;
                         document.getElementById('prevPageBtn').disabled = true;
                         document.getElementById('nextPageBtn').disabled = true;
@@ -700,7 +693,7 @@
                 }
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the filters.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
@@ -753,11 +746,11 @@
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">Tag</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">Gen ID</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">Valid</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -779,17 +772,22 @@
                 document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
                 document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
                 document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
-                document.querySelectorAll('.gen-id-btn').forEach(btn => btn.addEventListener('click', () => generateArbId(btn.dataset.arbId, btn.dataset.name)));
                 document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
                 document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
                 document.querySelectorAll('.update-validation-btn').forEach(btn => btn.addEventListener('click', () => openUpdateValidation(btn.dataset.arbId, btn.dataset.current)));
+                
+                // Double-click preventer for PDF gen
+                document.querySelectorAll('.gen-id-btn').forEach(btn => btn.addEventListener('click', function() {
+                    generateArbId(this.dataset.arbId, this.dataset.name, this);
+                }));
+
                 document.getElementById('selectAllArbs')?.addEventListener('change', function() {
                     document.querySelectorAll('.arb-select-cb').forEach(cb => cb.checked = this.checked);
                 });
 
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Error: ${safe(err.message)}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">Error: ${safe(err.message)}</td></tr>`;
                 popToast(err.message, 'err');
             }
         }
@@ -857,12 +855,16 @@
 
                 let dispMunicipality = arbo.municipality;
                 let dispBarangay = arbo.barangay;
-                if (!dispMunicipality && landholdings && landholdings.length > 0) {
+                let dispTitle = '—';
+
+                if (landholdings && landholdings.length > 0) {
                     const validLandholding = landholdings.find(l => l.municipality);
                     if (validLandholding) {
-                        dispMunicipality = validLandholding.municipality;
-                        dispBarangay = validLandholding.barangay || dispBarangay;
+                        dispMunicipality = dispMunicipality || validLandholding.municipality;
+                        dispBarangay = dispBarangay || validLandholding.barangay;
                     }
+                    const lh = landholdings[0];
+                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || '—';
                 }
 
                 const body = `
@@ -883,8 +885,8 @@
                                 <div class="sidebar-actions">
                                     ${profileId ? (canEdit() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">⚠️ Profile record missing. Please create one via Edit.</p>`}
                                     ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddHeirBtn">👪 Add Heir</button>` : ''}
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ Add Tag</button>` : ''}
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Add Validation</button>` : ''}
+                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ ALI Tag</button>` : ''}
+                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Validate</button>` : ''}
                                     ${!profileId && canEdit() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
                                 </div>
                             </div>
@@ -897,7 +899,7 @@
                                     <button data-tab="validations">Validations (${validations.length})</button>
                                 </div>
                                 <div class="tab-content active" id="tab-overview">
-                                    ${renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay)}
+                                    ${renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay, dispTitle)}
                                     <h4 style="margin-top:25px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Landholding Details</h4>
                                     ${renderLandholdings(landholdings)}
                                 </div>
@@ -934,7 +936,8 @@
                         document.getElementById('profileAddTagBtn')?.addEventListener('click', () => { openTagArb(arbId); });
                         document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { openValidationForm(arbId); });
                     } else {
-                        document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async () => {
+                        document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async function() {
+                            this.disabled = true; this.textContent = "Processing...";
                             try {
                                 const { data, error } = await secureDbClient.from('arb_profiles').insert({
                                     arb_id: String(arbId),
@@ -957,7 +960,7 @@
             }
         }
 
-        function renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay) {
+        function renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay, dispTitle) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
                 { label: 'Middle Name', value: arb.middle_name },
@@ -967,15 +970,15 @@
                 { label: 'Spouse', value: profile.spouse },
                 { label: 'CLOR/Urban', value: profile.clorurban },
                 { label: 'Sequence No.', value: profile.sequence_no },
-                { label: 'Town', value: dispMunicipality },
+                { label: 'Municipality', value: dispMunicipality },
                 { label: 'Barangay', value: dispBarangay },
                 { label: 'District', value: profile.district },
+                { label: 'Title Number', value: dispTitle },
                 { label: 'ARBO', value: arbo.name },
                 { label: 'Life Status', value: profile.life_status, badge: true },
                 { label: 'Validation Status', value: arb.validation_status, badge: true },
                 { label: 'SPLIT Status', value: profile.split_status, badge: true },
                 { label: 'CCLOA Membership', value: profile.ccloa_membersh },
-                { label: 'Individual Title / e-Title', value: profile.e_title_no },
                 { label: 'CoCROM No.', value: profile.cocrom_no },
                 { label: 'Title Distributed', value: profile.is_title_distribute ? 'Yes' : 'No' },
                 { label: 'Death Validation', value: profile.death_validation_ },
@@ -1129,6 +1132,9 @@
             document.getElementById('cancelHeirBtn').addEventListener('click', hideSubModal);
             document.getElementById('heirForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const fd = new FormData(e.target);
                 const payload = {
                     arb_profile_id: profileId,
@@ -1152,7 +1158,10 @@
                     popToast('Heir added successfully.', 'ok');
                     openArbProfile(arbId);
                     loadArbs(currentPage);
-                } catch (err) { popToast(err.message, 'err'); }
+                } catch (err) { 
+                    popToast(err.message, 'err'); 
+                    submitBtn.disabled = false; submitBtn.textContent = 'Save Heir';
+                }
             });
         }
 
@@ -1177,6 +1186,9 @@
             document.getElementById('cancelValBtn').addEventListener('click', hideSubModal);
             document.getElementById('validationForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const fd = new FormData(e.target);
                 const payload = {
                     arb_id: arbId,
@@ -1201,7 +1213,10 @@
                     popToast('Validation added.', 'ok');
                     openArbProfile(arbId);
                     loadArbs(currentPage);
-                } catch (err) { popToast(err.message, 'err'); }
+                } catch (err) { 
+                    popToast(err.message, 'err'); 
+                    submitBtn.disabled = false; submitBtn.textContent = 'Save Validation';
+                }
             });
         }
 
@@ -1241,6 +1256,9 @@
                 document.getElementById('cancelEditArbBtn').addEventListener('click', hideSubModal);
                 document.getElementById('editArbForm').addEventListener('submit', async function(e) {
                     e.preventDefault();
+                    const submitBtn = e.target.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                     const fd = new FormData(e.target);
                     const payload = {
                         first_name: emptyToNull(fd.get('first_name')),
@@ -1287,6 +1305,7 @@
                         } else {
                             popToast(err.message, 'err');
                         }
+                        submitBtn.disabled = false; submitBtn.textContent = 'Save Changes';
                     }
                 });
             } catch(e) { popToast(e.message, 'err'); }
@@ -1379,6 +1398,9 @@
                 document.getElementById('cancelTagBtn').addEventListener('click', hideSubModal);
                 document.getElementById('tagArbForm').addEventListener('submit', async function(e) {
                     e.preventDefault();
+                    const submitBtn = e.target.querySelector('button[type="submit"]');
+                    submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                     const fd = new FormData(e.target);
                     const tagType = fd.get('tag_type');
                     const status = fd.get('status');
@@ -1492,13 +1514,16 @@
                         } else {
                             popToast(err.message, 'err');
                         }
+                        submitBtn.disabled = false; submitBtn.textContent = 'Save Tag';
                     }
                 });
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        async function generateArbId(arbId, arbName) {
+        async function generateArbId(arbId, arbName, btnElement) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (btnElement) { btnElement.disabled = true; btnElement.textContent = 'Processing...'; }
+            
             try {
                 const arbRes = await secureDbClient.from('arb').select(`*, arbo:arbo_id(name, municipality, barangay)`).eq('id', arbId).single();
                 if (arbRes.error) throw arbRes.error;
@@ -1520,6 +1545,7 @@
                 await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId, sequence_no: seq }).eq('id', profile.id);
                 await secureDbClient.from('arb').update({ generated_arb_ic: newId }).eq('id', arbId);
 
+                // Fetch landholding for fallback address if ARBO is missing
                 const { data: lhData } = await secureDbClient.from('arb_landholdings').select('municipality, barangay').eq('arb_profile_id', profile.id);
                 let tTown = arb.arbo?.municipality;
                 let tBrgy = arb.arbo?.barangay;
@@ -1535,7 +1561,7 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
                 
-                doc.setFillColor(10, 61, 98);
+                doc.setFillColor(6, 95, 70); // Primary green
                 doc.rect(0, 0, 85.6, 12, 'F');
                 doc.setTextColor(255, 255, 255);
                 doc.setFontSize(8);
@@ -1588,7 +1614,11 @@
 
                 popToast(`ARB ID generated and downloaded: ${newId}`, 'ok');
                 loadArbs(currentPage);
-            } catch(e) { popToast(e.message, 'err'); }
+            } catch(e) { 
+                popToast(e.message, 'err'); 
+            } finally {
+                if (btnElement) { btnElement.disabled = false; btnElement.textContent = 'Gen ID'; }
+            }
         }
 
         async function openPhotoUpload(arbId) {
@@ -1602,7 +1632,7 @@
                         <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;margin-top:10px;">Capture</button>
                     </div>
                     <div id="photoPreview" style="margin-top:10px;"></div>
-                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
+                    <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelPhotoBtn" style="background:#64748b; border-color:#475569;">Cancel</button><button type="submit" class="btn btn-primary">Save Photo</button></div>
                 </form>
             `;
             showSubModal('Upload ARB Photo', formHtml);
@@ -1652,6 +1682,9 @@
 
             document.getElementById('photoForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const fileInput = document.getElementById('photoFileInput');
                 let rawImageData = null;
 
@@ -1666,7 +1699,7 @@
                     if (hidden) rawImageData = hidden.value;
                 }
 
-                if (!rawImageData) { popToast('No photo selected or captured.', 'warn'); return; }
+                if (!rawImageData) { popToast('No photo selected or captured.', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Save Photo'; return; }
                 
                 const compressedImageData = await compressImage(rawImageData, 400, 0.7);
 
@@ -1686,6 +1719,7 @@
                     loadArbs(currentPage);
                 } catch(err) {
                     popToast(err.message, 'err');
+                    submitBtn.disabled = false; submitBtn.textContent = 'Save Photo';
                 }
             });
         }
@@ -1710,12 +1744,15 @@
             document.getElementById('cancelArboBtn').addEventListener('click', hideSubModal);
             document.getElementById('assignArboForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const fd = new FormData(e.target);
                 const arboId = fd.get('arbo_id');
                 const assignedAt = fd.get('assigned_at');
                 const memNo = emptyToNull(fd.get('membership_no'));
 
-                if (!arboId) { popToast('Please select an ARBO.','warn'); return; }
+                if (!arboId) { popToast('Please select an ARBO.','warn'); submitBtn.disabled=false; submitBtn.textContent='Assign'; return; }
                 try {
                     const { error: arbErr } = await secureDbClient.from('arb').update({ arbo_id: arboId }).eq('id', arbId);
                     if (arbErr) throw arbErr;
@@ -1739,7 +1776,7 @@
                     popToast('ARBO assigned successfully.', 'ok');
                     openArbProfile(arbId);
                     loadArbs(currentPage);
-                } catch(err) { popToast(err.message, 'err'); }
+                } catch(err) { popToast(err.message, 'err'); submitBtn.disabled=false; submitBtn.textContent='Assign'; }
             });
         }
 
@@ -1755,6 +1792,9 @@
             document.getElementById('cancelValBtn').addEventListener('click', hideSubModal);
             document.getElementById('updateValForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const status = document.getElementById('newValidationStatus').value;
                 try {
                     const { error } = await secureDbClient.from('arb').update({ validation_status: status }).eq('id', arbId);
@@ -1763,7 +1803,7 @@
                     popToast('Validation status updated.', 'ok');
                     openArbProfile(arbId);
                     loadArbs(currentPage);
-                } catch(err) { popToast(err.message, 'err'); }
+                } catch(err) { popToast(err.message, 'err'); submitBtn.disabled=false; submitBtn.textContent='Update'; }
             });
         }
 
@@ -1880,8 +1920,8 @@
                         </div>
                     </div>
                     <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelBatchBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Apply to All ARBs in Location</button>
+                        <button type="button" class="btn btn-primary" id="cancelBatchBtn" style="background:#64748b; border-color:#475569;">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Apply Validation</button>
                     </div>
                 </form>
             `;
@@ -1902,6 +1942,9 @@
 
             document.getElementById('batchValForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
+
                 const fd = new FormData(e.target);
                 const municipality = fd.get('municipality');
                 const barangay = fd.get('barangay');
@@ -1914,6 +1957,7 @@
 
                 if (!municipality || !barangay) {
                     popToast('Please select both Municipality and Barangay.', 'warn');
+                    submitBtn.disabled=false; submitBtn.textContent='Apply Validation';
                     return;
                 }
 
@@ -1936,6 +1980,7 @@
                     
                     if (allArbIds.length === 0) {
                         popToast('No ARBs found in that municipality/barangay.', 'warn');
+                        submitBtn.disabled=false; submitBtn.textContent='Apply Validation';
                         return;
                     }
 
@@ -1965,6 +2010,7 @@
                     loadArbs(currentPage);
                 } catch (err) {
                     popToast(err.message, 'err');
+                    submitBtn.disabled=false; submitBtn.textContent='Apply Validation';
                 }
             });
         }
@@ -1976,7 +2022,7 @@
 
             const formHtml = `
                 <form id="reportForm">
-                    <p style="margin-bottom: 20px;">Generate ARB Cleansing Report (grouped per Barangay).</p>
+                    <p style="margin-bottom: 20px; color:var(--text-muted);">Generate ARB Cleansing Report (grouped per Barangay).</p>
                     <div class="form-group">
                         <label>Select Municipality</label>
                         <select id="reportMun" required>
@@ -1984,24 +2030,57 @@
                             ${munSelect}
                         </select>
                     </div>
-                    <div class="modal-actions">
-                        <button type="button" class="btn btn-primary" id="cancelReportBtn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Generate PDF</button>
+                    <div class="form-group">
+                        <label>Select Barangay</label>
+                        <select id="reportBrgy">
+                            <option value="">All Barangays</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Validation Status</label>
+                        <select id="reportValStatus">
+                            <option value="All">All Statuses</option>
+                            <option value="Validated">Validated Only</option>
+                            <option value="Unvalidated">Unvalidated (Pending/Rejected)</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions" style="margin-top:25px;">
+                        <button type="button" class="btn btn-primary" id="cancelReportBtn" style="background:#64748b; border-color:#475569;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" style="background:var(--dar-gold); border-color:#b45309; color:#fff;">Generate PDF</button>
                     </div>
                 </form>
             `;
             showSubModal('Generate Cleansing Form', formHtml);
+            
+            document.getElementById('reportMun').addEventListener('change', function() {
+                const mun = this.value;
+                const bSelect = document.getElementById('reportBrgy');
+                if (!mun) { bSelect.innerHTML = '<option value="">All Barangays</option>'; return; }
+                const brgys = locData[mun].sort();
+                bSelect.innerHTML = '<option value="">All Barangays</option>' + brgys.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+            });
+
             document.getElementById('cancelReportBtn').addEventListener('click', hideSubModal);
 
             document.getElementById('reportForm').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                const submitBtn = e.target.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'Generating...';
+
                 const mun = document.getElementById('reportMun').value;
+                const targetBrgy = document.getElementById('reportBrgy').value;
+                const valStatus = document.getElementById('reportValStatus').value;
+
                 if (!mun) return;
-                await generateBarangayReport(mun);
+                try {
+                    await generateBarangayReport(mun, targetBrgy, valStatus);
+                } finally {
+                    submitBtn.disabled = false; submitBtn.textContent = 'Generate PDF';
+                }
             });
         }
 
-        async function generateBarangayReport(municipality) {
+        async function generateBarangayReport(municipality, targetBrgy, valStatus) {
             popToast(`Gathering data for ${municipality}, please wait...`, 'info');
             try {
                 const lhData = await fetchAllRecords(() => secureDbClient.from('arb_landholdings').select('*').ilike('municipality', municipality));
@@ -2014,21 +2093,35 @@
                 const profData = await fetchInChunks('arb_profiles', 'id, arb_id', 'id', profIds);
                 
                 const arbIds = [...new Set(profData.map(p => p.arb_id).filter(Boolean))];
-                const arbData = await fetchInChunks('arb', 'id, first_name, middle_name, last_name', 'id', arbIds);
+                const arbData = await fetchInChunks('arb', 'id, first_name, middle_name, last_name, validation_status', 'id', arbIds);
 
-                const arbMap = {};
-                arbData.forEach(a => { arbMap[a.id] = a; });
+                const validArbMap = {};
+                arbData.forEach(a => { 
+                    let keep = true;
+                    if (valStatus === 'Validated' && a.validation_status !== 'Validated') keep = false;
+                    if (valStatus === 'Unvalidated' && a.validation_status === 'Validated') keep = false;
+                    if (keep) validArbMap[a.id] = a; 
+                });
+
                 const profMap = {};
                 profData.forEach(p => { profMap[p.id] = p; });
 
                 const grouped = {};
+                let matchCount = 0;
+
                 lhData.forEach(lh => {
                     const brgy = lh.barangay || 'Unknown Barangay';
-                    if(!grouped[brgy]) grouped[brgy] = [];
+                    
+                    if (targetBrgy && targetBrgy !== '' && brgy !== targetBrgy) return;
                     
                     const p = profMap[lh.arb_profile_id];
-                    const a = p ? arbMap[p.arb_id] : null;
-                    const arbName = a ? fullName(a) : 'Unknown ARB';
+                    const a = p ? validArbMap[p.arb_id] : null;
+                    if (!a) return; // Skipped due to validation filter
+                    
+                    if(!grouped[brgy]) grouped[brgy] = [];
+                    matchCount++;
+                    
+                    const arbName = fullName(a);
                     
                     grouped[brgy].push({
                         name: arbName,
@@ -2038,6 +2131,11 @@
                         title: lh.title_no || lh.ep_cloa_serial_n || lh.ep_cloa_serial_no || ''
                     });
                 });
+
+                if (matchCount === 0) {
+                    popToast('No ARBs found matching the selected filters.', 'warn');
+                    return;
+                }
 
                 const { jsPDF } = window.jspdf;
                 // Legal landscape: 355.6mm x 215.9mm
@@ -2114,9 +2212,9 @@
                         },
                         didDrawPage: function(data) {
                             const pageHeight = doc.internal.pageSize.getHeight();
-                            const y = pageHeight - 20; 
+                            const y = pageHeight - 15; // Shifted perfectly to the lowest part of the page
                             
-                            doc.setFontSize(10);
+                            doc.setFontSize(11);
                             doc.setFont("helvetica", "normal");
                             doc.setTextColor(0, 0, 0);
                             const lineLen = "_________________________";
@@ -2137,12 +2235,12 @@
                             
                             // 4. CARPO
                             doc.text(lineLen, 210, y);
-                            doc.text("CARPO-PBDD", 220, y + 4);
+                            doc.text("CARPO-PBDD", 215, y + 4);
                             
                             // 5. PARPO
                             doc.text("Recommending Approval by:", 275, y - 8);
                             doc.text(lineLen, 275, y);
-                            doc.text("PARPO II", 290, y + 4);
+                            doc.text("PARPO II", 285, y + 4);
                         }
                     });
                 }
@@ -2202,7 +2300,7 @@
             try {
                 if (!secureDbClient) {
                     await buildNavbar(null);
-                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Database connection required.</td></tr>`;
+                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">Database connection required.</td></tr>`;
                     return;
                 }
 
@@ -2224,7 +2322,7 @@
                 popToast('ARB Management ready.', 'ok');
             } catch(e) {
                 console.error(e);
-                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">❌ ${safe(e.message)}</td></tr>`;
+                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">❌ ${safe(e.message)}</td></tr>`;
             }
         })();
 
