@@ -1,102 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>User Management</title>
-    <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="config.js"></script>
-    <script src="common.js"></script>
-    <style>
-        body { font-family: sans-serif; background: #f1f5f9; padding: 20px; }
-        .card { background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 600px; margin: 0 auto 30px; }
-        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
-        .form-group label { font-weight: bold; font-size: 0.85rem; margin-bottom: 5px; }
-        .form-group input, .form-group select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-        .btn { padding: 10px 15px; border: none; border-radius: 4px; background: #065F46; color: white; cursor: pointer; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; background: white; }
-        th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-        th { background: #065F46; color: white; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Validators - Access Control</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="common.js"></script>
+  <style>
+    :root{--green:#065f46;--green2:#047857;--gold:#d97706;--ink:#0f172a;--muted:#64748b;--line:#dbe3ec;--bg:#f1f5f9}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .page{max-width:1500px;margin:auto;padding:28px}.head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.head h1{margin:0;color:var(--green)}
+    .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:14px}.field{display:flex;flex-direction:column;gap:6px}.full{grid-column:1/-1}
+    label{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;font-weight:800;color:var(--muted)}input,select{width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}
+    select[multiple]{min-height:190px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}.btn{border:0;border-radius:7px;padding:10px 16px;font-weight:800;cursor:pointer;background:var(--green);color:#fff}.btn:hover{background:var(--green2)}.btn.secondary{background:#64748b}.btn.danger{background:#991b1b}.btn.small{padding:6px 10px;font-size:.75rem}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:9px}table{width:100%;border-collapse:collapse;min-width:1100px;font-size:.82rem}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left}th{position:sticky;top:0;background:#ecfdf5;color:var(--green);text-transform:uppercase;font-size:.72rem}tr:hover td{background:#f8fafc}
+    .badge{padding:3px 9px;border-radius:999px;font-weight:800;font-size:.72rem}.on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.note{color:var(--muted);font-size:.85rem}.hidden{display:none!important}#toast{position:fixed;right:22px;bottom:22px;padding:13px 18px;border-radius:9px;background:#0f172a;color:#fff;display:none;z-index:50}#toast.show{display:block}
+    @media(max-width:900px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.page{padding:14px}.grid{grid-template-columns:1fr}}
+  </style>
 </head>
 <body>
-    <div class="card">
-        <h2 style="margin-top:0; color:#065F46;">Add System User</h2>
-        <form id="addUserForm">
-            <div class="form-group"><label>Email Address</label><input type="email" id="uEmail" required></div>
-            <div class="form-group"><label>Password</label><input type="password" id="uPass" required minlength="6"></div>
-            <div class="form-group"><label>Full Name</label><input type="text" id="uName" required></div>
-            <div class="form-group"><label>Role</label>
-                <select id="uRole" required>
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="STAFF">STAFF</option>
-                    <option value="PBDD ADMIN">PBDD ADMIN</option>
-                    <option value="PBDD PERSONNEL">PBDD PERSONNEL</option>
-                    <option value="ARBO ADMIN">ARBO ADMIN</option>
-                </select>
-            </div>
-            <div class="form-group"><label>Position / Title</label><input type="text" id="uPos" required></div>
-            <button type="submit" class="btn" id="saveUserBtn">Create User</button>
-        </form>
-    </div>
-
-    <div style="max-width: 1000px; margin: auto; background: white; border-radius: 8px; overflow: hidden;">
-        <table>
-            <thead><tr><th>Name</th><th>Role</th><th>Position</th><th>Status</th><th>Action</th></tr></thead>
-            <tbody id="userTable"></tbody>
-        </table>
-    </div>
-
-    <script>
-        const sup = window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        
-        async function loadUsers() {
-            const { data } = await sup.from('profiles').select('id, full_name, role, position, status').order('created_at', { ascending: false });
-            document.getElementById('userTable').innerHTML = data.map(u => `
-                <tr>
-                    <td>${u.full_name}</td><td>${u.role}</td><td>${u.position || '—'}</td>
-                    <td><strong style="color:${u.status==='Active'?'green':'red'}">${u.status || 'Active'}</strong></td>
-                    <td>
-                        <button class="btn" style="background:${u.status==='Active'?'#991b1b':'#10b981'}; padding:5px 10px; font-size:12px;" 
-                        onclick="toggleStatus('${u.id}', '${u.status}')">${u.status==='Active'?'Set Inactive':'Set Active'}</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        window.toggleStatus = async (id, curStatus) => {
-            const newStat = (curStatus === 'Active') ? 'Inactive' : 'Active';
-            await sup.from('profiles').update({ status: newStat }).eq('id', id);
-            loadUsers();
-        };
-
-        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('saveUserBtn');
-            btn.disabled = true; btn.textContent = "Processing...";
-
-            try {
-                // Call the secure RPC we set up in Step 1
-                const { error } = await sup.rpc('admin_create_user', {
-                    p_email: document.getElementById('uEmail').value,
-                    p_password: document.getElementById('uPass').value,
-                    p_full_name: document.getElementById('uName').value,
-                    p_role: document.getElementById('uRole').value,
-                    p_position: document.getElementById('uPos').value
-                });
-
-                if (error) throw error;
-                alert('User created successfully!');
-                e.target.reset();
-                loadUsers();
-            } catch(err) {
-                alert('Error: ' + err.message);
-            } finally {
-                btn.disabled = false; btn.textContent = "Create User";
-            }
-        });
-
-        loadUsers();
-    </script>
-</body>
-</html>
+<main class="page">
+  <div class="head"><div><h1>Validator Access Control</h1><div class="note">Assign municipality and barangay coverage per DARMO office and personnel.</div></div><button class="btn secondary" onclick="location.href='arb.html'">Back to ARB Management</button></div>
+  <section class="card" id="accessDenied" style="display:none"><h2>Access denied</h2><p>Only an active administrator can manage validator access.</p></section>
+  <div id="adminArea" style="display:none">
+    <section class="card">
+      <h2 style="margin-top:0">New Access Assignment</h2>
+      <form id="scopeForm">
+        <div class="grid">
+          <div class="field"><label>Personnel</label><select id="userId" required><option value="">Select personnel</option></select></div>
+          <div class="field"><label>System Role</label><select id="role" required><option>DARMO PERSONNEL</option><option>PBDD STAFF</option><option>CARPO-PBDD</option><option>LEGAL PERSONNEL</option><option>LTSP PERSONNEL</option><option>ADMIN</option></select></div>
+          <div class="field"><label>Office Name</label><input id="officeName" required placeholder="e.g., DARMO Libmanan 1"></div>
+          <div class="field"><label>Office Number</label><input id="officeNo" placeholder="e.g., 1"></div>
+          <div class="field"><label>Municipality</label><select id="municipality" required><option value="">Select municipality</option></select></div>
+          <div class="field"><label>Effective From</label><input id="assignedFrom" type="date" required></div>
+          <div class="field"><label>Effective Until</label><input id="assignedUntil" type="date"></div>
+          <div class="field"><label>Assignment Status</label><select id="isActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+          <div class="field full"><label><input id="municipalityWide" type="checkbox" style="width:auto"> Allow all barangays in this municipality</label></div>
+          <div class="field full" id="barangayField"><label>Assigned Barangays (Ctrl/Command-click for multiple)</label><select id="barangays" multiple></select></div>
+          <div class="field full"><label>Remarks</label><input id="remarks" placeholder="Optional assignment notes"></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Save Access Assignment</button><button class="btn secondary" type="reset">Clear</button></div>
+      </form>
+    </section>
+    <section class="card"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><h2 style="margin-top:0">Current Assignments</h2><input id="tableSearch" placeholder="Search personnel, office, municipality, or barangay" style="max-width:440px"></div><div class="table-wrap"><table><thead><tr><th>Personnel</th><th>Role</th><th>Office</th><th>Municipality</th><th>Barangay</th><th>From</th><th>Until</th><th>Status</th><th>Remarks</th><th>Actions</th></tr></thead><tbody id="scopeRows"><tr><td colspan="10">Loading...</td></tr></tbody></table></div></section>
+  </div>
+</main><div id="toast"></div>
+<script>
+(() => {
+  'use strict';
+  let db = window.secureDbClient || window.supabaseClient || window.dbClient || null;
+  let currentUser = null, currentProfile = null, profiles = [], scopes = [], locations = [];
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+  function toast(msg, bad=false){const t=$('toast');t.textContent=msg;t.style.background=bad?'#991b1b':'#065f46';t.classList.add('show');setTimeout(()=>t.classList.remove('show'),4000)}
+  function isAdmin(){return String(currentProfile?.role||'').toUpperCase()==='ADMIN' && String(currentProfile?.status||'ACTIVE').toUpperCase()!=='INACTIVE'}
+  async function fetchAll(make){let all=[],from=0;for(;;){const {data,error}=await make().range(from,from+999);if(error)throw error;all.push(...(data||[]));if(!data||data.length<1000)return all;from+=1000}}
+  async function loadLocations(){locations=await fetchAll(()=>db.from('arb_landholdings').select('municipality,barangay').not('municipality','is',null));const towns=[...new Set(locations.map(x=>x.municipality).filter(Boolean))].sort();$('municipality').innerHTML='<option value="">Select municipality</option>'+towns.map(x=>`<option>${esc(x)}</option>`).join('')}
+  function loadBarangays(){const town=$('municipality').value;const items=[...new Set(locations.filter(x=>x.municipality===town).map(x=>x.barangay).filter(Boolean))].sort();$('barangays').innerHTML=items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+  async function loadProfiles(){profiles=await fetchAll(()=>db.from('profiles').select('id,full_name,role,position,status').order('full_name'));$('userId').innerHTML='<option value="">Select personnel</option>'+profiles.map(p=>`<option value="${p.id}">${esc(p.full_name||p.id)} - ${esc(p.role||'NO ROLE')}</option>`).join('')}
+  async function loadScopes(){const {data,error}=await db.from('validator_access_scopes').select('*').order('municipality').order('barangay');if(error)throw error;scopes=data||[];renderScopes()}
+  function renderScopes(){const term=$('tableSearch').value.trim().toLowerCase();const pmap=Object.fromEntries(profiles.map(p=>[p.id,p]));const rows=scopes.filter(s=>{const p=pmap[s.validator_user_id]||{};return !term||[p.full_name,p.role,s.office_name,s.municipality,s.barangay,s.remarks].some(v=>String(v||'').toLowerCase().includes(term))});$('scopeRows').innerHTML=rows.length?rows.map(s=>{const p=pmap[s.validator_user_id]||{};return `<tr><td><strong>${esc(p.full_name||s.validator_user_id)}</strong><br><span class="note">${esc(p.position||'')}</span></td><td>${esc(p.role||'')}</td><td>${esc(s.office_name)}${s.office_no?` (${esc(s.office_no)})`:''}</td><td>${esc(s.municipality)}</td><td>${esc(s.barangay||'ALL BARANGAYS')}</td><td>${esc(s.assigned_from||'')}</td><td>${esc(s.assigned_until||'OPEN')}</td><td><span class="badge ${s.is_active?'on':'off'}">${s.is_active?'ACTIVE':'INACTIVE'}</span></td><td>${esc(s.remarks||'')}</td><td><button class="btn small" data-toggle="${s.id}">${s.is_active?'Deactivate':'Activate'}</button> <button class="btn danger small" data-delete="${s.id}">Delete</button></td></tr>`}).join(''):'<tr><td colspan="10">No matching assignments.</td></tr>';document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleScope(b.dataset.toggle));document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>deleteScope(b.dataset.delete))}
+  async function toggleScope(id){const row=scopes.find(x=>x.id===id);const {error}=await db.from('validator_access_scopes').update({is_active:!row.is_active,updated_at:new Date().toISOString(),updated_by:currentUser.id}).eq('id',id);if(error)return toast(error.message,true);toast('Assignment updated.');loadScopes()}
+  async function deleteScope(id){if(!confirm('Delete this access assignment?'))return;const {error}=await db.from('validator_access_scopes').delete().eq('id',id);if(error)return toast(error.message,true);toast('Assignment deleted.');loadScopes()}
+  $('scopeForm').addEventListener('submit',async e=>{e.preventDefault();const userId=$('userId').value,town=$('municipality').value,wide=$('municipalityWide').checked,brgys=[...$('barangays').selectedOptions].map(o=>o.value);if(!wide&&!brgys.length)return toast('Select at least one barangay or allow all barangays.',true);const role=$('role').value;const {error:roleError}=await db.rpc('admin_set_user_role',{p_user_id:userId,p_role:role});if(roleError)return toast(roleError.message,true);const common={validator_user_id:userId,office_name:$('officeName').value.trim(),office_no:$('officeNo').value.trim()||null,municipality:town,assigned_from:$('assignedFrom').value,assigned_until:$('assignedUntil').value||null,is_active:$('isActive').value==='true',remarks:$('remarks').value.trim()||null,created_by:currentUser.id,updated_by:currentUser.id};const payload=(wide?[null]:brgys).map(barangay=>({...common,barangay}));const {error}=await db.from('validator_access_scopes').upsert(payload,{onConflict:'validator_user_id,office_name,municipality,barangay_key'});if(error)return toast(error.message,true);toast(`${payload.length} assignment(s) saved.`);e.target.reset();$('assignedFrom').value=new Date().toISOString().slice(0,10);loadProfiles();loadScopes()});
+  $('municipality').addEventListener('change',loadBarangays);$('municipalityWide').addEventListener('change',e=>$('barangayField').classList.toggle('hidden',e.target.checked));$('tableSearch').addEventListener('input',renderScopes);$('userId').addEventListener('change',()=>{const p=profiles.find(x=>x.id===$('userId').value);if(p&&p.role)$('role').value=p.role});
+  (async()=>{try{if(!db&&window.supabase?.createClient){const c=window.SUPABASE_CONFIG||window.APP_CONFIG||{};db=window.supabase.createClient(c.url||c.supabaseUrl,c.publishableKey||c.anonKey||c.supabaseAnonKey)}const {data}=await db.auth.getUser();currentUser=data?.user;if(!currentUser)throw Error('Please log in.');const {data:p,error}=await db.from('profiles').select('*').eq('id',currentUser.id).single();if(error)throw error;currentProfile=p;if(!isAdmin()){$('accessDenied').style.display='block';return}$('adminArea').style.display='block';$('assignedFrom').value=new Date().toISOString().slice(0,10);await loadProfiles();await loadLocations();await loadScopes()}catch(e){$('accessDenied').style.display='block';$('accessDenied').innerHTML=`<h2>Unable to open access control</h2><p>${esc(e.message)}</p>`}})();
+})();
+</script>
+</body></html>
