@@ -2340,11 +2340,15 @@
                             // Align Serial Number (Red) and Page Number (Black) Top Right
                             doc.setFont("helvetica", "bold");
                             doc.setFontSize(10);
-                            doc.setTextColor(255, 0, 0); // Red
-                            doc.text(`Ref: ${reportRef}`, pageWidth - 10, 10, { align: "right" });
+                            
+                            const pageText = ` | Page ${data.pageNumber}`;
+                            const pageTextWidth = doc.getTextWidth(pageText);
                             
                             doc.setTextColor(0, 0, 0); // Black
-                            doc.text(`Page ${data.pageNumber}`, pageWidth - 10, 15, { align: "right" });
+                            doc.text(pageText, pageWidth - 10, 10, { align: "right" });
+                            
+                            doc.setTextColor(255, 0, 0); // Red
+                            doc.text(`Ref: ${reportRef}`, pageWidth - 10 - pageTextWidth, 10, { align: "right" });
 
                             const y = pageHeight - 35; // Position for the signature boxes
 
