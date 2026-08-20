@@ -2219,7 +2219,6 @@
 
                     grouped[groupKey].push({
                         name: arbName,
-                        isArbo: a.arbo_id ? 'YES' : 'NO',
                         survey: lh.survey_no || '',
                         lot: lh.lot_no || '',
                         area: lh.landholding_area || '',
@@ -2267,7 +2266,7 @@
                     const head = [
                         [
                             {content: 'PANGARAN KANG PARA-UMA (ARB)\n\n\n\n', rowSpan: 2, styles: {valign: 'top', halign: 'center'}},
-                            {content: 'ARBO\nMEMBER', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
+                            {content: 'ARBO\nMEMBER', colSpan: 2, styles: {halign: 'center'}},
                             {content: 'IMPORMASYON MANUNGOD SA DAGA', colSpan: 4, styles: {halign: 'center'}},
                             {content: 'PANGARAN KANG AKTUAL NA NAG-UUMA\nKAN DAGA SA NGUNYAN', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
                             {content: 'Kun iba na ang nag-uuma,\nano ang dahilan?', colSpan: 4, styles: {halign: 'center'}},
@@ -2275,6 +2274,8 @@
                             {content: 'Cellphone Number kung igwa', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}}
                         ],
                         [
+                            {content: 'YES', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'NO', styles: {halign: 'center', fontSize: 6}}, 
                             {content: 'SURVEY NO.', styles: {halign: 'center'}}, 
                             {content: 'LOT NO.', styles: {halign: 'center'}}, 
                             {content: 'AREA', styles: {halign: 'center'}}, 
@@ -2289,7 +2290,7 @@
                     ];
 
                     const body = grouped[brgy].map(row => [
-                        row.name, row.isArbo, row.survey, row.lot, row.area, row.title,
+                        row.name, '', '', row.survey, row.lot, row.area, row.title,
                         '', '', '', '', '', '', '', ''
                     ]);
 
@@ -2302,20 +2303,21 @@
                         styles: { fontSize: 8, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, valign: 'middle', minCellHeight: 6, overflow: 'linebreak' },
                         headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
                         columnStyles: {
-                            0: { cellWidth: 55 },
-                            1: { cellWidth: 15, halign: 'center' },
-                            2: { cellWidth: 20 },
-                            3: { cellWidth: 15 },
+                            0: { cellWidth: 50 },
+                            1: { cellWidth: 8, halign: 'center' },
+                            2: { cellWidth: 8, halign: 'center' },
+                            3: { cellWidth: 20 },
                             4: { cellWidth: 15 },
-                            5: { cellWidth: 25 },
-                            6: { cellWidth: 55 },
-                            7: { cellWidth: 12 },
+                            5: { cellWidth: 15 },
+                            6: { cellWidth: 25 },
+                            7: { cellWidth: 55 },
                             8: { cellWidth: 12 },
                             9: { cellWidth: 12 },
                             10: { cellWidth: 12 },
                             11: { cellWidth: 12 },
                             12: { cellWidth: 12 },
-                            13: { cellWidth: 35 }
+                            13: { cellWidth: 12 },
+                            14: { cellWidth: 37 }
                         },
                         didDrawCell: function(data) {
                             if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
