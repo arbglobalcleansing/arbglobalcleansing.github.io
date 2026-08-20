@@ -172,7 +172,6 @@
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
             <button type="button" class="btn btn-primary" id="searchCcloaBtn">📂 CCLOA</button>
             <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
-            <!-- NEW GENERATE REPORT BUTTON -->
             <button type="button" class="btn btn-primary" id="generateReportBtn" style="background:#059669; border-color:#059669;">📄 Generate Form</button>
         </div>
     </div>
@@ -377,9 +376,6 @@
             });
         }
 
-        // =========================================================================
-        // DATA FETCHING HELPERS TO BYPASS SUPABASE ROW LIMITS & URI LENGTH LIMITS
-        // =========================================================================
         async function fetchAllRecords(queryBuilderFn) {
             let allRecords = [];
             let p = 0;
@@ -406,8 +402,6 @@
             return results;
         }
 
-
-        // -------- Modal Controls --------
         const modalEl = document.getElementById('modal');
         function showModal(title, body) {
             const modalContent = document.getElementById('modalContentContainer');
@@ -431,7 +425,6 @@
         }
         function hideModal() { modalEl.classList.remove('active'); document.getElementById('modalContentContainer').innerHTML = ''; }
 
-        // -------- Navigation --------
         async function buildNavbar(profile) {
             const navEl = document.getElementById('mainNav');
             if (!navEl) return;
@@ -465,7 +458,6 @@
             });
         }
 
-        // -------- Supabase client setup --------
         try {
             secureDbClient = window.secureDbClient || window.supabaseClient || window.dbClient || null;
             if (!secureDbClient && window.supabase?.createClient) {
@@ -706,7 +698,6 @@
                     tbody.innerHTML = html;
                 }
 
-                // Update pagination
                 const maxPages = Math.ceil(totalRecords/pageSize) || 1;
                 document.getElementById('pageInfo').textContent = `Page ${page+1} of ${maxPages}`;
                 document.getElementById('prevPageBtn').disabled = (page === 0);
@@ -760,9 +751,6 @@
             } catch(e) { console.warn('Failed to load ARBO list:', e); }
         }
 
-        // ============================================================
-        //  OPEN ARB PROFILE (MODIFIED TO COMBINE TABS)
-        // ============================================================
         async function openArbProfile(arbId) {
             showModal('ARB Profile', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
 
@@ -800,7 +788,6 @@
 
                 const arbo = arb.arbo || {};
 
-                // COMBINED TABS INJECTED HERE
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
@@ -827,7 +814,6 @@
                             <!-- Tabs Content -->
                             <div class="profile-tabs">
                                 <div class="tab-nav">
-                                    <!-- OVERVIEW AND LANDHOLDING TABS MERGED -->
                                     <button class="active" data-tab="overview">Profile & Landholdings</button>
                                     <button data-tab="heirs">Heirs (${heirs.length})</button>
                                     <button data-tab="tags">Tags (${tags.length})</button>
@@ -1044,7 +1030,6 @@
             return html;
         }
 
-        // -------- Open Heir Form (modal) --------
         async function openHeirForm(arbId) {
             const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
             if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
@@ -1093,7 +1078,6 @@
             });
         }
 
-        // -------- Open Validation Form (modal) --------
         async function openValidationForm(arbId) {
             const formHtml = `
                 <form id="validationForm">
@@ -1142,7 +1126,6 @@
             });
         }
 
-        // -------- Edit ARB --------
         async function openEditArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1229,7 +1212,6 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Tag ARB (RESTORED ALI CASE TYPES) --------
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1434,7 +1416,6 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Generate Standard ARB ID --------
         async function generateArbId(arbId, arbName) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1518,7 +1499,6 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Upload Photo --------
         async function openPhotoUpload(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
@@ -1617,7 +1597,6 @@
             });
         }
 
-        // -------- Assign to ARBO --------
         async function openAssignArbo(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             if (arboList.length === 0) await loadArboList();
@@ -1644,7 +1623,6 @@
             });
         }
 
-        // -------- Update Validation Status --------
         function openUpdateValidation(arbId, currentStatus) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
@@ -1668,7 +1646,6 @@
             });
         }
 
-        // -------- Search CCLOA --------
         async function openCcloaSearch() {
             showModal('Search CCLOA', `
                 <div class="search-row">
@@ -1726,7 +1703,6 @@
             } catch(e) { document.querySelector('.modal-body-scroll').innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
         }
 
-        // -------- Batch Validation (Fixed Town/Barangay Options) --------
         async function openBatchValidation() {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             
@@ -1907,18 +1883,15 @@
         async function generateBarangayReport(municipality) {
             popToast(`Gathering data for ${municipality}, please wait...`, 'info');
             try {
-                // Fetch Landholdings
                 const lhData = await fetchAllRecords(() => secureDbClient.from('arb_landholdings').select('*').ilike('municipality', municipality));
                 if (!lhData || lhData.length === 0) { 
                     popToast('No landholdings found for this municipality.', 'warn'); 
                     return; 
                 }
 
-                // Fetch Profiles
                 const profIds = [...new Set(lhData.map(l => l.arb_profile_id).filter(Boolean))];
                 const profData = await fetchInChunks('arb_profiles', 'id, arb_id', 'id', profIds);
                 
-                // Fetch ARBs
                 const arbIds = [...new Set(profData.map(p => p.arb_id).filter(Boolean))];
                 const arbData = await fetchInChunks('arb', 'id, first_name, middle_name, last_name', 'id', arbIds);
 
@@ -1946,7 +1919,7 @@
                 });
 
                 const { jsPDF } = window.jspdf;
-                // Legal landscape
+                // Legal landscape: 355.6mm x 215.9mm
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'legal' });
                 const brgyKeys = Object.keys(grouped).sort();
 
@@ -1960,69 +1933,79 @@
 
                     const head = [
                         [
-                            {content: 'PANGARAN KANG PARA-UMA (ARB)', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
+                            {content: 'PANGARAN KANG PARA-UMA (ARB)\n\n\n', rowSpan: 2, styles: {valign: 'top', halign: 'center'}},
                             {content: 'IMPORMASYON MANUNGOD SA DAGA', colSpan: 4, styles: {halign: 'center'}},
-                            {content: 'PANGARAN KANG AKTUAL NA NAG-UUMA KAN DAGA SA NGUNYAN', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
-                            {content: 'Kun iba na ang nag-uuma, ano ang dahilan?', colSpan: 4, styles: {halign: 'center'}},
-                            {content: 'Kun gadan na, may Death Certificate', colSpan: 2, styles: {halign: 'center'}},
+                            {content: 'PANGARAN KANG AKTUAL NA NAG-UUMA\nKAN DAGA SA NGUNYAN', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
+                            {content: 'Kun iba na ang nag-uuma,\nano ang dahilan?', colSpan: 4, styles: {halign: 'center'}},
+                            {content: 'Kun gadan na,\nmay Death Certificate', colSpan: 2, styles: {halign: 'center'}},
                             {content: 'Cellphone Number kung igwa', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}}
                         ],
                         [
-                            'SURVEY NO.', 'LOT NO.', 'AREA', 'TITLE NUMBER',
-                            'GURANG NA', 'NAGHALI NA', 'BINENTA NA', 'NAGADAN NA',
-                            'MAYO', 'IGWA'
+                            {content: 'SURVEY NO.', styles: {halign: 'center'}}, 
+                            {content: 'LOT NO.', styles: {halign: 'center'}}, 
+                            {content: 'AREA', styles: {halign: 'center'}}, 
+                            {content: 'TITLE NUMBER', styles: {halign: 'center'}},
+                            {content: 'GURANG NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'NAGHALI NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'BINENTA NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'NAGADAN NA', styles: {halign: 'center', fontSize: 6}},
+                            {content: 'MAYO', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'IGWA', styles: {halign: 'center', fontSize: 6}}
                         ]
                     ];
 
-                    const body = [];
-                    // Inject Barangay name with Yellow highlight as first row of the table
-                    body.push([{content: brgy.toUpperCase(), colSpan: 1, styles: {fillColor: [255, 255, 0], fontStyle: 'bold'}}, '', '', '', '', '', '', '', '', '', '', '', '']);
-
-                    grouped[brgy].forEach(row => {
-                        body.push([
-                            row.name, row.survey, row.lot, row.area, row.title,
-                            '', '', '', '', '', '', '', ''
-                        ]);
-                    });
+                    const body = grouped[brgy].map(row => [
+                        row.name, row.survey, row.lot, row.area, row.title,
+                        '', '', '', '', '', '', '', ''
+                    ]);
 
                     doc.autoTable({
                         startY: 20,
+                        margin: { bottom: 35 }, 
                         head: head,
                         body: body,
                         theme: 'grid',
-                        styles: { fontSize: 7, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1 },
+                        styles: { fontSize: 8, cellPadding: 2, lineColor: [0, 0, 0], lineWidth: 0.1, valign: 'middle' },
                         headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-                        columnStyles: {
-                            0: { cellWidth: 50 },
-                            1: { cellWidth: 25 },
-                            2: { cellWidth: 15 },
-                            3: { cellWidth: 15 },
-                            4: { cellWidth: 35 },
-                            5: { cellWidth: 40 }
+                        didDrawCell: function(data) {
+                            // Inject highlighted Barangay name exactly underneath "PANGARAN KANG PARA-UMA"
+                            if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
+                                const brgyText = brgy.toUpperCase();
+                                doc.setFont("helvetica", "bold");
+                                doc.setFontSize(10);
+                                const textWidth = doc.getTextWidth(brgyText);
+                                
+                                const x = data.cell.x + (data.cell.width / 2) - (textWidth / 2);
+                                const y = data.cell.y + data.cell.height - 4; 
+                                
+                                doc.setFillColor(255, 255, 0); 
+                                doc.rect(x - 2, y - 4, textWidth + 4, 5, 'F');
+                                doc.setTextColor(0, 0, 0);
+                                doc.text(brgyText, x, y);
+                            }
+                        },
+                        didDrawPage: function(data) {
+                            // Draw horizontal signature block on the bottom of EVERY page
+                            const pageHeight = doc.internal.pageSize.getHeight();
+                            const y = pageHeight - 25; 
+                            
+                            doc.setFontSize(10);
+                            doc.setFont("helvetica", "normal");
+                            doc.setTextColor(0, 0, 0);
+                            
+                            doc.text("Validated by:", 20, y - 8);
+                            doc.text("________________________________", 20, y);
+                            doc.text("Barangay Kagawad", 35, y + 4);
+                            
+                            doc.text("Verified by:", 130, y - 8);
+                            doc.text("________________________________", 130, y);
+                            doc.text("Barangay Kapitan", 145, y + 4);
+                            
+                            doc.text("Recommending Approval by:", 240, y - 8);
+                            doc.text("________________________________", 240, y);
+                            doc.text("PARPO II", 262, y + 4);
                         }
                     });
-
-                    let finalY = doc.lastAutoTable.finalY + 20;
-                    if (finalY > doc.internal.pageSize.getHeight() - 40) {
-                        doc.addPage();
-                        finalY = 20;
-                    }
-
-                    doc.setFontSize(10);
-                    doc.setFont("helvetica", "normal");
-                    
-                    doc.text("Validated by:", 14, finalY);
-                    doc.text("Verified by:", 150, finalY);
-                    
-                    doc.text("________________________________", 14, finalY + 12);
-                    doc.text("Barangay Kagawad", 30, finalY + 17);
-                    
-                    doc.text("________________________________", 150, finalY + 12);
-                    doc.text("Barangay Kapitan", 166, finalY + 17);
-                    
-                    doc.text("Recommending Approval by:", 14, finalY + 35);
-                    doc.text("________________________________", 14, finalY + 47);
-                    doc.text("PARPO II", 35, finalY + 52);
                 }
 
                 doc.save(`Cleansing_Report_${municipality}.pdf`);
