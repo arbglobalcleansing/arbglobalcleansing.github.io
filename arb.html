@@ -19,19 +19,13 @@
             --text-dark: #0f172a;
             --text-muted: #475569;
             --bg-light: #f8fafc;
+            --border-light: #e2e8f0;
         }
 
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text-dark); background: #f1f5f9; }
         
-        .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0; }
+        .profile-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid var(--border-light); }
         .profile-header h2 { margin: 0; color: var(--primary-green); font-weight: 800; }
-        .profile-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-        .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px; }
-        .validator-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
-        .validator-item { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid var(--primary-green); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
-        .validator-item .type-badge { display: inline-block; background: #d1fae5; color: var(--primary-green); padding: 2px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
-        .validator-item .name { font-weight: 700; font-size: 1.05rem; color: var(--primary-green); }
-        .validator-item .detail { font-size: 0.9rem; color: var(--text-muted); }
         
         .management-toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 25px; }
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
@@ -41,6 +35,7 @@
         .form-group input, .form-group select, .form-group textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: var(--text-dark); transition: border-color 0.2s; font-family: inherit; }
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--primary-green); outline: none; box-shadow: 0 0 0 3px rgba(6, 95, 70, 0.1); }
         .form-group textarea { min-height: 90px; resize: vertical; }
+        
         .checkbox-row { display: flex; gap: 18px; flex-wrap: wrap; padding: 8px 0; }
         .checkbox-row label { display: flex; align-items: center; gap: 7px; font-weight: 600; color: var(--text-dark); }
         
@@ -50,42 +45,42 @@
         .btn-primary:hover { background: var(--hover-green) !important; transform: translateY(-1px); }
         .btn-primary:disabled { background: #94a3b8 !important; cursor: not-allowed; opacity: 0.8; transform: none; }
         
-        /* CLEAN ACTION BUTTON GRID */
-        .action-group { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; min-width: 140px; }
-        .update-validation-btn { grid-column: span 2; }
-        .btn-sm { padding: 5px 8px !important; font-size: 0.7rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+        /* CLEAN, SMALL ACTION BUTTON GRID */
+        .action-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 140px; }
+        .update-validation-btn { grid-column: span 3; }
+        .btn-sm { padding: 4px 6px !important; font-size: 0.65rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; white-space: nowrap; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
         
-        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
         .badge-success { background: #dcfce7; color: #166534; }
-        .badge-warning { background: #fef08a; color: #713f12; } /* DAR Gold */
+        .badge-warning { background: #fef08a; color: #713f12; } 
         .badge-danger { background: #fee2e2; color: #991b1b; }
         .badge-info { background: #dbeafe; color: #1e40af; }
         .badge-neutral { background: #f1f5f9; color: #475569; }
 
-        .arb-table-wrap { overflow-x: auto; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 8px; background: white; border: 1px solid #e2e8f0; }
-        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .arb-table th { background: var(--bg-light); color: var(--primary-green); padding: 14px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }
-        .arb-table td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+        .arb-table-wrap { overflow-x: auto; margin-top: 20px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); border-radius: 8px; background: white; border: 1px solid var(--border-light); }
+        .arb-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .arb-table th { background: var(--bg-light); color: var(--primary-green); padding: 12px 8px; text-align: left; border-bottom: 2px solid var(--border-light); font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+        .arb-table td { padding: 10px 8px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
         .arb-table tr:hover { background: #f8fafc; }
         
         .empty-card { color: var(--text-muted); font-style: italic; text-align: center; padding: 40px; }
         
         .pagination { display: flex; gap: 10px; align-items: center; margin-top: 15px; }
-        .pagination button { padding: 6px 14px; }
         
-        .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: var(--bg-light); padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .filter-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: var(--bg-light); padding: 16px; border-radius: 10px; margin-bottom: 20px; border: 1px solid var(--border-light); }
         .filter-row .form-group { min-width: 140px; flex: 1; }
         .filter-actions { display: flex; gap: 8px; align-items: center; }
 
-        .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 16px 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid var(--border-light); }
         .search-container .search-input-group { flex: 3; min-width: 200px; display: flex; gap: 8px; }
         .search-container .search-input-group input { flex: 1; }
-        .search-container .search-input-group select { min-width: 140px; }
         .search-container .search-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
         .toggle-filters-btn { background: none; border: none; color: var(--primary-green); font-weight: 700; cursor: pointer; padding: 8px 12px; border-radius: 6px; transition: background 0.2s; }
         .toggle-filters-btn:hover { background: #ecfdf5; }
-        .advanced-filters { margin-top: 12px; padding: 16px; background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        
+        .advanced-filters { margin-top: 12px; padding: 16px; background: #ffffff; border-radius: 10px; border: 1px solid var(--border-light); display: none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
         .advanced-filters.open { display: block; }
+        .advanced-filters .filter-row { background: transparent; padding: 0; margin-bottom: 0; border: none; }
 
         /* -------- STRICT CONSTANT MODAL UI -------- */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.7); z-index: 1000; place-items: center; transition: all 0.3s ease; }
@@ -107,32 +102,27 @@
         .btn-min-win { background: #ffbd2e; }
         .btn-max-win { background: #27c93f; }
         
-        .modal.maximized .modal-content { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; border-radius: 0; }
-        .modal.minimized .modal-content { width: 300px !important; height: auto !important; max-width: 300px !important; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
-        .modal.minimized .modal-body-scroll { display: none !important; }
-        .modal.minimized .profile-modal { display: none !important; }
-        
         .modal-body-scroll { padding: 0; overflow-y: auto; flex: 1; background: var(--bg-light); display: flex; flex-direction: column; height: 100%; } 
 
         .profile-modal { display: flex; flex-direction: column; overflow: hidden; height: 100%; flex: 1; } 
         .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; height: 100%; }
         
-        .profile-sidebar { width: 280px; min-width: 250px; background: #f8fafc; padding: 30px 20px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; box-sizing: border-box; }
+        .profile-sidebar { width: 280px; min-width: 250px; background: #f8fafc; padding: 30px 20px; border-right: 1px solid var(--border-light); overflow-y: auto; flex-shrink: 0; height: 100%; box-sizing: border-box; }
         .profile-sidebar .avatar { width: 140px; height: 140px; border-radius: 50%; background: linear-gradient(145deg, var(--primary-green), #047857); color: white; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #d1fae5; object-fit: cover; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .profile-sidebar .avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.3rem; font-weight: 800; margin-bottom: 6px; color: var(--primary-green); line-height: 1.2; }
+        .profile-sidebar .sidebar-name { text-align: center; font-size: 1.25rem; font-weight: 800; margin-bottom: 6px; color: var(--primary-green); line-height: 1.2; }
         .profile-sidebar .sidebar-id { text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px; font-family: monospace; }
         .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 24px; }
         .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
         .profile-sidebar .sidebar-actions .btn { width: 100%; padding: 12px; font-weight: 700; letter-spacing: 0.03em; border-radius: 8px; }
         
         .profile-tabs { flex: 1; padding: 24px 30px; background: white; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; min-width: 0; }
-        .profile-tabs .tab-nav { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; flex-shrink: 0; }
+        .profile-tabs .tab-nav { display: flex; gap: 10px; border-bottom: 2px solid var(--border-light); margin-bottom: 24px; flex-wrap: wrap; flex-shrink: 0; }
         .profile-tabs .tab-nav button { background: none; border: none; padding: 10px 20px; font-weight: 800; color: #94a3b8; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .profile-tabs .tab-nav button:hover { color: var(--primary-green); }
         .profile-tabs .tab-nav button.active { color: var(--primary-green); border-bottom-color: var(--primary-green); }
         
-        /* THIS FIXES THE SHRINKING BUG */
+        /* FIXES THE SHRINKING BUG */
         .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 15px; min-height: 0; }
         .profile-tabs .tab-content.active { display: block; }
         
@@ -142,14 +132,14 @@
         .profile-tabs .detail-item .label { font-size: 0.75rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
         .profile-tabs .detail-item .value { font-size: 1rem; color: var(--text-dark); font-weight: 600; word-break: break-word; }
         
-        .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .table-wrap { overflow-x: auto; border: 1px solid var(--border-light); border-radius: 8px; }
         .table-wrap table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-        .table-wrap th { background: var(--bg-light); color: var(--primary-green); padding: 12px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; font-weight: 700; }
-        .table-wrap td { padding: 12px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+        .table-wrap th { background: var(--bg-light); color: var(--primary-green); padding: 12px 10px; text-align: left; border-bottom: 2px solid var(--border-light); font-weight: 700; }
+        .table-wrap td { padding: 12px 10px; border-bottom: 1px solid var(--border-light); vertical-align: top; }
         
         @media (max-width: 800px) {
             .profile-modal .modal-body { flex-direction: column; }
-            .profile-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #e2e8f0; padding: 20px; }
+            .profile-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-light); padding: 20px; }
             .profile-tabs .detail-grid { grid-template-columns: 1fr; }
         }
     </style>
@@ -260,7 +250,7 @@
                         <th>CoCROM</th>
                         <th>TA</th>
                         <th>ALI</th>
-                        <th style="min-width: 140px;">Actions</th>
+                        <th style="min-width: 160px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
@@ -289,7 +279,7 @@
     </div>
 
     <!-- Secondary Forms Modal (Dynamic Size, Overlays Main Modal) -->
-    <div id="subModal" class="modal" style="z-index: 1050;">
+    <div id="subModal" class="modal" style="z-index: 1050; background: rgba(15,23,42,0.8);">
         <div class="modal-content sub-modal-content" id="subModalContentContainer"></div>
     </div>
 
@@ -440,7 +430,7 @@
         function showSubModal(title, body) {
             const subModalContent = document.getElementById('subModalContentContainer');
             subModalContent.innerHTML = `
-                <div class="modal-header-bar">
+                <div class="modal-header-bar" style="background:#1e293b; border-bottom: 2px solid #64748b;">
                     <h3 style="margin:0; font-size:1.15rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">${safe(title)}</h3>
                     <div class="modal-window-controls" style="display:flex; gap:8px;">
                         <button type="button" class="window-btn btn-close-win" id="subWinCloseBtn" title="Close"></button>
@@ -604,7 +594,7 @@
                 if (landholdingFilterActive) {
                     const pattern = `%${searchTerm}%`;
                     let landSearchQ = () => secureDbClient.from('arb_landholdings').select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},ep_cloa_serial_n.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
+                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
                     
                     let backupQ = () => secureDbClient.from('epcloais_import_profile_matches').select('arb_profile_id')
                         .or(`cocrom_certificate_no.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},title_no.ilike.${pattern},claim_no.ilike.${pattern},lhid_raw.ilike.${pattern}`);
@@ -632,8 +622,8 @@
                         if (ta !== '') q = q.eq('with_ta', ta === 'true');
                         
                         if (searchTerm && searchField === 'id') {
-                            if (!isNaN(searchTerm)) q = q.or(`id.eq.${searchTerm},generated_arb_ic.ilike.%${searchTerm}%`);
-                            else q = q.ilike('generated_arb_ic', `%${searchTerm}%`);
+                            if (!isNaN(searchTerm)) q = q.or(`id.eq.${searchTerm},generated_arb_id.ilike.%${searchTerm}%`);
+                            else q = q.ilike('generated_arb_id', `%${searchTerm}%`);
                         } else if (searchTerm && searchField === 'name') {
                             const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
                             if (tokens.length === 1) {
@@ -673,7 +663,7 @@
                     if (pageIds.length > 0) {
                         const res = await secureDbClient.from('arb').select(`
                             id, first_name, middle_name, last_name, validation_status, life_status,
-                            with_ali_case, with_ta, for_disqualificati, 
+                            with_ali_case, with_ta, for_disqualification, generated_arb_id,
                             arbo:arbo_id ( id, name, municipality, barangay )
                         `).in('id', pageIds).order('id', { ascending: true });
                         
@@ -683,7 +673,7 @@
                 } else {
                     const res = await secureDbClient.from('arb').select(`
                         id, first_name, middle_name, last_name, validation_status, life_status,
-                        with_ali_case, with_ta, for_disqualificati, 
+                        with_ali_case, with_ta, for_disqualification, generated_arb_id,
                         arbo:arbo_id ( id, name, municipality, barangay )
                     `, { count: 'exact' })
                     .order('id', { ascending: true })
@@ -698,18 +688,39 @@
                     tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
+                    
+                    // Fetch Profiles robustly
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
-                        arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status,
-                        arb_landholdings ( municipality, barangay, title_no, ep_cloa_serial_n, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no )
+                        id, arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status
                     `).in('arb_id', arbIds);
                     
                     const profileMap = {};
-                    (profileData || []).forEach(p => { profileMap[p.arb_id] = p; });
+                    const profIds = [];
+                    (profileData || []).forEach(p => { 
+                        profileMap[p.arb_id] = p; 
+                        if (p.id) profIds.push(p.id);
+                    });
+
+                    // Fetch Landholdings robustly
+                    let lhData = [];
+                    if (profIds.length > 0) {
+                        const { data: landholdings } = await secureDbClient.from('arb_landholdings').select(`
+                            arb_profile_id, municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no
+                        `).in('arb_profile_id', profIds);
+                        lhData = landholdings || [];
+                    }
+                    
+                    const lhMap = {};
+                    lhData.forEach(lh => {
+                        if(!lhMap[lh.arb_profile_id]) lhMap[lh.arb_profile_id] = [];
+                        lhMap[lh.arb_profile_id].push(lh);
+                    });
 
                     let html = '';
                     arbs.forEach(arb => {
                         const profile = profileMap[String(arb.id)] || {};
                         const arbo = arb.arbo || {};
+                        const arbLhs = profile.id ? (lhMap[profile.id] || []) : [];
 
                         let dispMunicipality = arbo.municipality || '—';
                         let dispBarangay = arbo.barangay || '—';
@@ -719,11 +730,14 @@
                         let dispSurvey = '—';
                         let dispCocrom = '—';
                         
-                        if (profile.arb_landholdings && profile.arb_landholdings.length > 0) {
-                            const lh = profile.arb_landholdings[0];
-                            dispMunicipality = lh.municipality || dispMunicipality;
-                            dispBarangay = lh.barangay || dispBarangay;
-                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || lh.ccloa_title_raw || '—';
+                        if (arbLhs.length > 0) {
+                            const validLandholding = arbLhs.find(l => l.municipality);
+                            if (validLandholding) {
+                                dispMunicipality = validLandholding.municipality;
+                                dispBarangay = validLandholding.barangay || dispBarangay;
+                            }
+                            const lh = arbLhs[0];
+                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
                             dispLot = lh.lot_no || '—';
                             dispArea = lh.landholding_area || '—';
                             dispSurvey = lh.survey_no || '—';
@@ -744,7 +758,7 @@
                             <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
                             <td>
                                 <strong style="color:var(--text-dark); font-size:0.95rem;">${safe(fullName(arb))}</strong>
-                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace;">${displayValue(profile.generated_arb_ic || arb.id)}</div>
+                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
                             </td>
                             <td>${displayValue(dispTitle)}</td>
                             <td>${displayValue(dispLot)}</td>
@@ -760,12 +774,12 @@
                             <td>
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
-                                    <button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>
-                                    <button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>
-                                    <button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>
-                                    <button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>
-                                    <button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>
-                                    <button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -875,11 +889,11 @@
                 if (landholdings && landholdings.length > 0) {
                     const validLandholding = landholdings.find(l => l.municipality);
                     if (validLandholding) {
-                        dispMunicipality = dispMunicipality || validLandholding.municipality;
-                        dispBarangay = dispBarangay || validLandholding.barangay;
+                        dispMunicipality = validLandholding.municipality;
+                        dispBarangay = validLandholding.barangay || dispBarangay;
                     }
                     const lh = landholdings[0];
-                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || lh.ccloa_title_raw || '—';
+                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
                 }
 
                 const body = `
@@ -891,7 +905,7 @@
                                     ${profile.image_base64 ? `<img src="${profile.image_base64}" alt="Photo">` : safe(arbInitials(arb))}
                                 </div>
                                 <div class="sidebar-name">${safe(fullName(arb))}</div>
-                                <div class="sidebar-id">${displayValue(profile.generated_arb_ic || arb.id)}</div>
+                                <div class="sidebar-id">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
                                 <div class="badge-group">
                                     ${badge(arb.life_status || profile.life_status || 'Unknown', (arb.life_status || profile.life_status)==='Active'?'success':(arb.life_status || profile.life_status)==='Dead'?'danger':'neutral')}
                                     ${badge(arb.validation_status || 'Pending', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning')}
@@ -1010,8 +1024,8 @@
                 { label: 'AO8', value: arb.ao8 },
                 { label: 'For Transfer Action', value: arb.for_ta },
                 { label: 'With Transfer Action', value: arb.with_ta },
-                { label: 'For Disqualification', value: arb.for_disqualificati },
-                { label: 'With Existing Complain', value: arb.with_existing_con },
+                { label: 'For Disqualification', value: arb.for_disqualification },
+                { label: 'With Existing Complain', value: arb.with_existing_complain },
                 { label: 'With ALI Case', value: arb.with_ali_case },
             ];
 
@@ -1074,21 +1088,21 @@
                     <td>${displayValue(h.ccloa_area)}</td>
                     <td>${displayValue(h.title_type)}</td>
                     <td>${displayValue(h.title_no)}</td>
-                    <td>${displayValue(h.ep_cloa_serial_n || h.ep_cloa_serial_no)}</td>
+                    <td>${displayValue(h.ep_cloa_serial_no)}</td>
                     <td>${displayValue(h.cocrom_certificate_no)}</td>
                     <td>${displayValue(h.cocrom_reference_raw)}</td>
                     <td>${displayValue(h.cocrom_serial_no)}</td>
-                    <td>${displayValue(h.original_mother_t || h.original_mother_title_no)}</td>
+                    <td>${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td>
                     <td>${displayValue(h.municipality)}</td>
                     <td>${displayValue(h.barangay)}</td>
                     <td>${displayValue(h.landowner)}</td>
-                    <td>${displayValue(h.mode_of_acquisi || h.mode_of_acquisition)}</td>
+                    <td>${displayValue(h.mode_of_acquisition)}</td>
                     <td>${formatDateValue(h.date_generated)}</td>
                     <td>${formatDateValue(h.date_registered)}</td>
                     <td>${formatDateValue(h.date_released)}</td>
                     <td>${displayValue(h.release_status)}</td>
                     <td>${displayValue(h.date_released_raw)}</td>
-                    <td>${formatDateValue(h.date_distributed_ || h.date_distributed_to_darmo)}</td>
+                    <td>${formatDateValue(h.date_distributed_to_darmo || h.date_distributed)}</td>
                 </tr>`;
             });
             html += `</tbody></table></div>`;
@@ -1249,7 +1263,7 @@
                 const formHtml = `
                     <form id="editArbForm">
                         <div class="form-grid">
-                            <div class="form-group full"><label>ARB ID</label><input value="${safe(profile.generated_arb_ic || arb.id)}" disabled></div>
+                            <div class="form-group full"><label>ARB ID</label><input value="${safe(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}" disabled></div>
                             <div class="form-group"><label for="editFirstName">First Name</label><input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required></div>
                             <div class="form-group"><label for="editMiddleName">Middle Name</label><input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}"></div>
                             <div class="form-group"><label for="editLastName">Last Name</label><input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required></div>
@@ -1261,8 +1275,8 @@
                             <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
-                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualificati" ${arb.for_disqualificati?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_con" ${arb.with_existing_con?'checked':''}> With Existing Complain</label></div></div>
-                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_r"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_r==='Double Entry'?'selected':''}>Double Entry</option></select></div>
+                            <div class="form-group full"><label>Legal Flags</label><div class="checkbox-row"><label><input type="checkbox" name="ao8" ${arb.ao8?'checked':''}> AO8</label><label><input type="checkbox" name="for_ta" ${arb.for_ta?'checked':''}> For Transfer Action</label><label><input type="checkbox" name="with_ta" ${arb.with_ta?'checked':''}> With Transfer Action</label><label><input type="checkbox" name="for_disqualification" ${arb.for_disqualification?'checked':''}> For Disqualification</label><label><input type="checkbox" name="with_existing_complain" ${arb.with_existing_complain?'checked':''}> With Existing Complain</label></div></div>
+                            <div class="form-group full"><label for="editDisqualificationReason">Disqualification Reason</label><select id="editDisqualificationReason" name="disqualification_reason"><option value="">-- None --</option><option value="Double Entry" ${arb.disqualification_reason==='Double Entry'?'selected':''}>Double Entry</option></select></div>
                         </div>
                         <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelEditArbBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
                     </form>
@@ -1280,13 +1294,13 @@
                         middle_name: emptyToNull(fd.get('middle_name')),
                         last_name: emptyToNull(fd.get('last_name')),
                         validation_status: fd.get('validation_status'),
-                        life_status: fd.get('life_status'), // Save life status to arb table properly
+                        life_status: fd.get('life_status'), 
                         ao8: fd.get('ao8') === 'on',
                         for_ta: fd.get('for_ta') === 'on',
                         with_ta: fd.get('with_ta') === 'on',
-                        for_disqualificati: fd.get('for_disqualificati') === 'on',
-                        with_existing_con: fd.get('with_existing_con') === 'on',
-                        disqualification_r: emptyToNull(fd.get('disqualification_r')),
+                        for_disqualification: fd.get('for_disqualification') === 'on',
+                        with_existing_complain: fd.get('with_existing_complain') === 'on',
+                        disqualification_reason: emptyToNull(fd.get('disqualification_reason')),
                         updated_at: new Date().toISOString()
                     };
                     const profilePayload = {
@@ -1450,7 +1464,7 @@
                         case 'ALI CASE':
                             arbUpdate.with_ali_case = true;
                             arbUpdate.ali_case_status = status;
-                            arbUpdate.ali_case_type = aliType;
+                            arbUpdate.ali_type = aliType;
                             break;
                         case 'TRANSFER ACTION':
                             arbUpdate.with_ta = true;
@@ -1458,8 +1472,8 @@
                             arbUpdate.ta_status = status;
                             break;
                         case 'DISQUALIFICATION':
-                            arbUpdate.for_disqualificati = true;
-                            arbUpdate.disqualification_r = caseDetails || status;
+                            arbUpdate.for_disqualification = true;
+                            arbUpdate.disqualification_reason = caseDetails || status;
                             break;
                         case 'DEAD':
                             arbUpdate.life_status = 'Dead';
@@ -1470,7 +1484,7 @@
                             lifeUpdate = 'Active';
                             break;
                         case 'WITH COMPLAIN':
-                            arbUpdate.with_existing_con = true;
+                            arbUpdate.with_existing_complain = true;
                             break;
                     }
 
@@ -1561,7 +1575,7 @@
                 const newId = `DAR-Camsur-${seq}`;
                 
                 await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId, sequence_no: seq }).eq('id', profile.id);
-                await secureDbClient.from('arb').update({ generated_arb_ic: newId }).eq('id', arbId);
+                await secureDbClient.from('arb').update({ generated_arb_id: newId }).eq('id', arbId);
 
                 // Fetch landholding for fallback address if ARBO is missing
                 const { data: lhData } = await secureDbClient.from('arb_landholdings').select('municipality, barangay').eq('arb_profile_id', profile.id);
@@ -1635,7 +1649,7 @@
             } catch(e) { 
                 popToast(e.message, 'err'); 
             } finally {
-                if (btnElement) { btnElement.disabled = false; btnElement.textContent = 'Gen ID'; }
+                if (btnElement) { btnElement.disabled = false; btnElement.textContent = 'ID'; }
             }
         }
 
@@ -2064,7 +2078,7 @@
                     </div>
                     <div class="modal-actions" style="margin-top:25px;">
                         <button type="button" class="btn btn-primary" id="cancelReportBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button>
-                        <button type="submit" class="btn btn-primary" style="background:var(--dar-gold) !important; border-color:#b45309 !important; color:#fff !important;">Generate PDF</button>
+                        <button type="submit" class="btn btn-primary" style="background:var(--dar-gold) !important; color:#fff !important;">Generate PDF</button>
                     </div>
                 </form>
             `;
@@ -2146,7 +2160,7 @@
                         survey: lh.survey_no || '',
                         lot: lh.lot_no || '',
                         area: lh.landholding_area || '',
-                        title: lh.title_no || lh.ep_cloa_serial_n || lh.ep_cloa_serial_no || ''
+                        title: lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || ''
                     });
                 });
 
@@ -2156,6 +2170,7 @@
                 }
 
                 const { jsPDF } = window.jspdf;
+                // Legal landscape: 355.6mm x 215.9mm
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'legal' });
                 const brgyKeys = Object.keys(grouped).sort();
 
