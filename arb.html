@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ARB Global Cleansing – ARB Management</title>
+    <title>ARB Global Validation – ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -166,7 +166,7 @@
 </head>
 <body>
 <div class="container">
-    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">🏛️ ARB Global Cleansing <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
+    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">🏛️ ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
@@ -178,9 +178,8 @@
             <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">🔍 Search</button>
             <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
             <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
-            <button type="button" class="btn btn-primary" id="searchCcloaBtn" style="background:var(--dar-gold); border-color:#b45309;">📂 CCLOA</button>
             <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
-            <button type="button" class="btn btn-primary" id="generateReportBtn">📄 Generate Form</button>
+            <button type="button" class="btn btn-primary" id="generateReportBtn">📄 Print Validation Form</button>
         </div>
     </div>
 
@@ -371,6 +370,14 @@
             const role = String(currentUserProfile?.role || '').toLowerCase();
             return role === 'admin' || role === 'staff';
         }
+
+        window.showAliInfo = function(arbName, aliType, aliStatus) {
+            showSubModal('⚖️ ALI Case Status', `
+                <div class="form-group" style="margin-bottom:15px;"><label>ARB Name</label><div style="font-size:1.1rem; color:var(--text-dark);">${safe(arbName)}</div></div>
+                <div class="form-group" style="margin-bottom:15px;"><label>Case Type</label><div style="font-size:1.1rem; color:var(--dar-gold); font-weight:bold;">${safe(aliType)}</div></div>
+                <div class="form-group"><label>Case Status</label><div style="font-size:1.1rem; color:#991b1b; font-weight:bold;">${safe(aliStatus)}</div></div>
+            `);
+        };
 
         function compressImage(dataUrl, maxWidth=400, quality=0.7) {
             return new Promise((resolve) => {
@@ -615,7 +622,7 @@
                     const safeTerm = searchTerm.replace(/[,"]/g, ' ').replace(/\s+/g, ' ').trim();
                     const pattern = `%${safeTerm}%`;
                     const tokens = safeTerm.split(' ').filter(t => t.length > 0);
-                    
+
                     let arbOr = `generated_arb_id.ilike.${pattern},first_name.ilike.${pattern},last_name.ilike.${pattern},middle_name.ilike.${pattern}`;
                     if (!isNaN(safeTerm) && safeTerm.trim() !== '') arbOr += `,id.eq.${safeTerm}`;
                     if (tokens.length > 1) {
@@ -642,7 +649,7 @@
                     const resolvingPromises = [];
                     if (combinedProfIds.length > 0) resolvingPromises.push(fetchInChunks('arb_profiles', 'arb_id', 'id', combinedProfIds));
                     else resolvingPromises.push(Promise.resolve([]));
-                    
+
                     if (arboIds.length > 0) resolvingPromises.push(fetchInChunks('arb', 'id', 'arbo_id', arboIds));
                     else resolvingPromises.push(Promise.resolve([]));
 
@@ -677,7 +684,7 @@
                     if (pageIds.length > 0) {
                         const res = await secureDbClient.from('arb').select(`
                             id, first_name, middle_name, last_name, validation_status, life_status,
-                            with_ali_case, with_ta, for_disqualification, generated_arb_id,
+                            with_ali_case, ali_case_status, ali_case_type, with_ta, for_disqualification, generated_arb_id,
                             arbo:arbo_id ( id, name, municipality, barangay )
                         `).in('id', pageIds).order('id', { ascending: true });
 
@@ -687,7 +694,7 @@
                 } else {
                     const res = await secureDbClient.from('arb').select(`
                         id, first_name, middle_name, last_name, validation_status, life_status,
-                        with_ali_case, with_ta, for_disqualification, generated_arb_id,
+                        with_ali_case, ali_case_status, ali_case_type, with_ta, for_disqualification, generated_arb_id,
                         arbo:arbo_id ( id, name, municipality, barangay )
                     `, { count: 'exact' })
                     .order('id', { ascending: true })
@@ -760,7 +767,14 @@
                             dispCocrom = profile.cocrom_no || '—';
                         }
 
-                        const aliTag = arb.with_ali_case ? badge('YES','danger') : badge('NO', 'neutral');
+                        let aliTag = badge('NO', 'neutral');
+                        if (arb.with_ali_case) {
+                            const safeName = safe(fullName(arb)).replace(/'/g, "\\'");
+                            const safeType = safe(arb.ali_case_type || 'Type Unknown').replace(/'/g, "\\'");
+                            const safeStatus = safe(arb.ali_case_status || 'Status Unknown').replace(/'/g, "\\'");
+                            aliTag = `<span class="badge badge-danger" style="cursor:pointer; box-shadow: 0 0 0 2px rgba(220,38,38,0.4);" title="Click to view ALI status" onclick="window.showAliInfo('${safeName}', '${safeType}', '${safeStatus}')">YES 🔍</span>`;
+                        }
+
                         const taTag = arb.with_ta ? badge('YES','warning') : badge('NO', 'neutral');
                         const cocromTag = (dispCocrom !== '—') ? badge('YES','success') : badge('NO', 'neutral');
 
@@ -1911,63 +1925,6 @@
             });
         }
 
-        async function openCcloaSearch() {
-            showSubModal('Search CCLOA', `
-                <div class="search-row">
-                    <input id="ccloaSearchInput" placeholder="Enter CCLOA number">
-                    <button type="button" class="btn btn-primary" id="runCcloaSearchBtn">Search</button>
-                </div>
-                <div id="ccloaSearchResults"><p class="empty-msg">Enter an existing CCLOA number.</p></div>
-            `);
-            document.getElementById('runCcloaSearchBtn').addEventListener('click', runCcloaSearch);
-            document.getElementById('ccloaSearchInput').addEventListener('keydown', function(e) { if (e.key==='Enter') runCcloaSearch(); });
-        }
-
-        async function runCcloaSearch() {
-            const term = document.getElementById('ccloaSearchInput').value.trim();
-            const resultsEl = document.getElementById('ccloaSearchResults');
-            if (!term) { resultsEl.innerHTML = '<p class="empty-msg">Enter a CCLOA number.</p>'; return; }
-            resultsEl.innerHTML = '<p class="empty-msg">⏳ Searching...</p>';
-            try {
-                const { data, error } = await secureDbClient.from('mother_titles').select('*').ilike('mother_title_no', `%${term}%`).order('mother_title_no').limit(50);
-                if (error) throw error;
-                if (!data || data.length === 0) {
-                    resultsEl.innerHTML = '<p class="empty-msg">No matching CCLOA found.</p>';
-                    return;
-                }
-                let html = `<table class="modal-table"><thead><tr><th>CCLOA No.</th><th>Landowner</th><th>Municipality</th><th>Barangay</th><th>SPLIT Status</th><th>Remarks</th><th>Action</th></tr></thead><tbody>`;
-                data.forEach(t => {
-                    html += `<tr><td><strong>${safe(t.mother_title_no)}</strong></td><td>${safe(t.landowner)}</td><td>${safe(t.municipality)}</td><td>${safe(t.barangay)}</td><td>${safe(t.split_status)}</td><td>${safe(t.remarks)}</td><td><button class="btn btn-primary btn-sm show-members-btn" data-title-id="${t.id}">View ARBs</button></td></tr>`;
-                });
-                resultsEl.innerHTML = html + '</tbody></table>';
-                resultsEl.querySelectorAll('.show-members-btn').forEach(btn => btn.addEventListener('click', function() {
-                    showCcloaMembers(this.dataset.titleId);
-                }));
-            } catch(e) { resultsEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
-        }
-
-        async function showCcloaMembers(motherTitleId) {
-            showSubModal('ARBs under CCLOA', '<p class="empty-msg">⏳ Loading...</p>');
-            try {
-                const { data: title } = await secureDbClient.from('mother_titles').select('*').eq('id', motherTitleId).single();
-                const { data: holdings } = await secureDbClient.from('arb_landholdings').select('arb_profile_id').eq('mother_title_id', motherTitleId);
-                const profileIds = [...new Set(holdings?.map(h => h.arb_profile_id).filter(Boolean))];
-                if (!profileIds.length) {
-                    document.getElementById('subModalContentContainer').querySelector('.modal-body-scroll').innerHTML = `<p>CCLOA: ${safe(title?.mother_title_no)}</p><p class="empty-msg">No ARBs found.</p>`;
-                    return;
-                }
-                const { data: profiles } = await secureDbClient.from('arb_profiles').select('arb_id, fb_name, life_status, split_status, e_title_no').in('id', profileIds);
-                const arbIds = profiles.map(p => p.arb_id).filter(Boolean);
-                const { data: arbs } = await secureDbClient.from('arb').select('id, first_name, middle_name, last_name, validation_status').in('id', arbIds);
-                let html = `<p><strong>CCLOA:</strong> ${safe(title?.mother_title_no)} &nbsp; <strong>Landowner:</strong> ${safe(title?.landowner)}</p><table class="modal-table"><thead><tr><th>ARB</th><th>Validation</th><th>Life</th><th>Classification</th><th>e-Title</th><th>Action</th></tr></thead><tbody>`;
-                arbs?.forEach(arb => {
-                    const prof = profiles.find(p => p.arb_id === String(arb.id)) || {};
-                    html += `<tr><td>${safe(fullName(arb))}</td><td>${safe(arb.validation_status)}</td><td>${safe(prof.life_status)}</td><td>${safe(prof.split_status)}</td><td>${safe(prof.e_title_no)}</td><td><button class="btn btn-primary btn-sm" onclick="openArbProfile('${arb.id}')">Open</button></td></tr>`;
-                });
-                document.getElementById('subModalContentContainer').querySelector('.modal-body-scroll').innerHTML = html + '</tbody></table>';
-            } catch(e) { document.getElementById('subModalContentContainer').querySelector('.modal-body-scroll').innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ ${safe(e.message)}</p>`; }
-        }
-
         async function openBatchValidation() {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
 
@@ -2133,7 +2090,7 @@
 
             const formHtml = `
                 <form id="reportForm">
-                    <p style="margin-bottom: 20px; color:var(--text-muted);">Generate ARB Cleansing Report (grouped per Barangay).</p>
+                    <p style="margin-bottom: 20px; color:var(--text-muted);">Generate ARB Global Validation Form (grouped per Barangay).</p>
                     <div class="form-group">
                         <label>Select Municipality</label>
                         <select id="reportMun" required>
@@ -2161,7 +2118,7 @@
                     </div>
                 </form>
             `;
-            showSubModal('Generate Cleansing Form', formHtml);
+            showSubModal('Print Validation Form', formHtml);
 
             document.getElementById('reportMun').addEventListener('change', function() {
                 const mun = this.value;
@@ -2284,13 +2241,18 @@
                                 p_barangay: brgy,
                                 p_year: year
                             });
-                            if (!error && data) reportRef = data;
+                            if (error) {
+                                console.error("Sequence Generation Error:", error);
+                                popToast("Warning: Sequence not incremented. Check DB function.", "warn");
+                            } else if (data) {
+                                reportRef = data;
+                            }
                         } catch(e) { console.warn(e); }
                     }
 
                     doc.setFontSize(14);
                     doc.setFont("helvetica", "bold");
-                    doc.text(`ARB Cleansing Report - ${municipality}`, 14, 15);
+                    doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
 
                     // Add Reference Number Top Right
                     doc.setFontSize(10);
@@ -2392,7 +2354,7 @@
                     });
                 }
 
-                doc.save(`Cleansing_Report_${municipality}.pdf`);
+                doc.save(`Validation_Form_${municipality}.pdf`);
                 hideSubModal();
                 popToast('Report downloaded successfully.', 'ok');
             } catch (err) {
@@ -2402,7 +2364,6 @@
 
 
         // -------- Listeners & Initialization --------
-        document.getElementById('searchCcloaBtn')?.addEventListener('click', openCcloaSearch);
         document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
         document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
         document.getElementById('batchValidateBtn')?.addEventListener('click', openBatchValidation);
