@@ -6,6 +6,7 @@
     <title>ARB Global Cleansing – ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
@@ -81,11 +82,7 @@
         .webcam-preview { width: 100%; max-width: 320px; border: 1px solid #ccc; border-radius: 6px; margin: 10px 0; }
         .hidden { display: none; }
 
-        .search-container {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
-            background: #ffffff; padding: 14px 18px; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0;
-        }
+        .search-container { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #ffffff; padding: 14px 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e2e8f0; }
         .search-container .search-input-group { flex: 3; min-width: 200px; display: flex; gap: 8px; }
         .search-container .search-input-group input { flex: 1; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
         .search-container .search-input-group select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font-size: 0.95rem; min-width: 140px; }
@@ -101,13 +98,11 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; }
         .modal.active { display: grid; }
         .modal-content { background: #fff; width: 95%; max-width: 1100px; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transition: all 0.3s ease; }
-        
         .modal-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: #0a3d62; color: #fff; border-bottom: 1px solid #082f4d; }
         .window-btn { width: 14px; height: 14px; border-radius: 50%; border: none; cursor: pointer; display: inline-block; padding: 0; margin: 0; }
         .btn-close-win { background: #ff5f56; }
         .btn-min-win { background: #ffbd2e; }
         .btn-max-win { background: #27c93f; }
-        
         .modal.maximized .modal-content { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; border-radius: 0; }
         .modal.maximized .modal-body-scroll { max-height: calc(100vh - 50px); }
         .modal.minimized .modal-content { width: 300px; height: auto; max-width: 300px; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
@@ -152,7 +147,6 @@
 
     <nav class="nav" id="mainNav"></nav>
 
-    <!-- Professional Search Area -->
     <div class="search-container">
         <div class="search-input-group">
             <input id="globalSearchInput" placeholder="Search ARB name, ID, sequence, or landholding..." autocomplete="off" aria-label="Search">
@@ -173,7 +167,6 @@
         </div>
     </div>
 
-    <!-- Advanced Filters (collapsible) -->
     <div class="advanced-filters" id="advancedFilters">
         <div class="filter-row" id="filterRow">
             <div class="form-group">
@@ -235,7 +228,6 @@
         </div>
     </div>
 
-    <!-- ARB Table -->
     <div id="arbListContainer">
         <div class="arb-table-wrap">
             <table class="arb-table" id="arbTable">
@@ -268,7 +260,6 @@
         </div>
     </div>
 
-    <!-- UI Fixed Modal -->
     <div id="modal" class="modal">
         <div class="modal-content" id="modalContentContainer"></div>
     </div>
@@ -288,7 +279,6 @@
         let totalRecords = 0;
         let arboList = [];
 
-        // Hardcoded Municipality Database
         const locData = {
             "Cabusao": ["Barcelonita", "Biong", "Camagong", "Castillo", "New Poblacion", "Pandan", "San Pedro", "Santa Cruz", "Santa Lutgarda (Poblacion)"],
             "Del Gallego": ["Bagong Silang", "Bucal", "Cabasag", "Comadaycaday", "Comadogcadog", "Domagondong", "Kinalangan", "Mabini", "Magais I", "Magais II", "Mansalaya", "Nagkalit", "Palaspas", "Pamplona", "Pasay", "Pinagdapian", "Pinugusan", "Poblacion Zone I (Fatima)", "Poblacion Zone II (San Antonio)", "Poblacion Zone III", "Sabang", "Salvacion", "San Juan", "San Pablo", "Santa Rita I", "Santa Rita II", "Sinagawsawan", "Sinuknipan I", "Sinuknipan II", "Sugsugin", "Tabion", "Tomagoktok"],
@@ -311,7 +301,6 @@
             "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "Niño Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo Niño"]
         };
 
-        // -------- Formatting Helpers --------
         function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
         function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? '—' : safe(value); }
         function formatDateValue(value) {
@@ -351,7 +340,6 @@
             return role === 'admin' || role === 'staff';
         }
 
-        // -------- Photo Compression Helper --------
         function compressImage(dataUrl, maxWidth=400, quality=0.7) {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -389,7 +377,7 @@
 
         async function fetchInChunks(table, selectStr, column, idArray) {
             let results = [];
-            const chunkSize = 200; // Safe chunk size to avoid 414 URI Too Long
+            const chunkSize = 150; // Safe chunk size to avoid 414 URI Too Long
             for(let i=0; i<idArray.length; i+=chunkSize) {
                 const chunk = idArray.slice(i, i+chunkSize);
                 const {data} = await secureDbClient.from(table).select(selectStr).in(column, chunk);
@@ -506,6 +494,7 @@
                 let locationFilterActive = Boolean(town || barangay || municipalityPart);
                 let profileFilterActive = Boolean(split || cocrom !== '' || titleDist !== '' || (searchTerm && (searchField === 'sequence' || searchField === 'fb_name')));
                 let landholdingFilterActive = Boolean(searchTerm && searchField === 'landholding');
+                let baseArbFilterActive = Boolean(validation || ali !== '' || ta !== '' || (searchTerm && (searchField === 'name' || searchField === 'id')));
 
                 let filterSets = []; // Will hold arrays of strict string IDs
 
@@ -564,7 +553,7 @@
                 if (landholdingFilterActive) {
                     const pattern = `%${searchTerm}%`;
                     let landSearchQ = () => secureDbClient.from('arb_landholdings').select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_n.ilike.${pattern},original_mother_t.ilike.${pattern}`);
+                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
                     
                     const landData = await fetchAllRecords(landSearchQ);
                     const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
@@ -576,7 +565,33 @@
                     filterSets.push(lhArbIds);
                 }
 
-                // 4. INTERSECT SETS (Safely comparing String === String)
+                // 4. Base ARB table properties
+                if (baseArbFilterActive) {
+                    let arbQ = () => {
+                        let q = secureDbClient.from('arb').select('id');
+                        if (validation) q = q.eq('validation_status', validation);
+                        if (ali !== '') q = q.eq('with_ali_case', ali === 'true');
+                        if (ta !== '') q = q.eq('with_ta', ta === 'true');
+                        
+                        if (searchTerm && searchField === 'id') {
+                            if (!isNaN(searchTerm)) q = q.or(`id.eq.${searchTerm},generated_arb_ic.ilike.%${searchTerm}%`);
+                            else q = q.ilike('generated_arb_ic', `%${searchTerm}%`);
+                        } else if (searchTerm && searchField === 'name') {
+                            const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
+                            if (tokens.length === 1) {
+                                q = q.or(`first_name.ilike.%${tokens[0]}%,middle_name.ilike.%${tokens[0]}%,last_name.ilike.%${tokens[0]}%`);
+                            } else {
+                                const conditions = tokens.map(token => `first_name.ilike.%${token}%,last_name.ilike.%${token}%`).join(',');
+                                q = q.or(conditions);
+                            }
+                        }
+                        return q;
+                    };
+                    const arbs = await fetchAllRecords(arbQ);
+                    filterSets.push(arbs.map(a => String(a.id))); // CAST TO STRING
+                }
+
+                // 5. INTERSECT SETS (Safely comparing String === String)
                 let finalIds = null;
                 if (filterSets.length > 0) {
                     finalIds = filterSets[0];
@@ -593,51 +608,38 @@
                     }
                 }
 
-                // 5. Build the Final Base Query applying remaining ARB table filters
-                let arbQuery = secureDbClient.from('arb').select(`
-                    id, first_name, middle_name, last_name, validation_status,
-                    with_ali_case, with_ta, for_disqualificati, 
-                    arbo:arbo_id ( id, name, municipality, barangay )
-                `, { count: 'exact' }).order('id', { ascending: true });
-
+                // 6. FINAL FETCH FOR RENDER (With safe array slicing to prevent URI Too Long error)
+                let arbs = [];
                 if (finalIds !== null) {
-                    // Safe injection of known matching string IDs up to standard limits
-                    // If huge array, apply chunking logic at render, but for UI tables usually manageable.
-                    arbQuery = arbQuery.in('id', finalIds);
-                }
-
-                if (validation) arbQuery = arbQuery.eq('validation_status', validation);
-                if (ali !== '') arbQuery = arbQuery.eq('with_ali_case', ali === 'true');
-                if (ta !== '') arbQuery = arbQuery.eq('with_ta', ta === 'true');
-
-                if (searchTerm && (searchField === 'name' || searchField === 'id')) {
-                    if (searchField === 'id') {
-                        if (!isNaN(searchTerm)) arbQuery = arbQuery.or(`id.eq.${searchTerm},generated_arb_ic.ilike.%${searchTerm}%`);
-                        else arbQuery = arbQuery.ilike('generated_arb_ic', `%${searchTerm}%`);
-                    } else {
-                        const tokens = namePart.split(/\s+/).filter(t => t.length > 0);
-                        if (tokens.length === 1) {
-                            const p = `%${tokens[0]}%`;
-                            arbQuery = arbQuery.or(`first_name.ilike.${p},middle_name.ilike.${p},last_name.ilike.${p}`);
-                        } else {
-                            const conditions = tokens.map(token => {
-                                const p = `%${token}%`;
-                                return `first_name.ilike.${p},last_name.ilike.${p}`;
-                            }).join(',');
-                            arbQuery = arbQuery.or(conditions);
-                        }
+                    totalRecords = finalIds.length;
+                    const pageIds = finalIds.slice(page * pageSize, (page + 1) * pageSize);
+                    
+                    if (pageIds.length > 0) {
+                        const res = await secureDbClient.from('arb').select(`
+                            id, first_name, middle_name, last_name, validation_status,
+                            with_ali_case, with_ta, for_disqualificati, 
+                            arbo:arbo_id ( id, name, municipality, barangay )
+                        `).in('id', pageIds).order('id', { ascending: true });
+                        
+                        if (res.error) throw res.error;
+                        arbs = res.data;
                     }
+                } else {
+                    const res = await secureDbClient.from('arb').select(`
+                        id, first_name, middle_name, last_name, validation_status,
+                        with_ali_case, with_ta, for_disqualificati, 
+                        arbo:arbo_id ( id, name, municipality, barangay )
+                    `, { count: 'exact' })
+                    .order('id', { ascending: true })
+                    .range(page * pageSize, (page + 1) * pageSize - 1);
+                    
+                    if (res.error) throw res.error;
+                    arbs = res.data;
+                    totalRecords = res.count || 0;
                 }
-
-                // Apply pagination limit to the final assembled query
-                arbQuery = arbQuery.range(page * pageSize, (page + 1) * pageSize - 1);
-
-                const { data: arbs, error: arbErr, count } = await arbQuery;
-                if (arbErr) throw arbErr;
-                totalRecords = count || 0;
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
@@ -697,12 +699,10 @@
                     tbody.innerHTML = html;
                 }
 
-                // Update pagination
                 document.getElementById('pageInfo').textContent = `Page ${page+1} of ${Math.ceil(totalRecords/pageSize) || 1}`;
                 document.getElementById('prevPageBtn').disabled = (page === 0);
                 document.getElementById('nextPageBtn').disabled = (page * pageSize + pageSize >= totalRecords);
 
-                // Attach event listeners
                 document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
                 document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
                 document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
@@ -721,7 +721,6 @@
             }
         }
 
-        // -------- Populate filter dropdowns from Local DB Arrays --------
         async function populateFilterOptions() {
             const townSelect = document.getElementById('filterTown');
             const towns = Object.keys(locData).sort();
@@ -739,7 +738,6 @@
             });
         }
 
-        // -------- Load ARBO list --------
         async function loadArboList() {
             try {
                 const { data } = await secureDbClient.from('arbo').select('id, name').order('name');
@@ -790,7 +788,6 @@
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
-                            <!-- Sidebar -->
                             <div class="profile-sidebar">
                                 <div class="avatar">
                                     ${profile.image_base64 ? `<img src="${profile.image_base64}" alt="Photo">` : safe(arbInitials(arb))}
@@ -810,7 +807,6 @@
                                     ${!profileId && canEdit() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
                                 </div>
                             </div>
-                            <!-- Tabs Content -->
                             <div class="profile-tabs">
                                 <div class="tab-nav">
                                     <button class="active" data-tab="overview">Overview</button>
@@ -881,7 +877,6 @@
             }
         }
 
-        // -------- RENDER TABS (Using Verified Schema Mappings) --------
         function renderOverview(arb, profile, arbo) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
@@ -922,10 +917,7 @@
                 { label: 'With ALI Case', value: arb.with_ali_case },
             ];
 
-            let html = `
-                <h4>Personal Information</h4>
-                <div class="detail-grid">
-            `;
+            let html = `<h4>Personal Information</h4><div class="detail-grid">`;
             fields.forEach(f => {
                 const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : '—';
                 html += `
@@ -1134,9 +1126,7 @@
         async function openEditArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
-                const arbRes = await secureDbClient.from('arb').select(`
-                    *, arbo:arbo_id (id, name, municipality, barangay)
-                `).eq('id', arbId).single();
+                const arbRes = await secureDbClient.from('arb').select(`*, arbo:arbo_id (id, name, municipality, barangay)`).eq('id', arbId).single();
                 if (arbRes.error) throw arbRes.error;
                 const arb = arbRes.data;
                 const profRes = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId)).single();
@@ -1217,7 +1207,7 @@
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        // -------- Tag ARB --------
+        // -------- Tag ARB (RESTORED ALI CASE TYPES) --------
         async function openTagArb(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             try {
@@ -1247,8 +1237,24 @@
                         <div class="form-grid">
                             <div class="form-group full"><label>Date of Tagging / Target Date</label><input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required></div>
                             <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}</select></div>
+                            
+                            <div class="form-group" id="aliCategoryGrp" style="display:none;">
+                                <label>ALI Category</label>
+                                <select id="aliCategory" name="ali_category">
+                                    <option value="SPLIT ALI">SPLIT ALI</option>
+                                    <option value="REGULAR ALI">REGULAR ALI</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="aliTypeGrp" style="display:none;">
+                                <label>ALI Type</label>
+                                <select id="aliType" name="ali_type">
+                                    <option value="DISQUALIFICATION">DISQUALIFICATION</option>
+                                    <option value="IDENTIFICATION AS ARB">IDENTIFICATION AS ARB</option>
+                                </select>
+                            </div>
+
                             <div class="form-group full" id="reasonGrp" style="display:none;"><label>Reason for Rollback</label><input type="text" name="rollback_reason" placeholder="Required if moving target date backward..."></div>
-                            <div class="form-group"><label for="tagStatus">Status</label><select id="tagStatus" name="status"></select></div>
+                            <div class="form-group full"><label for="tagStatus">Status</label><select id="tagStatus" name="status"></select></div>
                             <div class="form-group full"><label for="tagCaseRef">Case Reference No.</label><input id="tagCaseRef" name="case_reference_no"></div>
                             <div class="form-group full"><label for="tagCaseDetails">Case Details / Reason</label><textarea id="tagCaseDetails" name="case_details"></textarea></div>
                             <div class="form-group full" id="heirSection" style="display:none;"><label>Heirs (for Transfer Action)</label><div id="heirList"></div><button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button></div>
@@ -1266,6 +1272,8 @@
                     tagStatusSelect.innerHTML = opts.map(s => `<option value="${s}">${s}</option>`).join('');
                     document.getElementById('heirSection').style.display = (type === 'TRANSFER ACTION') ? 'block' : 'none';
                     document.getElementById('reasonGrp').style.display = ['ALI CASE', 'TRANSFER ACTION'].includes(type) ? 'flex' : 'none';
+                    document.getElementById('aliCategoryGrp').style.display = type === 'ALI CASE' ? 'flex' : 'none';
+                    document.getElementById('aliTypeGrp').style.display = type === 'ALI CASE' ? 'flex' : 'none';
                 }
                 tagTypeSelect.addEventListener('change', updateStatuses);
                 updateStatuses();
@@ -1291,8 +1299,14 @@
                     const tagType = fd.get('tag_type');
                     const status = fd.get('status');
                     const caseRef = emptyToNull(fd.get('case_reference_no'));
-                    const caseDetails = emptyToNull(fd.get('case_details'));
+                    let caseDetails = emptyToNull(fd.get('case_details'));
                     const targetDate = fd.get('action_date');
+                    const aliCategory = fd.get('ali_category');
+                    const aliType = fd.get('ali_type');
+
+                    if (tagType === 'ALI CASE') {
+                        caseDetails = `[${aliCategory}] [${aliType}] ${caseDetails || ''}`.trim();
+                    }
 
                     const tagPayload = {
                         arb_profile_id: profileId,
@@ -1304,7 +1318,9 @@
                         tagged_by_user_id: currentUser?.id || null,
                         updated_at: new Date().toISOString(),
                         updated_by: currentUserProfile?.full_name || currentUser?.email || null,
-                        created_at: targetDate + 'T00:00:00Z'
+                        created_at: targetDate + 'T00:00:00Z',
+                        ali_category: tagType === 'ALI CASE' ? aliCategory : null,
+                        ali_type: tagType === 'ALI CASE' ? aliType : null
                     };
 
                     const arbUpdate = {};
@@ -1312,7 +1328,8 @@
                     switch(tagType) {
                         case 'ALI CASE':
                             arbUpdate.with_ali_case = true;
-                            arbUpdate.ali_case_type = status.includes('SPLIT') ? 'SPLIT' : 'REGULAR';
+                            arbUpdate.ali_case_type = aliCategory === 'SPLIT ALI' ? 'SPLIT' : 'REGULAR';
+                            arbUpdate.ali_type = aliType;
                             break;
                         case 'TRANSFER ACTION':
                             arbUpdate.with_ta = true;
@@ -1337,7 +1354,6 @@
                         const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
                         if (tagErr) throw tagErr;
 
-                        // Insert into monitoring table for legal cases
                         if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION'].includes(tagType)) {
                             const { data: existingMon } = await secureDbClient.from('arb_legal_monitoring').select('id').eq('arb_id', arbId).eq('case_type', tagType).single();
                             const trackingPayload = {
