@@ -1,9 +1,10 @@
+The following image can be moved on the page using keyboard controls (left, right, up, down)
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ARB Global Validation – ARB Management</title>
+    <title>ARB Global Validation â€“ ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -166,20 +167,20 @@
 </head>
 <body>
 <div class="container">
-    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">🏛️ ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
+    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">ðŸ›ï¸ ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
     <div class="search-container">
         <div class="search-input-group">
-            <input id="globalSearchInput" class="omni-search-input" placeholder="✨ Intelligent Search: Type Name, ID, Title, Landholding, CoCROM, Sequence, or Location..." autocomplete="off" aria-label="Search">
+            <input id="globalSearchInput" class="omni-search-input" placeholder="âœ¨ Intelligent Search: Type Name, ID, Title, Landholding, CoCROM, Sequence, or Location..." autocomplete="off" aria-label="Search">
         </div>
         <div class="search-actions">
-            <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">🔍 Search</button>
-            <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">⚙️ Advanced Filters</button>
-            <button type="button" class="btn btn-primary" id="refreshListBtn">🔄 Refresh</button>
-            <button type="button" class="btn btn-primary" id="batchValidateBtn">✅ Batch Validate</button>
-            <button type="button" class="btn btn-primary" id="generateReportBtn">📄 Print Validation Form</button>
+            <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">ðŸ” Search</button>
+            <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">âš™ï¸ Advanced Filters</button>
+            <button type="button" class="btn btn-primary" id="refreshListBtn">ðŸ”„ Refresh</button>
+            <button type="button" class="btn btn-primary" id="batchValidateBtn">âœ… Batch Validate</button>
+            <button type="button" class="btn btn-primary" id="generateReportBtn">ðŸ“„ Print Validation Form</button>
         </div>
     </div>
 
@@ -266,7 +267,7 @@
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
-                    <tr><td colspan="14" class="empty-card">⏳ Loading Data... Please wait.</td></tr>
+                    <tr><td colspan="14" class="empty-card">â³ Loading Data... Please wait.</td></tr>
                 </tbody>
             </table>
         </div>
@@ -325,17 +326,17 @@
             "San Fernando": ["Alianza", "Beberon", "Bical", "Bocal", "Bonifacio", "Buenavista", "Calascagas", "Cotmo", "Daculang Tubig", "Del Rosario", "Grijalvo", "Lupi", "Maragni", "Pamukid", "Pinamasagan", "Pipian", "Planza", "Rizal", "San Joaquin", "Santa Cruz", "Tagpocol"],
             "Baao": ["Agdangan", "Antipolo", "Bagumbayan", "Buluang", "Caranday", "Del Rosario", "Iyasan", "La Medalla", "Lourdes", "Nababarera", "Pugay", "Sagrada", "Salvacion", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Nicolas", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Cruz", "Santa Eulalia", "Santa Isabel", "Santa Teresa", "Santa Teresita", "Tapol"],
             "Balatan": ["Cabanbanan", "Cabungan", "Camangahan", "Cayogcog", "Coguit", "Duran", "Laganac", "Luluasan", "Montenegro", "Pararao", "Pulang Daga", "Sagrada", "San Francisco", "Santiago Nacacale", "Siramag", "Tapayas", "Tomatarayo"],
-            "Bato": ["Agos", "Bacolod", "Buluang", "Caricot", "Cawacagan", "Cotmon", "Cristo Rey", "Del Rosario", "Divina Pastora", "Goyouran", "Lubigan", "Mainit", "Manga", "Masoli", "Neighborhood", "Niño Jesus", "Pagatpatan", "Palo", "Payak", "Sagrada", "Salvacion", "San Isidro", "San Juan", "San Miguel", "San Rafael", "San Roque", "San Vicente", "Santa Cruz", "Santiago", "Sooc", "Tagbac", "Tres Reyes", "Tres Reyes (Poblacion)"],
+            "Bato": ["Agos", "Bacolod", "Buluang", "Caricot", "Cawacagan", "Cotmon", "Cristo Rey", "Del Rosario", "Divina Pastora", "Goyouran", "Lubigan", "Mainit", "Manga", "Masoli", "Neighborhood", "NiÃ±o Jesus", "Pagatpatan", "Palo", "Payak", "Sagrada", "Salvacion", "San Isidro", "San Juan", "San Miguel", "San Rafael", "San Roque", "San Vicente", "Santa Cruz", "Santiago", "Sooc", "Tagbac", "Tres Reyes", "Tres Reyes (Poblacion)"],
             "Buhi": ["Amlongan", "Antipolo", "Burocbusoc", "Cabatuan", "Cagmaslog", "De La Fe", "Delos Angeles", "Divino Rostro", "Gabas", "Ibayugan", "Igbac", "Ipil", "Iraya", "Labawon", "Lourdes", "Macaangay", "Monte Calvario", "Namurabod", "Sagrada Familia", "Salvacion", "San Antonio", "San Buenaventura", "San Francisco", "San Isidro", "San Jose Baybayon", "San Jose Salay", "San Pascual", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Clara", "Santa Cruz", "Santa Elena", "Santa Isabel", "Santa Justina", "Tambo"],
-            "Bula": ["Bagoladio", "Bagumbayan", "Balaogan", "Caorasan", "Casugad", "Causip", "Fabrica", "Inoyonan", "Itangon", "Kinalabasahan", "La Purisima", "La Victoria", "Lanipga", "Lubgan", "Ombao Heights", "Ombao Polpog", "Palsong", "Panoypoyan", "Pawili", "Sagrada", "Salvacion", "San Agustin", "San Francisco", "San Isidro", "San Jose", "San Miguel", "San Ramon", "San Roque", "San Roque Heights", "Santa Elena", "Santo Domingo", "Santo Niño", "Taisan"],
+            "Bula": ["Bagoladio", "Bagumbayan", "Balaogan", "Caorasan", "Casugad", "Causip", "Fabrica", "Inoyonan", "Itangon", "Kinalabasahan", "La Purisima", "La Victoria", "Lanipga", "Lubgan", "Ombao Heights", "Ombao Polpog", "Palsong", "Panoypoyan", "Pawili", "Sagrada", "Salvacion", "San Agustin", "San Francisco", "San Isidro", "San Jose", "San Miguel", "San Ramon", "San Roque", "San Roque Heights", "Santa Elena", "Santo Domingo", "Santo NiÃ±o", "Taisan"],
             "Nabua": ["Angustia", "Antipolo Old", "Antipolo Young", "Aro-aldao", "Bustrac", "Dolorosa", "Duran", "Inapatan", "La Opinion", "La Purisima", "Lourdes Old", "Lourdes Young", "Malawag", "Nabuangan", "Paloyon Oriental", "Paloyon Proper", "Quitpon", "Sagumay", "San Antonio", "San Antonio Ogbon", "San Esteban", "San Francisco", "San Isidro", "San Isidro Ilaya", "San Jose", "San Juan", "San Luis", "San Miguel", "San Nicolas", "San Roque", "San Roque Madawon", "San Roque Sagumay", "San Vicente Gorong-Gorong", "San Vicente Ogbon", "Santa Barbara", "Santa Cruz", "Santa Elena Baras", "Santa Elena Ilaya", "Santa Lucia Baras", "Santiago Old", "Santiago Young", "Santo Domingo"],
-            "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "Niño Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo Niño"]
+            "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "NiÃ±o Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo NiÃ±o"]
         };
 
         function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
-        function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? '—' : safe(value); }
+        function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? 'â€”' : safe(value); }
         function formatDateValue(value) {
-            if (!value) return '—';
+            if (!value) return 'â€”';
             const d = new Date(value);
             return isNaN(d.getTime()) ? safe(value) : d.toLocaleDateString('en-PH', {year:'numeric', month:'short', day:'numeric'});
         }
@@ -346,9 +347,9 @@
         function boolBadge(value) { return value ? badge('YES','success') : badge('NO','neutral'); }
         function emptyToNull(value) { const t = String(value ?? '').trim(); return t === '' ? null : t; }
         function fullName(arb) {
-            if (!arb) return '—';
+            if (!arb) return 'â€”';
             const parts = [arb.last_name ? arb.last_name+',' : '', arb.first_name || '', arb.middle_name || ''].filter(Boolean);
-            return parts.join(' ').trim() || '—';
+            return parts.join(' ').trim() || 'â€”';
         }
         function arbInitials(arb) {
             const parts = [arb.first_name, arb.last_name].filter(Boolean);
@@ -380,28 +381,81 @@
         function canEdit() { return isFullAdmin(); }
 
         window.showAliInfo = function(arbName, aliType, aliStatus) {
-            showSubModal('⚖️ ALI Case Status', `
+            showSubModal('âš–ï¸ ALI Case Status', `
                 <div class="form-group" style="margin-bottom:15px;"><label>ARB Name</label><div style="font-size:1.1rem; color:var(--text-dark);">${safe(arbName)}</div></div>
                 <div class="form-group" style="margin-bottom:15px;"><label>Case Type</label><div style="font-size:1.1rem; color:var(--dar-gold); font-weight:bold;">${safe(aliType)}</div></div>
                 <div class="form-group"><label>Case Status</label><div style="font-size:1.1rem; color:#991b1b; font-weight:bold;">${safe(aliStatus)}</div></div>
             `);
         };
 
-        function compressImage(dataUrl, maxWidth=400, quality=0.7) {
-            return new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let scaleSize = maxWidth / img.width;
-                    if(scaleSize > 1) scaleSize = 1;
-                    canvas.width = img.width * scaleSize;
-                    canvas.height = img.height * scaleSize;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
-                };
-                img.src = dataUrl;
-            });
+        /* Store small photo files in Supabase Storage; keep only their paths in the database. */
+        const ARB_PHOTO_BUCKET = 'arb-photos';
+        const MAX_PHOTO_DIMENSION = 640;
+        const TARGET_PHOTO_BYTES = 80 * 1024;
+        const MAX_SOURCE_PHOTO_BYTES = 12 * 1024 * 1024;
+
+        function canvasToBlob(canvas, type, quality) {
+            return new Promise((resolve, reject) => canvas.toBlob(
+                blob => blob ? resolve(blob) : reject(new Error('Photo compression failed.')),
+                type, quality
+            ));
+        }
+
+        async function compressImage(source) {
+            const objectUrl = source instanceof Blob ? URL.createObjectURL(source) : source;
+            try {
+                const img = await new Promise((resolve, reject) => {
+                    const el = new Image();
+                    el.onload = () => resolve(el);
+                    el.onerror = () => reject(new Error('The selected image cannot be opened.'));
+                    el.src = objectUrl;
+                });
+                const scale = Math.min(1, MAX_PHOTO_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+                const ctx = canvas.getContext('2d', { alpha: false });
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                let type = 'image/webp';
+                let quality = 0.78;
+                let blob = await canvasToBlob(canvas, type, quality);
+                if (blob.type !== type) {
+                    type = 'image/jpeg';
+                    blob = await canvasToBlob(canvas, type, quality);
+                }
+                while (blob.size > TARGET_PHOTO_BYTES && quality > 0.48) {
+                    quality -= 0.07;
+                    blob = await canvasToBlob(canvas, type, quality);
+                }
+                return { blob, extension: type === 'image/webp' ? 'webp' : 'jpg' };
+            } finally {
+                if (source instanceof Blob) URL.revokeObjectURL(objectUrl);
+            }
+        }
+
+        async function getProfilePhotoUrl(profile) {
+            if (profile?.photo_path) {
+                const { data, error } = await secureDbClient.storage
+                    .from(ARB_PHOTO_BUCKET).createSignedUrl(profile.photo_path, 3600);
+                if (!error && data?.signedUrl) return data.signedUrl;
+            }
+            return profile?.image_base64 || '';
+        }
+
+        async function imageUrlToJpegDataUrl(url) {
+            if (!url) return '';
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Unable to load the ARB photo.');
+            const img = await createImageBitmap(await response.blob());
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width; canvas.height = img.height;
+            const ctx = canvas.getContext('2d', { alpha: false });
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+            return canvas.toDataURL('image/jpeg', 0.85);
         }
 
         async function fetchAllRecords(queryBuilderFn) {
@@ -488,11 +542,11 @@
             const curPath = window.location.pathname;
             let { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', {ascending:true});
             let links = navItems?.length ? navItems : [
-                {label:'Dashboard', url:'/dashboard.html', icon:'📊'},
-                {label:'ARBO Management', url:'/arbo.html', icon:'🏢'},
-                {label:'ARB Management', url:'/arb.html', icon:'👤'},
-                {label:'Validators', url:'/validators.html', icon:'✅'},
-                {label:'Reports', url:'/reports.html', icon:'📈'}
+                {label:'Dashboard', url:'/dashboard.html', icon:'ðŸ“Š'},
+                {label:'ARBO Management', url:'/arbo.html', icon:'ðŸ¢'},
+                {label:'ARB Management', url:'/arb.html', icon:'ðŸ‘¤'},
+                {label:'Validators', url:'/validators.html', icon:'âœ…'},
+                {label:'Reports', url:'/reports.html', icon:'ðŸ“ˆ'}
             ];
             const seen = new Set();
             links = links.filter(l => { const key = l.label; if (seen.has(key)) return false; seen.add(key); return true; });
@@ -501,12 +555,12 @@
                 return `<a href="${safe(link.url)}" class="${isActive}">${safe(link.icon||'')} ${safe(link.label)}</a>`;
             }).join('');
             if (profile) {
-                const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || '—');
-                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">👤 ${safe(displayName)} (${safe(profile.role)})</span>`;
-                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">🚪 Logout</span>`;
+                const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || 'â€”');
+                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">ðŸ‘¤ ${safe(displayName)} (${safe(profile.role)})</span>`;
+                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">ðŸšª Logout</span>`;
             } else {
-                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">⚠️ Not Logged In</span>`;
-                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
+                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">âš ï¸ Not Logged In</span>`;
+                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">ðŸ”‘ Login</span>`;
             }
             navEl.innerHTML = html;
             document.getElementById('navLogoutBtn')?.addEventListener('click', async function() {
@@ -529,7 +583,7 @@
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="14" class="empty-card">⏳ Loading Data... Please wait.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" class="empty-card">â³ Loading Data... Please wait.</td></tr>`;
 
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
@@ -751,13 +805,13 @@
                         const arbo = arb.arbo || {};
                         const arbLhs = profile.id ? (lhMap[profile.id] || []) : [];
 
-                        let dispMunicipality = arbo.municipality || '—';
-                        let dispBarangay = arbo.barangay || '—';
-                        let dispTitle = '—';
-                        let dispLot = '—';
-                        let dispArea = '—';
-                        let dispSurvey = '—';
-                        let dispCocrom = '—';
+                        let dispMunicipality = arbo.municipality || 'â€”';
+                        let dispBarangay = arbo.barangay || 'â€”';
+                        let dispTitle = 'â€”';
+                        let dispLot = 'â€”';
+                        let dispArea = 'â€”';
+                        let dispSurvey = 'â€”';
+                        let dispCocrom = 'â€”';
 
                         if (arbLhs.length > 0) {
                             const validLandholding = arbLhs.find(l => l.municipality);
@@ -766,13 +820,13 @@
                                 dispBarangay = validLandholding.barangay || dispBarangay;
                             }
                             const lh = arbLhs[0];
-                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
-                            dispLot = lh.lot_no || '—';
-                            dispArea = lh.landholding_area || '—';
-                            dispSurvey = lh.survey_no || '—';
-                            dispCocrom = profile.cocrom_no || lh.cocrom_certificate_no || '—';
+                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || 'â€”';
+                            dispLot = lh.lot_no || 'â€”';
+                            dispArea = lh.landholding_area || 'â€”';
+                            dispSurvey = lh.survey_no || 'â€”';
+                            dispCocrom = profile.cocrom_no || lh.cocrom_certificate_no || 'â€”';
                         } else {
-                            dispCocrom = profile.cocrom_no || '—';
+                            dispCocrom = profile.cocrom_no || 'â€”';
                         }
 
                         let aliTag = badge('NO', 'neutral');
@@ -780,11 +834,11 @@
                             const safeName = safe(fullName(arb)).replace(/'/g, "\\'");
                             const safeType = safe(arb.ali_case_type || 'Type Unknown').replace(/'/g, "\\'");
                             const safeStatus = safe(arb.ali_case_status || 'Status Unknown').replace(/'/g, "\\'");
-                            aliTag = `<span class="badge badge-danger" style="cursor:pointer; box-shadow: 0 0 0 2px rgba(220,38,38,0.4);" title="Click to view ALI status" onclick="window.showAliInfo('${safeName}', '${safeType}', '${safeStatus}')">YES 🔍</span>`;
+                            aliTag = `<span class="badge badge-danger" style="cursor:pointer; box-shadow: 0 0 0 2px rgba(220,38,38,0.4);" title="Click to view ALI status" onclick="window.showAliInfo('${safeName}', '${safeType}', '${safeStatus}')">YES ðŸ”</span>`;
                         }
 
                         const taTag = arb.with_ta ? badge('YES','warning') : badge('NO', 'neutral');
-                        const cocromTag = (dispCocrom !== '—') ? badge('YES','success') : badge('NO', 'neutral');
+                        const cocromTag = (dispCocrom !== 'â€”') ? badge('YES','success') : badge('NO', 'neutral');
 
                         const validationBadge = badge(arb.validation_status || 'PENDING', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning');
                         const lStatus = arb.life_status || profile.life_status || 'UNKNOWN';
@@ -918,7 +972,7 @@
 
                 let dispMunicipality = arbo.municipality;
                 let dispBarangay = arbo.barangay;
-                let dispTitle = '—';
+                let dispTitle = 'â€”';
 
                 if (landholdings && landholdings.length > 0) {
                     const validLandholding = landholdings.find(l => l.municipality);
@@ -927,8 +981,10 @@
                         dispBarangay = validLandholding.barangay || dispBarangay;
                     }
                     const lh = landholdings[0];
-                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
+                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || 'â€”';
                 }
+
+                const profilePhotoUrl = await getProfilePhotoUrl(profile);
 
                 const body = `
                     <div class="profile-modal">
@@ -936,7 +992,7 @@
                             <!-- Sidebar -->
                             <div class="profile-sidebar">
                                 <div class="avatar">
-                                    ${profile.image_base64 ? `<img src="${profile.image_base64}" alt="Photo">` : safe(arbInitials(arb))}
+                                    ${profilePhotoUrl ? `<img src="${safe(profilePhotoUrl)}" alt="Photo">` : safe(arbInitials(arb))}
                                 </div>
                                 <div class="sidebar-name">${safe(fullName(arb))}</div>
                                 <div class="sidebar-id">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
@@ -946,11 +1002,11 @@
                                     ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                 </div>
                                 <div class="sidebar-actions">
-                                    ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">⚠️ Profile record missing.</p>`}
-                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddHeirBtn">👪 Add Heir</button>` : ''}
-                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ ALI Tag</button>` : ''}
-                                    ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Validate</button>` : ''}
-                                    ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
+                                    ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">âœï¸ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">âš ï¸ Profile record missing.</p>`}
+                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddHeirBtn">ðŸ‘ª Add Heir</button>` : ''}
+                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddTagBtn">âš–ï¸ ALI Tag</button>` : ''}
+                                    ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">âœ… Validate</button>` : ''}
+                                    ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">ðŸ“ Create Profile</button>` : ''}
                                 </div>
                             </div>
                             <!-- Tabs Content -->
@@ -1016,7 +1072,7 @@
 
             } catch (err) {
                 const mBody = document.getElementById('modalBody');
-                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#991b1b;">❌ ${safe(err.message)}</p>`;
+                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#991b1b;">âŒ ${safe(err.message)}</p>`;
                 popToast(err.message, 'err');
             }
         }
@@ -1066,7 +1122,7 @@
                 <div class="detail-grid">
             `;
             fields.forEach(f => {
-                const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : '—';
+                const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : 'â€”';
                 html += `
                     <div class="detail-item">
                         <span class="label">${f.label}</span>
@@ -1079,7 +1135,7 @@
                 html += `
                     <div class="detail-item">
                         <span class="label">${f.label}</span>
-                        <span class="value">${f.value ? '✅ Yes' : '❌ No'}</span>
+                        <span class="value">${f.value ? 'âœ… Yes' : 'âŒ No'}</span>
                     </div>
                 `;
             });
@@ -1145,7 +1201,7 @@
             if (!heirs || heirs.length === 0) return `<p class="empty-card">No heirs recorded.</p>`;
             let html = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Relation</th><th>Contact</th><th>Email</th><th>Supporting Doc</th><th>Verified</th><th>Selected</th></tr></thead><tbody>`;
             heirs.forEach(h => {
-                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? '✅' : '❌'}</td><td>${h.is_selected ? '✅' : '❌'}</td></tr>`;
+                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? 'âœ…' : 'âŒ'}</td><td>${h.is_selected ? 'âœ…' : 'âŒ'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -1510,7 +1566,7 @@
                         <input type="text" name="heir_name[]" placeholder="Heir Name" style="width:40%;">
                         <input type="text" name="heir_relation[]" placeholder="Relation" style="width:30%;">
                         <input type="text" name="heir_contact[]" placeholder="Contact" style="width:25%;">
-                        <button type="button" class="btn btn-danger btn-sm remove-heir-btn">✕</button>
+                        <button type="button" class="btn btn-danger btn-sm remove-heir-btn">âœ•</button>
                     `;
                     container.appendChild(row);
                     row.querySelector('.remove-heir-btn').addEventListener('click', function() { row.remove(); });
@@ -1653,7 +1709,7 @@
                 if (arbRes.error) throw arbRes.error;
                 const arb = arbRes.data;
 
-                const profRes = await secureDbClient.from('arb_profiles').select('id, sequence_no, generated_arb_ic, image_base64').eq('arb_id', String(arbId)).single();
+                const profRes = await secureDbClient.from('arb_profiles').select('id, sequence_no, generated_arb_ic, photo_path, image_base64').eq('arb_id', String(arbId)).single();
                 let profile = profRes.data;
                 if (!profile) { popToast('Profile not found. Please create profile first.', 'err'); return; }
 
@@ -1686,10 +1742,10 @@
                 const address = `${tBrgy ? tBrgy + ', ' : ''}${tTown || ''}`.replace(/,\s*$/, '').trim() || "Address Not Available";
 
                 let lhDisp = lhData && lhData.length > 0 ? lhData[0] : {};
-                let tTitle = lhDisp.title_no || lhDisp.ep_cloa_serial_no || lhDisp.ccloa_title_raw || '—';
-                let tArea = lhDisp.landholding_area || '—';
-                let tAsp = lhDisp.asp_no || '—';
-                let tLot = lhDisp.lot_no || '—';
+                let tTitle = lhDisp.title_no || lhDisp.ep_cloa_serial_no || lhDisp.ccloa_title_raw || 'â€”';
+                let tArea = lhDisp.landholding_area || 'â€”';
+                let tAsp = lhDisp.asp_no || 'â€”';
+                let tLot = lhDisp.lot_no || 'â€”';
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
@@ -1708,8 +1764,9 @@
 
                 const imgWidth = 20;
                 const imgHeight = 22;
-                if (profile.image_base64) {
-                    try { doc.addImage(profile.image_base64, 'JPEG', 4, 15, imgWidth, imgHeight); } 
+                const printablePhoto = await imageUrlToJpegDataUrl(await getProfilePhotoUrl(profile)).catch(() => '');
+                if (printablePhoto) {
+                    try { doc.addImage(printablePhoto, 'JPEG', 4, 15, imgWidth, imgHeight); } 
                     catch(e) { doc.setDrawColor(200, 200, 200); doc.rect(4, 15, imgWidth, imgHeight); doc.text("NO PHOTO", 14, 26, { align: "center" }); }
                 } else {
                     doc.setDrawColor(200, 200, 200);
@@ -1825,11 +1882,11 @@
                 let rawImageData = null;
 
                 if (fileInput.files && fileInput.files[0]) {
-                    const reader = new FileReader();
-                    rawImageData = await new Promise((resolve) => {
-                        reader.onload = (ev) => resolve(ev.target.result);
-                        reader.readAsDataURL(fileInput.files[0]);
-                    });
+                    if (fileInput.files[0].size > MAX_SOURCE_PHOTO_BYTES) {
+                        popToast('Photo must be 12 MB or smaller.', 'warn');
+                        submitBtn.disabled = false; submitBtn.textContent = 'Save Photo'; return;
+                    }
+                    rawImageData = fileInput.files[0];
                 } else {
                     const hidden = document.getElementById('photoData');
                     if (hidden) rawImageData = hidden.value;
@@ -1837,20 +1894,31 @@
 
                 if (!rawImageData) { popToast('No photo selected or captured.', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Save Photo'; return; }
 
-                const compressedImageData = await compressImage(rawImageData, 400, 0.7);
-
                 try {
-                    const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                    const { blob, extension } = await compressImage(rawImageData);
+                    const profRes = await secureDbClient.from('arb_profiles').select('id, photo_path').eq('arb_id', String(arbId)).single();
                     if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                     const profile = profRes.data;
+                    const photoPath = `${profile.id}/${crypto.randomUUID()}.${extension}`;
+                    const { error: uploadError } = await secureDbClient.storage
+                        .from(ARB_PHOTO_BUCKET)
+                        .upload(photoPath, blob, { contentType: blob.type, cacheControl: '31536000', upsert: false });
+                    if (uploadError) throw uploadError;
                     const { error } = await secureDbClient.from('arb_profiles').update({
-                        image_base64: compressedImageData,
+                        photo_path: photoPath,
+                        image_base64: null,
                         updated_at: new Date().toISOString(),
                         updated_by: currentUserProfile?.full_name || currentUser?.email || null
                     }).eq('id', profile.id);
-                    if (error) throw error;
+                    if (error) {
+                        await secureDbClient.storage.from(ARB_PHOTO_BUCKET).remove([photoPath]);
+                        throw error;
+                    }
+                    if (profile.photo_path && profile.photo_path !== photoPath) {
+                        await secureDbClient.storage.from(ARB_PHOTO_BUCKET).remove([profile.photo_path]);
+                    }
                     hideSubModal();
-                    popToast('Photo uploaded successfully.', 'ok');
+                    popToast(`Photo saved (${Math.max(1, Math.round(blob.size / 1024))} KB).`, 'ok');
                     openArbProfile(arbId);
                     loadArbs(currentPage);
                 } catch(err) {
@@ -2429,7 +2497,7 @@
         document.getElementById('toggleFiltersBtn')?.addEventListener('click', function() {
             const filters = document.getElementById('advancedFilters');
             filters.classList.toggle('open');
-            this.textContent = filters.classList.contains('open') ? '🔽 Hide Filters' : '⚙️ Advanced Filters';
+            this.textContent = filters.classList.contains('open') ? 'ðŸ”½ Hide Filters' : 'âš™ï¸ Advanced Filters';
         });
 
         (async function init() {
@@ -2456,7 +2524,7 @@
                     document.body.innerHTML = `
                         <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
                             <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
-                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">🚫</h1>
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">ðŸš«</h1>
                                 <h2 style="color:#0f172a; margin-top:15px;">Access Denied</h2>
                                 <p style="color:#475569;">Your role does not have permission to view the ARB Management page.</p>
                                 <button onclick="window.location.href='dashboard.html'" class="btn btn-primary" style="margin-top:20px;">Return to Dashboard</button>
@@ -2470,7 +2538,7 @@
                     document.body.innerHTML = `
                         <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
                             <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
-                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">🚫</h1>
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">ðŸš«</h1>
                                 <h2 style="color:#0f172a; margin-top:15px;">Account Inactive</h2>
                                 <p style="color:#475569;">Your account has been marked as inactive by the administrator.</p>
                             </div>
@@ -2486,7 +2554,7 @@
                 popToast('ARB Management ready.', 'ok');
             } catch(e) {
                 console.error(e);
-                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">❌ ${safe(e.message)}</td></tr>`;
+                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">âŒ ${safe(e.message)}</td></tr>`;
             }
         })();
 
