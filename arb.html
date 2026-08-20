@@ -2231,34 +2231,9 @@
                     const brgy = brgyKeys[i];
                     if (i > 0) doc.addPage();
 
-                    // Generate Unique Sequence Number for this report print
-                    const year = new Date().getFullYear();
-                    let reportRef = `ARB-GC-${year}-${municipality.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-${brgy.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-00000`;
-                    if (secureDbClient) {
-                        try {
-                            const { data, error } = await secureDbClient.rpc('get_next_report_sequence', {
-                                p_municipality: municipality,
-                                p_barangay: brgy,
-                                p_year: year
-                            });
-                            if (error) {
-                                console.error("Sequence Generation Error:", error);
-                                popToast("Warning: Sequence not incremented. Check DB function.", "warn");
-                            } else if (data) {
-                                reportRef = data;
-                            }
-                        } catch(e) { console.warn(e); }
-                    }
-
                     doc.setFontSize(14);
                     doc.setFont("helvetica", "bold");
                     doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
-
-                    // Add Reference Number Top Right
-                    doc.setFontSize(10);
-                    doc.setTextColor(217, 119, 6);
-                    doc.text(`Ref: ${reportRef}`, doc.internal.pageSize.getWidth() - 14, 15, { align: "right" });
-                    doc.setTextColor(0, 0, 0);
 
                     const head = [
                         [
