@@ -2250,6 +2250,10 @@
                         } catch(e) { console.warn(e); }
                     }
 
+                    doc.setFontSize(14);
+                    doc.setFont("helvetica", "bold");
+                    doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
+
                     const head = [
                         [
                             {content: 'PANGARAN KANG PARA-UMA (ARB)\n\n\n\n', rowSpan: 2, styles: {valign: 'top', halign: 'center'}},
@@ -2257,35 +2261,30 @@
                             {content: 'PANGARAN KANG AKTUAL NA NAG-UUMA\nKAN DAGA SA NGUNYAN', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
                             {content: 'Kun iba na ang nag-uuma,\nano ang dahilan?', colSpan: 4, styles: {halign: 'center'}},
                             {content: 'Kun gadan na,\nmay Death Certificate', colSpan: 2, styles: {halign: 'center'}},
-                            {content: 'Cellphone Number kung igwa', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
-                            {content: 'ARBO MEMBER', colSpan: 2, styles: {halign: 'center'}}
+                            {content: 'Cellphone Number kung igwa', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}}
                         ],
                         [
                             {content: 'SURVEY NO.', styles: {halign: 'center'}}, 
                             {content: 'LOT NO.', styles: {halign: 'center'}}, 
                             {content: 'AREA', styles: {halign: 'center'}}, 
                             {content: 'TITLE NUMBER', styles: {halign: 'center'}},
-                            {content: 'GURANG NA', styles: {halign: 'center', fontSize: 5}}, 
-                            {content: 'NAGHALI NA', styles: {halign: 'center', fontSize: 5}}, 
-                            {content: 'BINENTA NA', styles: {halign: 'center', fontSize: 5}}, 
-                            {content: 'NAGADAN NA', styles: {halign: 'center', fontSize: 5}},
-                            {content: 'MAYO', styles: {halign: 'center', fontSize: 5}}, 
-                            {content: 'IGWA', styles: {halign: 'center', fontSize: 5}},
-                            {content: 'IU', styles: {halign: 'center', fontSize: 5}}, 
-                            {content: 'DAE', styles: {halign: 'center', fontSize: 5}}
+                            {content: 'GURANG NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'NAGHALI NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'BINENTA NA', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'NAGADAN NA', styles: {halign: 'center', fontSize: 6}},
+                            {content: 'MAYO', styles: {halign: 'center', fontSize: 6}}, 
+                            {content: 'IGWA', styles: {halign: 'center', fontSize: 6}}
                         ]
                     ];
 
                     const body = grouped[brgy].map(row => [
                         row.name, row.survey, row.lot, row.area, row.title,
-                        '', '', '', '', '', '', '', '', '', ''
+                        '', '', '', '', '', '', '', ''
                     ]);
 
-                    let localPageNum = 1;
-
                     doc.autoTable({
-                        startY: 25,
-                        margin: { top: 25, bottom: 45, left: 10, right: 10 }, 
+                        startY: 20,
+                        margin: { bottom: 45, left: 10, right: 10 }, 
                         head: head,
                         body: body,
                         theme: 'grid',
@@ -2293,20 +2292,12 @@
                         headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
                         columnStyles: {
                             0: { cellWidth: 50 },
-                            1: { cellWidth: 22 },
+                            1: { cellWidth: 20 },
                             2: { cellWidth: 15 },
                             3: { cellWidth: 15 },
-                            4: { cellWidth: 32 },
-                            5: { cellWidth: 40 },
-                            6: { cellWidth: 12 },
-                            7: { cellWidth: 12 },
-                            8: { cellWidth: 12 },
-                            9: { cellWidth: 12 },
-                            10: { cellWidth: 10 },
-                            11: { cellWidth: 10 },
-                            12: { cellWidth: 20 },
-                            13: { cellWidth: 10 },
-                            14: { cellWidth: 10 }
+                            4: { cellWidth: 30 },
+                            5: { cellWidth: 70 },
+                            12: { cellWidth: 40 }
                         },
                         didDrawCell: function(data) {
                             if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
@@ -2328,24 +2319,20 @@
                             const pageHeight = doc.internal.pageSize.getHeight();
                             const pageWidth = doc.internal.pageSize.getWidth();
                             
-                            // ---- Header & Page numbers strictly rendering per page ----
-                            doc.setFontSize(14);
+                            // Align Serial Number (Red) and Page Number (Black) Top Right
                             doc.setFont("helvetica", "bold");
-                            doc.setTextColor(0, 0, 0);
-                            doc.text(`ARB Global Validation Form - ${municipality}`, 10, 15);
-
                             doc.setFontSize(10);
-                            doc.setTextColor(217, 119, 6);
-                            doc.text(`Ref: ${reportRef}`, pageWidth - 10, 15, { align: "right" });
+                            doc.setTextColor(255, 0, 0); // Red
+                            doc.text(`Ref: ${reportRef}`, pageWidth - 10, 10, { align: "right" });
                             
-                            doc.setTextColor(0, 0, 0);
-                            doc.setFontSize(9);
-                            doc.setFont("helvetica", "normal");
-                            doc.text(`Page ${localPageNum}`, pageWidth - 10, 20, { align: "right" });
-                            localPageNum++;
-                            // ------------------------------------------------------------
+                            doc.setTextColor(0, 0, 0); // Black
+                            doc.text(`Page ${data.pageNumber}`, pageWidth - 10, 15, { align: "right" });
 
                             const y = pageHeight - 35; // Position for the signature boxes
+
+                            doc.setFontSize(9);
+                            doc.setFont("helvetica", "normal");
+                            doc.setTextColor(0, 0, 0);
 
                             // Total usable width (subtracting 20mm margin)
                             const usableWidth = pageWidth - 20; 
