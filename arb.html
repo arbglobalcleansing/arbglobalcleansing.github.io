@@ -62,8 +62,11 @@
         .arb-table th { background: #f1f5f9; color: #1e293b; padding: 12px 8px; text-align: left; border-bottom: 2px solid #e2e8f0; }
         .arb-table td { padding: 10px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
         .arb-table tr:hover { background: #f8fafc; }
-        .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
-        .action-group { display: flex; flex-wrap: wrap; gap: 4px; }
+        
+        /* CLEAN ACTION BUTTON GRID */
+        .action-group { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; min-width: 150px; }
+        .btn-sm { padding: 5px; font-size: 0.7rem; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        
         .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; }
         .badge-success { background: #dcfce7; color: #166534; }
         .badge-warning { background: #fef9c3; color: #854d0e; }
@@ -98,11 +101,11 @@
         .advanced-filters .filter-actions { margin-top: 12px; justify-content: flex-end; }
 
         /* -------- FIXED SIZE MODAL UI -------- */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15,23,42,0.6); z-index: 1000; place-items: center; transition: all 0.3s ease; }
         .modal.active { display: grid; }
         
         .modal-content { 
-            background: #fff; width: 95%; max-width: 1100px; height: 85vh; /* CONSTANT PROFILE HEIGHT */
+            background: #fff; width: 95%; max-width: 1100px; height: 85vh !important; /* CONSTANT PROFILE HEIGHT */
             border-radius: 12px; display: flex; flex-direction: column; 
             overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); transition: all 0.3s ease; 
         }
@@ -119,13 +122,15 @@
         .btn-max-win { background: #27c93f; }
         
         .modal.maximized .modal-content { width: 100vw !important; height: 100vh !important; max-width: 100vw !important; border-radius: 0; }
-        .modal.minimized .modal-content { width: 300px; height: auto; max-width: 300px; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
-        .modal.minimized .modal-body-scroll { display: none; }
-        .modal-body-scroll { padding: 20px; overflow-y: auto; flex: 1; background: #fafafa; } 
+        .modal.minimized .modal-content { width: 300px !important; height: auto !important; max-width: 300px !important; position: fixed; bottom: 0; right: 20px; border-radius: 8px 8px 0 0; }
+        .modal.minimized .modal-body-scroll { display: none !important; }
+        .modal.minimized .profile-modal { display: none !important; }
+        
+        .modal-body-scroll { padding: 20px; overflow-y: auto; flex: 1; background: #fafafa; display: flex; flex-direction: column; height: 100%; } 
 
-        .profile-modal { display: flex; flex-direction: column; overflow: hidden; height: 100%; } 
-        .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .profile-sidebar { width: 260px; min-width: 200px; background: #f8fafc; padding: 20px 16px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; }
+        .profile-modal { display: flex; flex-direction: column; overflow: hidden; height: 100%; flex: 1; } 
+        .profile-modal .modal-body { display: flex; flex: 1; overflow: hidden; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); height: 100%; }
+        .profile-sidebar { width: 260px; min-width: 200px; background: #f8fafc; padding: 20px 16px; border-right: 1px solid #e2e8f0; overflow-y: auto; flex-shrink: 0; height: 100%; }
         .profile-sidebar .avatar { width: 120px; height: 120px; border-radius: 50%; background: #0a3d62; color: white; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 700; margin: 0 auto 16px; border: 4px solid #dbeafe; object-fit: cover; overflow: hidden; }
         .profile-sidebar .avatar img { width: 100%; height: 100%; object-fit: cover; }
         .profile-sidebar .sidebar-name { text-align: center; font-size: 1.15rem; font-weight: 700; margin-bottom: 4px; }
@@ -133,11 +138,11 @@
         .profile-sidebar .badge-group { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 20px; }
         .profile-sidebar .sidebar-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
         .profile-sidebar .sidebar-actions .btn { width: 100%; }
-        .profile-tabs { flex: 1; padding: 16px 24px; overflow-y: auto; background: white; }
-        .profile-tabs .tab-nav { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; }
+        .profile-tabs { flex: 1; padding: 16px 24px; overflow: hidden; background: white; display: flex; flex-direction: column; height: 100%; }
+        .profile-tabs .tab-nav { display: flex; gap: 8px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; flex-wrap: wrap; flex-shrink: 0; }
         .profile-tabs .tab-nav button { background: none; border: none; padding: 8px 18px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent; transition: 0.2s; }
         .profile-tabs .tab-nav button.active { color: #0a3d62; border-bottom-color: #0a3d62; }
-        .profile-tabs .tab-content { display: none; }
+        .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 10px; }
         .profile-tabs .tab-content.active { display: block; }
         .profile-tabs .tab-content h4 { margin-top: 0; color: #0a3d62; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
         .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
@@ -169,7 +174,7 @@
                 <option value="id">ARB ID</option>
                 <option value="sequence">Sequence No.</option>
                 <option value="fb_name">FB Name</option>
-                <option value="landholding">Landholding (CCLOA, Survey, etc.)</option>
+                <option value="landholding">Landholding / Title / CoCROM</option>
             </select>
         </div>
         <div class="search-actions">
@@ -259,12 +264,13 @@
                         <th>ALI</th>
                         <th>TA</th>
                         <th>CoCROM</th>
+                        <th>Title No.</th>
                         <th>Title Distr.</th>
-                        <th>Actions</th>
+                        <th style="min-width: 160px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
-                    <tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Loading ARBs...</td></tr>
+                    <tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">Loading ARBs...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -276,7 +282,7 @@
             <div style="display:flex; gap:4px; align-items:center; margin-left:15px; padding-left:15px; border-left:2px solid #e2e8f0;">
                 <span style="font-size:0.85rem; font-weight:600; color:#64748b;">Jump to:</span>
                 <input type="number" id="pageJumpInput" min="1" style="width:60px; padding:6px; border:1px solid #cbd5e1; border-radius:4px; text-align:center;">
-                <button type="button" class="btn btn-primary btn-sm" id="pageJumpBtn">Go</button>
+                <button type="button" class="btn btn-primary btn-sm" id="pageJumpBtn" style="width:auto;">Go</button>
             </div>
 
             <button type="button" class="btn btn-primary" id="nextPageBtn" style="margin-left:auto;">Next</button>
@@ -449,12 +455,14 @@
                 </div>
                 <div class="modal-body-scroll">${body}</div>
             `;
+            document.getElementById('modal').classList.add('minimized'); // Minimize main profile modal
             document.getElementById('subModal').classList.add('active');
             document.getElementById('subWinCloseBtn').addEventListener('click', hideSubModal);
         }
         function hideSubModal() {
             document.getElementById('subModal').classList.remove('active');
             document.getElementById('subModalContentContainer').innerHTML = '';
+            document.getElementById('modal').classList.remove('minimized'); // Restore main profile modal
         }
 
         async function buildNavbar(profile) {
@@ -504,7 +512,7 @@
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">Loading...</td></tr>`;
 
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
@@ -601,10 +609,18 @@
                 if (landholdingFilterActive) {
                     const pattern = `%${searchTerm}%`;
                     let landSearchQ = () => secureDbClient.from('arb_landholdings').select('arb_profile_id')
-                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
+                        .or(`claim_no.ilike.${pattern},survey_no.ilike.${pattern},asp_no.ilike.${pattern},lot_no.ilike.${pattern},lhid.ilike.${pattern},ccloa_title_raw.ilike.${pattern},title_no.ilike.${pattern},title_type.ilike.${pattern},cocrom_certificate_no.ilike.${pattern},cocrom_reference_raw.ilike.${pattern},release_status.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},ep_cloa_serial_n.ilike.${pattern},original_mother_title_no.ilike.${pattern}`);
                     
-                    const landData = await fetchAllRecords(landSearchQ);
-                    const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
+                    let backupQ = () => secureDbClient.from('epcloais_import_profile_matches').select('arb_profile_id')
+                        .or(`cocrom_certificate_no.ilike.${pattern},ep_cloa_serial_no.ilike.${pattern},title_no.ilike.${pattern},claim_no.ilike.${pattern},lhid_raw.ilike.${pattern}`);
+
+                    const [landData, backupData] = await Promise.all([
+                        fetchAllRecords(landSearchQ),
+                        fetchAllRecords(backupQ)
+                    ]);
+                    
+                    const profIds = [...new Set([...landData.map(l => l.arb_profile_id), ...backupData.map(b => b.arb_profile_id)].filter(Boolean))];
+                    
                     let lhArbIds = [];
                     if (profIds.length > 0) {
                         const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profIds);
@@ -646,7 +662,7 @@
                         finalIds = finalIds.filter(id => setB.has(id));
                     }
                     if (finalIds.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
+                        tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
                         document.getElementById('pageInfo').textContent = `Page 1 of 1`;
                         document.getElementById('prevPageBtn').disabled = true;
                         document.getElementById('nextPageBtn').disabled = true;
@@ -684,12 +700,12 @@
                 }
 
                 if (arbs.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="13" class="empty-card">No ARBs match the filters.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the filters.</td></tr>`;
                 } else {
                     const arbIds = arbs.map(a => String(a.id));
                     const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
                         arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status,
-                        arb_landholdings ( municipality, barangay )
+                        arb_landholdings ( municipality, barangay, title_no, ep_cloa_serial_n, ep_cloa_serial_no )
                     `).in('arb_id', arbIds);
                     
                     const profileMap = {};
@@ -702,12 +718,16 @@
 
                         let dispMunicipality = arbo.municipality;
                         let dispBarangay = arbo.barangay;
-                        if (!dispMunicipality && profile.arb_landholdings && profile.arb_landholdings.length > 0) {
+                        let dispTitle = '—';
+                        
+                        if (profile.arb_landholdings && profile.arb_landholdings.length > 0) {
                             const validLandholding = profile.arb_landholdings.find(l => l.municipality);
                             if (validLandholding) {
-                                dispMunicipality = validLandholding.municipality;
-                                dispBarangay = validLandholding.barangay || dispBarangay;
+                                dispMunicipality = dispMunicipality || validLandholding.municipality;
+                                dispBarangay = dispBarangay || validLandholding.barangay;
                             }
+                            const lh = profile.arb_landholdings[0];
+                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ep_cloa_serial_n || '—';
                         }
 
                         const hasCocrom = profile.cocrom_no && profile.cocrom_no.trim() !== '';
@@ -727,16 +747,17 @@
                             <td>${aliTag}</td>
                             <td>${taTag}</td>
                             <td>${boolBadge(hasCocrom)}</td>
+                            <td>${displayValue(dispTitle)}</td>
                             <td>${boolBadge(profile.is_title_distribute)}</td>
                             <td>
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">Tag</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">Gen ID</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
                                     ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">Val. Status</button>` : ''}
+                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">Valid</button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -768,7 +789,7 @@
 
             } catch (err) {
                 console.error(err);
-                tbody.innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Error: ${safe(err.message)}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Error: ${safe(err.message)}</td></tr>`;
                 popToast(err.message, 'err');
             }
         }
@@ -834,6 +855,16 @@
 
                 const arbo = arb.arbo || {};
 
+                let dispMunicipality = arbo.municipality;
+                let dispBarangay = arbo.barangay;
+                if (!dispMunicipality && landholdings && landholdings.length > 0) {
+                    const validLandholding = landholdings.find(l => l.municipality);
+                    if (validLandholding) {
+                        dispMunicipality = validLandholding.municipality;
+                        dispBarangay = validLandholding.barangay || dispBarangay;
+                    }
+                }
+
                 const body = `
                     <div class="profile-modal">
                         <div class="modal-body">
@@ -866,7 +897,7 @@
                                     <button data-tab="validations">Validations (${validations.length})</button>
                                 </div>
                                 <div class="tab-content active" id="tab-overview">
-                                    ${renderOverview(arb, profile, arbo)}
+                                    ${renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay)}
                                     <h4 style="margin-top:25px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">Landholding Details</h4>
                                     ${renderLandholdings(landholdings)}
                                 </div>
@@ -926,7 +957,7 @@
             }
         }
 
-        function renderOverview(arb, profile, arbo) {
+        function renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay) {
             const fields = [
                 { label: 'First Name', value: arb.first_name },
                 { label: 'Middle Name', value: arb.middle_name },
@@ -936,8 +967,8 @@
                 { label: 'Spouse', value: profile.spouse },
                 { label: 'CLOR/Urban', value: profile.clorurban },
                 { label: 'Sequence No.', value: profile.sequence_no },
-                { label: 'Town', value: arbo.municipality },
-                { label: 'Barangay', value: arbo.barangay },
+                { label: 'Town', value: dispMunicipality },
+                { label: 'Barangay', value: dispBarangay },
                 { label: 'District', value: profile.district },
                 { label: 'ARBO', value: arbo.name },
                 { label: 'Life Status', value: profile.life_status, badge: true },
@@ -1025,21 +1056,21 @@
                     <td>${displayValue(h.ccloa_area)}</td>
                     <td>${displayValue(h.title_type)}</td>
                     <td>${displayValue(h.title_no)}</td>
-                    <td>${displayValue(h.ep_cloa_serial_n)}</td>
+                    <td>${displayValue(h.ep_cloa_serial_n || h.ep_cloa_serial_no)}</td>
                     <td>${displayValue(h.cocrom_certificate_no)}</td>
                     <td>${displayValue(h.cocrom_reference_raw)}</td>
                     <td>${displayValue(h.cocrom_serial_no)}</td>
-                    <td>${displayValue(h.original_mother_t)}</td>
+                    <td>${displayValue(h.original_mother_t || h.original_mother_title_no)}</td>
                     <td>${displayValue(h.municipality)}</td>
                     <td>${displayValue(h.barangay)}</td>
                     <td>${displayValue(h.landowner)}</td>
-                    <td>${displayValue(h.mode_of_acquisi)}</td>
+                    <td>${displayValue(h.mode_of_acquisi || h.mode_of_acquisition)}</td>
                     <td>${formatDateValue(h.date_generated)}</td>
                     <td>${formatDateValue(h.date_registered)}</td>
                     <td>${formatDateValue(h.date_released)}</td>
                     <td>${displayValue(h.release_status)}</td>
                     <td>${displayValue(h.date_released_raw)}</td>
-                    <td>${formatDateValue(h.date_distributed_)}</td>
+                    <td>${formatDateValue(h.date_distributed_ || h.date_distributed_to_darmo)}</td>
                 </tr>`;
             });
             html += `</tbody></table></div>`;
@@ -1489,7 +1520,6 @@
                 await secureDbClient.from('arb_profiles').update({ generated_arb_ic: newId, sequence_no: seq }).eq('id', profile.id);
                 await secureDbClient.from('arb').update({ generated_arb_ic: newId }).eq('id', arbId);
 
-                // Fetch landholding for fallback address if ARBO is missing
                 const { data: lhData } = await secureDbClient.from('arb_landholdings').select('municipality, barangay').eq('arb_profile_id', profile.id);
                 let tTown = arb.arbo?.municipality;
                 let tBrgy = arb.arbo?.barangay;
@@ -1500,7 +1530,7 @@
                         tBrgy = valid.barangay || tBrgy;
                     }
                 }
-                const address = `${tBrgy || ''}, ${tTown || ''}`.replace(/^,\s*/, '').replace(/,\s*$/, '').trim() || "Address Not Available";
+                const address = `${tBrgy ? tBrgy + ', ' : ''}${tTown || ''}`.replace(/,\s*$/, '').trim() || "Address Not Available";
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
@@ -1663,10 +1693,16 @@
         async function openAssignArbo(arbId) {
             if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
             if (arboList.length === 0) await loadArboList();
+            
+            const arbRes = await secureDbClient.from('arb').select('first_name, last_name, middle_name').eq('id', arbId).single();
+            const arbName = fullName(arbRes.data);
+
             const options = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
             const formHtml = `
                 <form id="assignArboForm">
                     <div class="form-group"><label for="arboSelect">Select ARBO</label><select id="arboSelect" name="arbo_id" required><option value="">-- Choose --</option>${options}</select></div>
+                    <div class="form-group"><label>Membership Date (Assigned At)</label><input type="date" name="assigned_at" required value="${new Date().toISOString().substring(0,10)}"></div>
+                    <div class="form-group"><label>Membership No.</label><input type="text" name="membership_no" placeholder="Optional"></div>
                     <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelArboBtn">Cancel</button><button type="submit" class="btn btn-primary">Assign</button></div>
                 </form>
             `;
@@ -1674,11 +1710,31 @@
             document.getElementById('cancelArboBtn').addEventListener('click', hideSubModal);
             document.getElementById('assignArboForm').addEventListener('submit', async function(e) {
                 e.preventDefault();
-                const arboId = document.getElementById('arboSelect').value;
+                const fd = new FormData(e.target);
+                const arboId = fd.get('arbo_id');
+                const assignedAt = fd.get('assigned_at');
+                const memNo = emptyToNull(fd.get('membership_no'));
+
                 if (!arboId) { popToast('Please select an ARBO.','warn'); return; }
                 try {
-                    const { error } = await secureDbClient.from('arb').update({ arbo_id: arboId }).eq('id', arbId);
-                    if (error) throw error;
+                    const { error: arbErr } = await secureDbClient.from('arb').update({ arbo_id: arboId }).eq('id', arbId);
+                    if (arbErr) throw arbErr;
+
+                    const pRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                    if (pRes.data && pRes.data.id) {
+                        const { error: memErr } = await secureDbClient.from('arbo_members').insert({
+                            arbo_id: parseInt(arboId),
+                            assigned_at: assignedAt + 'T00:00:00Z',
+                            profile_id: pRes.data.id,
+                            is_arb: true,
+                            arb_name: arbName,
+                            membership_no: memNo,
+                            position: 'Member',
+                            date_from: assignedAt
+                        });
+                        if(memErr) console.warn('Failed to insert arbo_members:', memErr);
+                    }
+
                     hideSubModal();
                     popToast('ARBO assigned successfully.', 'ok');
                     openArbProfile(arbId);
@@ -2041,7 +2097,6 @@
                             5: { cellWidth: 45 }
                         },
                         didDrawCell: function(data) {
-                            // Inject highlighted Barangay name exactly underneath "PANGARAN KANG PARA-UMA"
                             if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
                                 const brgyText = brgy.toUpperCase();
                                 doc.setFont("helvetica", "bold");
@@ -2058,7 +2113,6 @@
                             }
                         },
                         didDrawPage: function(data) {
-                            // Draw horizontal signature block on the bottom of EVERY page on a single line
                             const pageHeight = doc.internal.pageSize.getHeight();
                             const y = pageHeight - 20; 
                             
@@ -2148,14 +2202,14 @@
             try {
                 if (!secureDbClient) {
                     await buildNavbar(null);
-                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Database connection required.</td></tr>`;
+                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">Database connection required.</td></tr>`;
                     return;
                 }
 
                 const { data: authData } = await secureDbClient.auth.getUser();
                 if (!authData?.user) {
                     await buildNavbar(null);
-                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;">Please <a href="login.html">login</a> to continue.</td></tr>`;
+                    document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;">Please <a href="login.html">login</a> to continue.</td></tr>`;
                     return;
                 }
                 currentUser = authData.user;
@@ -2170,7 +2224,7 @@
                 popToast('ARB Management ready.', 'ok');
             } catch(e) {
                 console.error(e);
-                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="13" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">❌ ${safe(e.message)}</td></tr>`;
+                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#b91c1c;">❌ ${safe(e.message)}</td></tr>`;
             }
         })();
 
