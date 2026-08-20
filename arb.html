@@ -2231,9 +2231,24 @@
                     const brgy = brgyKeys[i];
                     if (i > 0) doc.addPage();
 
-                    doc.setFontSize(14);
-                    doc.setFont("helvetica", "bold");
-                    doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
+                    // Generate Unique Sequence Number for this report print
+                    const year = new Date().getFullYear();
+                    let reportRef = `ARB-GC-${year}-${municipality.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-${brgy.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()}-00000`;
+                    if (secureDbClient) {
+                        try {
+                            const { data, error } = await secureDbClient.rpc('get_next_report_sequence', {
+                                p_municipality: municipality,
+                                p_barangay: brgy,
+                                p_year: year
+                            });
+                            if (error) {
+                                console.error("Sequence Generation Error:", error);
+                                popToast("Warning: Sequence not incremented. Check DB function.", "warn");
+                            } else if (data) {
+                                reportRef = data;
+                            }
+                        } catch(e) { console.warn(e); }
+                    }
 
                     const head = [
                         [
@@ -2263,9 +2278,11 @@
                         '', '', '', '', '', '', '', ''
                     ]);
 
+                    let localPageNum = 1;
+
                     doc.autoTable({
-                        startY: 20,
-                        margin: { bottom: 45, left: 10, right: 10 }, 
+                        startY: 25,
+                        margin: { top: 25, bottom: 45, left: 10, right: 10 }, 
                         head: head,
                         body: body,
                         theme: 'grid',
@@ -2298,11 +2315,25 @@
                         didDrawPage: function(data) {
                             const pageHeight = doc.internal.pageSize.getHeight();
                             const pageWidth = doc.internal.pageSize.getWidth();
-                            const y = pageHeight - 35; // Position for the signature boxes
+                            
+                            // ---- Header & Page numbers strictly rendering per page ----
+                            doc.setFontSize(14);
+                            doc.setFont("helvetica", "bold");
+                            doc.setTextColor(0, 0, 0);
+                            doc.text(`ARB Global Validation Form - ${municipality}`, 10, 15);
 
+                            doc.setFontSize(10);
+                            doc.setTextColor(217, 119, 6);
+                            doc.text(`Ref: ${reportRef}`, pageWidth - 10, 15, { align: "right" });
+                            
+                            doc.setTextColor(0, 0, 0);
                             doc.setFontSize(9);
                             doc.setFont("helvetica", "normal");
-                            doc.setTextColor(0, 0, 0);
+                            doc.text(`Page ${localPageNum}`, pageWidth - 10, 20, { align: "right" });
+                            localPageNum++;
+                            // ------------------------------------------------------------
+
+                            const y = pageHeight - 35; // Position for the signature boxes
 
                             // Total usable width (subtracting 20mm margin)
                             const usableWidth = pageWidth - 20; 
