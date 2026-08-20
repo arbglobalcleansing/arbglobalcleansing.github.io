@@ -4,11 +4,12 @@ The following image can be moved on the page using keyboard controls (left, righ
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ARB Global Validation â€“ ARB Management</title>
+    <title>ARB Global Validation - ARB Management</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="config.js"></script>
     <script src="common.js"></script>
     <style>
@@ -147,6 +148,17 @@ The following image can be moved on the page using keyboard controls (left, righ
         .profile-tabs .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 15px; min-height: 0; }
         .profile-tabs .tab-content.active { display: block; }
 
+        /* Keep the ARB profile window and tab workspace at one stable size. */
+        #modal .modal-content { width: min(1200px, 95vw); height: min(820px, 88vh) !important; }
+        .profile-tabs .tab-content { height: 100%; }
+        .excel-modal { width: min(1600px, 98vw) !important; max-width: 1600px !important; }
+        .excel-grid-wrap { overflow: auto; height: 100%; border: 1px solid var(--border-light); }
+        .excel-grid { border-collapse: separate; border-spacing: 0; min-width: 2200px; width: 100%; font-size: .78rem; }
+        .excel-grid th { position: sticky; top: 0; z-index: 2; background: #e2f3ea; color: var(--primary-green); }
+        .excel-grid th, .excel-grid td { border-right: 1px solid #d1d5db; border-bottom: 1px solid #d1d5db; padding: 7px 9px; white-space: nowrap; text-align: left; }
+        .excel-grid tbody tr:nth-child(even) { background: #f8fafc; }
+        .link-button { border: 0; background: none; padding: 0; color: #0369a1; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+
         .profile-tabs .tab-content h4 { margin-top: 0; color: var(--primary-green); border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; font-size: 1.15rem; font-weight: 600; }
         .profile-tabs .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 40px; margin-bottom: 30px; }
         .profile-tabs .detail-item { display: flex; flex-direction: column; border-bottom: 1px solid #f1f5f9; padding: 8px 0; }
@@ -167,20 +179,21 @@ The following image can be moved on the page using keyboard controls (left, righ
 </head>
 <body>
 <div class="container">
-    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">ðŸ›ï¸ ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
+    <h1 style="color: var(--primary-green); font-weight: 800; margin-bottom: 20px;">ARB Global Validation <small style="color: var(--dar-gold); font-size: 1.2rem; font-weight: 600;">ARB Management</small></h1>
 
     <nav class="nav" id="mainNav"></nav>
 
     <div class="search-container">
         <div class="search-input-group">
-            <input id="globalSearchInput" class="omni-search-input" placeholder="âœ¨ Intelligent Search: Type Name, ID, Title, Landholding, CoCROM, Sequence, or Location..." autocomplete="off" aria-label="Search">
+            <input id="globalSearchInput" class="omni-search-input" placeholder="Search name, ID, Mother CLOA, title, landowner, COCROM, or location..." autocomplete="off" aria-label="Search">
         </div>
         <div class="search-actions">
-            <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">ðŸ” Search</button>
-            <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">âš™ï¸ Advanced Filters</button>
-            <button type="button" class="btn btn-primary" id="refreshListBtn">ðŸ”„ Refresh</button>
-            <button type="button" class="btn btn-primary" id="batchValidateBtn">âœ… Batch Validate</button>
-            <button type="button" class="btn btn-primary" id="generateReportBtn">ðŸ“„ Print Validation Form</button>
+            <button type="button" class="btn btn-primary" id="globalSearchBtn" style="padding: 14px 20px; font-size: 1.05rem;">Search</button>
+            <button type="button" class="toggle-filters-btn" id="toggleFiltersBtn">Advanced Filters</button>
+            <button type="button" class="btn btn-primary" id="refreshListBtn">Refresh</button>
+            <button type="button" class="btn btn-primary" id="excelViewBtn">Excel-like View</button>
+            <button type="button" class="btn btn-primary" id="batchValidateBtn">Batch Validate</button>
+            <button type="button" class="btn btn-primary" id="generateReportBtn">Print Validation Form</button>
         </div>
     </div>
 
@@ -238,6 +251,15 @@ The following image can be moved on the page using keyboard controls (left, righ
                     <option value="false">No</option>
                 </select>
             </div>
+            <div class="form-group"><label for="filterMotherTitle">Mother CLOA</label><input id="filterMotherTitle" placeholder="Mother title number"></div>
+            <div class="form-group"><label for="filterLandowner">Landowner</label><input id="filterLandowner" placeholder="Landowner name"></div>
+            <div class="form-group"><label for="filterETitle">Has Individual e-Title</label><select id="filterETitle"><option value="">All</option><option value="true">Yes</option><option value="false">No</option></select></div>
+            <div class="form-group"><label for="filterReleaseFrom">Title Released From</label><input type="date" id="filterReleaseFrom"></div>
+            <div class="form-group"><label for="filterReleaseTo">Title Released To</label><input type="date" id="filterReleaseTo"></div>
+            <div class="form-group"><label for="filterETitleFrom">e-Title Issued From</label><input type="date" id="filterETitleFrom"></div>
+            <div class="form-group"><label for="filterETitleTo">e-Title Issued To</label><input type="date" id="filterETitleTo"></div>
+            <div class="form-group"><label for="filterCocromFrom">COCROM Issued From</label><input type="date" id="filterCocromFrom"></div>
+            <div class="form-group"><label for="filterCocromTo">COCROM Issued To</label><input type="date" id="filterCocromTo"></div>
             <div class="filter-actions">
                 <button type="button" class="btn btn-primary" id="applyFiltersBtn">Apply Filters</button>
                 <button type="button" class="btn btn-primary" id="clearFiltersBtn" style="background:#64748b; border-color:#475569;">Clear</button>
@@ -267,7 +289,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     </tr>
                 </thead>
                 <tbody id="arbTableBody">
-                    <tr><td colspan="14" class="empty-card">â³ Loading Data... Please wait.</td></tr>
+                    <tr><td colspan="14" class="empty-card">Loading data...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -310,6 +332,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         const pageSize = 50;
         let totalRecords = 0;
         let arboList = [];
+        let lastFilteredArbIds = null;
 
         const locData = {
             "Cabusao": ["Barcelonita", "Biong", "Camagong", "Castillo", "New Poblacion", "Pandan", "San Pedro", "Santa Cruz", "Santa Lutgarda (Poblacion)"],
@@ -326,17 +349,17 @@ The following image can be moved on the page using keyboard controls (left, righ
             "San Fernando": ["Alianza", "Beberon", "Bical", "Bocal", "Bonifacio", "Buenavista", "Calascagas", "Cotmo", "Daculang Tubig", "Del Rosario", "Grijalvo", "Lupi", "Maragni", "Pamukid", "Pinamasagan", "Pipian", "Planza", "Rizal", "San Joaquin", "Santa Cruz", "Tagpocol"],
             "Baao": ["Agdangan", "Antipolo", "Bagumbayan", "Buluang", "Caranday", "Del Rosario", "Iyasan", "La Medalla", "Lourdes", "Nababarera", "Pugay", "Sagrada", "Salvacion", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Nicolas", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Cruz", "Santa Eulalia", "Santa Isabel", "Santa Teresa", "Santa Teresita", "Tapol"],
             "Balatan": ["Cabanbanan", "Cabungan", "Camangahan", "Cayogcog", "Coguit", "Duran", "Laganac", "Luluasan", "Montenegro", "Pararao", "Pulang Daga", "Sagrada", "San Francisco", "Santiago Nacacale", "Siramag", "Tapayas", "Tomatarayo"],
-            "Bato": ["Agos", "Bacolod", "Buluang", "Caricot", "Cawacagan", "Cotmon", "Cristo Rey", "Del Rosario", "Divina Pastora", "Goyouran", "Lubigan", "Mainit", "Manga", "Masoli", "Neighborhood", "NiÃ±o Jesus", "Pagatpatan", "Palo", "Payak", "Sagrada", "Salvacion", "San Isidro", "San Juan", "San Miguel", "San Rafael", "San Roque", "San Vicente", "Santa Cruz", "Santiago", "Sooc", "Tagbac", "Tres Reyes", "Tres Reyes (Poblacion)"],
+            "Bato": ["Agos", "Bacolod", "Buluang", "Caricot", "Cawacagan", "Cotmon", "Cristo Rey", "Del Rosario", "Divina Pastora", "Goyouran", "Lubigan", "Mainit", "Manga", "Masoli", "Neighborhood", "Niño Jesus", "Pagatpatan", "Palo", "Payak", "Sagrada", "Salvacion", "San Isidro", "San Juan", "San Miguel", "San Rafael", "San Roque", "San Vicente", "Santa Cruz", "Santiago", "Sooc", "Tagbac", "Tres Reyes", "Tres Reyes (Poblacion)"],
             "Buhi": ["Amlongan", "Antipolo", "Burocbusoc", "Cabatuan", "Cagmaslog", "De La Fe", "Delos Angeles", "Divino Rostro", "Gabas", "Ibayugan", "Igbac", "Ipil", "Iraya", "Labawon", "Lourdes", "Macaangay", "Monte Calvario", "Namurabod", "Sagrada Familia", "Salvacion", "San Antonio", "San Buenaventura", "San Francisco", "San Isidro", "San Jose Baybayon", "San Jose Salay", "San Pascual", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente", "Santa Clara", "Santa Cruz", "Santa Elena", "Santa Isabel", "Santa Justina", "Tambo"],
-            "Bula": ["Bagoladio", "Bagumbayan", "Balaogan", "Caorasan", "Casugad", "Causip", "Fabrica", "Inoyonan", "Itangon", "Kinalabasahan", "La Purisima", "La Victoria", "Lanipga", "Lubgan", "Ombao Heights", "Ombao Polpog", "Palsong", "Panoypoyan", "Pawili", "Sagrada", "Salvacion", "San Agustin", "San Francisco", "San Isidro", "San Jose", "San Miguel", "San Ramon", "San Roque", "San Roque Heights", "Santa Elena", "Santo Domingo", "Santo NiÃ±o", "Taisan"],
+            "Bula": ["Bagoladio", "Bagumbayan", "Balaogan", "Caorasan", "Casugad", "Causip", "Fabrica", "Inoyonan", "Itangon", "Kinalabasahan", "La Purisima", "La Victoria", "Lanipga", "Lubgan", "Ombao Heights", "Ombao Polpog", "Palsong", "Panoypoyan", "Pawili", "Sagrada", "Salvacion", "San Agustin", "San Francisco", "San Isidro", "San Jose", "San Miguel", "San Ramon", "San Roque", "San Roque Heights", "Santa Elena", "Santo Domingo", "Santo Niño", "Taisan"],
             "Nabua": ["Angustia", "Antipolo Old", "Antipolo Young", "Aro-aldao", "Bustrac", "Dolorosa", "Duran", "Inapatan", "La Opinion", "La Purisima", "Lourdes Old", "Lourdes Young", "Malawag", "Nabuangan", "Paloyon Oriental", "Paloyon Proper", "Quitpon", "Sagumay", "San Antonio", "San Antonio Ogbon", "San Esteban", "San Francisco", "San Isidro", "San Isidro Ilaya", "San Jose", "San Juan", "San Luis", "San Miguel", "San Nicolas", "San Roque", "San Roque Madawon", "San Roque Sagumay", "San Vicente Gorong-Gorong", "San Vicente Ogbon", "Santa Barbara", "Santa Cruz", "Santa Elena Baras", "Santa Elena Ilaya", "Santa Lucia Baras", "Santiago Old", "Santiago Young", "Santo Domingo"],
-            "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "NiÃ±o Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo NiÃ±o"]
+            "Iriga City": ["Antipolo", "Cristo Rey", "Del Rosario", "Francia", "La Anunciacion", "La Medalla", "La Purisima", "La Trinidad", "Niño Jesus", "Perpetual Help", "Sagrada", "Salvacion", "San Agustin", "San Andres", "San Antonio", "San Francisco", "San Isidro", "San Jose", "San Juan", "San Miguel", "San Nicolas", "San Pedro", "San Rafael", "San Ramon", "San Roque", "San Vicente Norte", "San Vicente Sur", "Santa Cruz Norte", "Santa Cruz Sur", "Santa Elena", "Santa Isabel", "Santa Maria", "Santa Teresita", "Santiago", "Santo Domingo", "Santo Niño"]
         };
 
         function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
-        function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? 'â€”' : safe(value); }
+        function displayValue(value) { return (value === null || value === undefined || String(value).trim() === '') ? '—' : safe(value); }
         function formatDateValue(value) {
-            if (!value) return 'â€”';
+            if (!value) return '—';
             const d = new Date(value);
             return isNaN(d.getTime()) ? safe(value) : d.toLocaleDateString('en-PH', {year:'numeric', month:'short', day:'numeric'});
         }
@@ -347,9 +370,9 @@ The following image can be moved on the page using keyboard controls (left, righ
         function boolBadge(value) { return value ? badge('YES','success') : badge('NO','neutral'); }
         function emptyToNull(value) { const t = String(value ?? '').trim(); return t === '' ? null : t; }
         function fullName(arb) {
-            if (!arb) return 'â€”';
+            if (!arb) return '—';
             const parts = [arb.last_name ? arb.last_name+',' : '', arb.first_name || '', arb.middle_name || ''].filter(Boolean);
-            return parts.join(' ').trim() || 'â€”';
+            return parts.join(' ').trim() || '—';
         }
         function arbInitials(arb) {
             const parts = [arb.first_name, arb.last_name].filter(Boolean);
@@ -371,17 +394,23 @@ The following image can be moved on the page using keyboard controls (left, righ
         /* ----- ROLE BASED ACCESS CONTROL ----- */
         function isFullAdmin() {
             const role = String(currentUserProfile?.role || '').toUpperCase();
-            return ['ADMIN', 'STAFF'].includes(role);
+            return ['ADMIN', 'LTSP', 'LTSP PERSONNEL'].includes(role);
         }
+        function isPbDD() { return ['PBDD STAFF', 'PBDD PERSONNEL', 'PBDD ADMIN', 'CARPO-PBDD', 'CARPO PBDD'].includes(String(currentUserProfile?.role || '').toUpperCase()); }
+        function isDarmo() { return String(currentUserProfile?.role || '').toUpperCase().includes('DARMO'); }
+        function isLegal() { return String(currentUserProfile?.role || '').toUpperCase().includes('LEGAL'); }
         function canValidateOrAssign() {
-            const role = String(currentUserProfile?.role || '').toUpperCase();
-            return isFullAdmin() || ['PBDD PERSONNEL', 'PBDD ADMIN'].includes(role);
+            return isFullAdmin() || isPbDD() || isDarmo();
         }
+        function canAssignArbo() { return isFullAdmin() || isPbDD(); }
+        function canCaptureAndIssueId() { return isFullAdmin() || isPbDD(); }
+        function canManageLegal() { return isFullAdmin() || isLegal(); }
+        function canTagDeceased() { return Boolean(currentUser && String(currentUserProfile?.status || 'ACTIVE').toUpperCase() !== 'INACTIVE'); }
         // Aliases for historical functions
         function canEdit() { return isFullAdmin(); }
 
         window.showAliInfo = function(arbName, aliType, aliStatus) {
-            showSubModal('âš–ï¸ ALI Case Status', `
+            showSubModal('ALI Case Status', `
                 <div class="form-group" style="margin-bottom:15px;"><label>ARB Name</label><div style="font-size:1.1rem; color:var(--text-dark);">${safe(arbName)}</div></div>
                 <div class="form-group" style="margin-bottom:15px;"><label>Case Type</label><div style="font-size:1.1rem; color:var(--dar-gold); font-weight:bold;">${safe(aliType)}</div></div>
                 <div class="form-group"><label>Case Status</label><div style="font-size:1.1rem; color:#991b1b; font-weight:bold;">${safe(aliStatus)}</div></div>
@@ -542,11 +571,11 @@ The following image can be moved on the page using keyboard controls (left, righ
             const curPath = window.location.pathname;
             let { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', {ascending:true});
             let links = navItems?.length ? navItems : [
-                {label:'Dashboard', url:'/dashboard.html', icon:'ðŸ“Š'},
-                {label:'ARBO Management', url:'/arbo.html', icon:'ðŸ¢'},
-                {label:'ARB Management', url:'/arb.html', icon:'ðŸ‘¤'},
-                {label:'Validators', url:'/validators.html', icon:'âœ…'},
-                {label:'Reports', url:'/reports.html', icon:'ðŸ“ˆ'}
+                {label:'Dashboard', url:'/dashboard.html', icon:''},
+                {label:'ARBO Management', url:'/arbo.html', icon:''},
+                {label:'ARB Management', url:'/arb.html', icon:''},
+                {label:'Validators', url:'/validators.html', icon:''},
+                {label:'Reports', url:'/reports.html', icon:''}
             ];
             const seen = new Set();
             links = links.filter(l => { const key = l.label; if (seen.has(key)) return false; seen.add(key); return true; });
@@ -555,12 +584,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                 return `<a href="${safe(link.url)}" class="${isActive}">${safe(link.icon||'')} ${safe(link.label)}</a>`;
             }).join('');
             if (profile) {
-                const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || 'â€”');
-                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">ðŸ‘¤ ${safe(displayName)} (${safe(profile.role)})</span>`;
-                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">ðŸšª Logout</span>`;
+                const displayName = (profile.full_name && profile.full_name.trim()!=='') ? profile.full_name : (currentUser?.email || '—');
+                html += `<span class="user-badge" style="margin-left:auto;color:var(--primary-green);font-weight:700;">${safe(displayName)} (${safe(profile.role)})</span>`;
+                html += `<span class="logout-link" id="navLogoutBtn" style="color:#991b1b;font-weight:700;margin-left:15px;cursor:pointer;">Logout</span>`;
             } else {
-                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">âš ï¸ Not Logged In</span>`;
-                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">ðŸ”‘ Login</span>`;
+                html += `<span class="user-badge" style="margin-left:auto;color:#b91c1c;">Not Logged In</span>`;
+                html += `<span class="logout-link" style="color:var(--primary-green);margin-left:10px;cursor:pointer;" onclick="window.location.href='login.html'">Login</span>`;
             }
             navEl.innerHTML = html;
             document.getElementById('navLogoutBtn')?.addEventListener('click', async function() {
@@ -583,7 +612,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         async function loadArbs(page = 0) {
             const tbody = document.getElementById('arbTableBody');
             if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="14" class="empty-card">â³ Loading Data... Please wait.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="14" class="empty-card">Loading data...</td></tr>`;
 
             const selectAllCb = document.getElementById('selectAllArbs');
             if(selectAllCb) selectAllCb.checked = false;
@@ -596,13 +625,22 @@ The following image can be moved on the page using keyboard controls (left, righ
             const ta = document.getElementById('filterTa').value;
             const cocrom = document.getElementById('filterCocrom').value;
             const titleDist = document.getElementById('filterTitleDist').value;
+            const motherTitle = document.getElementById('filterMotherTitle').value.trim();
+            const landowner = document.getElementById('filterLandowner').value.trim();
+            const hasETitle = document.getElementById('filterETitle').value;
+            const releaseFrom = document.getElementById('filterReleaseFrom').value;
+            const releaseTo = document.getElementById('filterReleaseTo').value;
+            const eTitleFrom = document.getElementById('filterETitleFrom').value;
+            const eTitleTo = document.getElementById('filterETitleTo').value;
+            const cocromFrom = document.getElementById('filterCocromFrom').value;
+            const cocromTo = document.getElementById('filterCocromTo').value;
             const searchTerm = document.getElementById('globalSearchInput').value.trim();
 
             try {
                 let filterSets = [];
 
-                let locationFilterActive = Boolean(town || barangay);
-                let profileFilterActive = Boolean(split || cocrom !== '' || titleDist !== '');
+                let locationFilterActive = Boolean(town || barangay || motherTitle || landowner || releaseFrom || releaseTo);
+                let profileFilterActive = Boolean(split || cocrom !== '' || titleDist !== '' || hasETitle !== '' || eTitleFrom || eTitleTo || cocromFrom || cocromTo);
                 let baseArbFilterActive = Boolean(validation || ali !== '' || ta !== '');
 
                 // Explicit Location Filters
@@ -622,10 +660,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                         }
                         return q;
                     };
-                    const arboData = await fetchAllRecords(arboQ);
-                    if (arboData.length > 0) {
-                        const arbs = await fetchInChunks('arb', 'id', 'arbo_id', arboData.map(a => a.id));
-                        arbs.forEach(a => locIds.add(String(a.id)));
+                    if (!motherTitle && !landowner && !releaseFrom && !releaseTo && (town || barangay)) {
+                        const arboData = await fetchAllRecords(arboQ);
+                        if (arboData.length > 0) {
+                            const arbs = await fetchInChunks('arb', 'id', 'arbo_id', arboData.map(a => a.id));
+                            arbs.forEach(a => locIds.add(String(a.id)));
+                        }
                     }
 
                     let landQ = () => {
@@ -640,6 +680,10 @@ The following image can be moved on the page using keyboard controls (left, righ
                             if (p2) conds.push(`barangay.ilike.%${p2}%`);
                             q = q.or(conds.join(','));
                         }
+                        if (motherTitle) q = q.ilike('original_mother_title_no', `%${motherTitle.replace(/[%_,]/g, '')}%`);
+                        if (landowner) q = q.ilike('landowner', `%${landowner.replace(/[%_,]/g, '')}%`);
+                        if (releaseFrom) q = q.gte('date_released', releaseFrom);
+                        if (releaseTo) q = q.lte('date_released', releaseTo);
                         return q;
                     };
                     const landData = await fetchAllRecords(landQ);
@@ -659,6 +703,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                         if (cocrom === 'true') q = q.not('cocrom_no', 'is', null).neq('cocrom_no', '');
                         if (cocrom === 'false') q = q.is('cocrom_no', null);
                         if (titleDist !== '') q = q.eq('is_title_distribute', titleDist === 'true');
+                        if (hasETitle === 'true') q = q.not('e_title_no', 'is', null).neq('e_title_no', '');
+                        if (hasETitle === 'false') q = q.or('e_title_no.is.null,e_title_no.eq.');
+                        if (eTitleFrom) q = q.gte('e_title_issued_at', eTitleFrom);
+                        if (eTitleTo) q = q.lte('e_title_issued_at', eTitleTo);
+                        if (cocromFrom) q = q.gte('cocrom_issued_at', cocromFrom);
+                        if (cocromTo) q = q.lte('cocrom_issued_at', cocromTo);
                         return q;
                     };
                     const profiles = await fetchAllRecords(profQ);
@@ -730,6 +780,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         finalIds = finalIds.filter(id => setB.has(id));
                     }
                     if (finalIds.length === 0) {
+                        lastFilteredArbIds = [];
                         tbody.innerHTML = `<tr><td colspan="14" class="empty-card">No ARBs match the specific combination of filters.</td></tr>`;
                         document.getElementById('pageInfo').textContent = `Page 1 of 1`;
                         document.getElementById('prevPageBtn').disabled = true;
@@ -737,6 +788,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         return;
                     }
                 }
+                lastFilteredArbIds = finalIds === null ? null : [...finalIds];
 
                 let arbs = [];
                 if (finalIds !== null) {
@@ -805,13 +857,13 @@ The following image can be moved on the page using keyboard controls (left, righ
                         const arbo = arb.arbo || {};
                         const arbLhs = profile.id ? (lhMap[profile.id] || []) : [];
 
-                        let dispMunicipality = arbo.municipality || 'â€”';
-                        let dispBarangay = arbo.barangay || 'â€”';
-                        let dispTitle = 'â€”';
-                        let dispLot = 'â€”';
-                        let dispArea = 'â€”';
-                        let dispSurvey = 'â€”';
-                        let dispCocrom = 'â€”';
+                        let dispMunicipality = arbo.municipality || '—';
+                        let dispBarangay = arbo.barangay || '—';
+                        let dispTitle = '—';
+                        let dispLot = '—';
+                        let dispArea = '—';
+                        let dispSurvey = '—';
+                        let dispCocrom = '—';
 
                         if (arbLhs.length > 0) {
                             const validLandholding = arbLhs.find(l => l.municipality);
@@ -820,13 +872,13 @@ The following image can be moved on the page using keyboard controls (left, righ
                                 dispBarangay = validLandholding.barangay || dispBarangay;
                             }
                             const lh = arbLhs[0];
-                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || 'â€”';
-                            dispLot = lh.lot_no || 'â€”';
-                            dispArea = lh.landholding_area || 'â€”';
-                            dispSurvey = lh.survey_no || 'â€”';
-                            dispCocrom = profile.cocrom_no || lh.cocrom_certificate_no || 'â€”';
+                            dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
+                            dispLot = lh.lot_no || '—';
+                            dispArea = lh.landholding_area || '—';
+                            dispSurvey = lh.survey_no || '—';
+                            dispCocrom = profile.cocrom_no || lh.cocrom_certificate_no || '—';
                         } else {
-                            dispCocrom = profile.cocrom_no || 'â€”';
+                            dispCocrom = profile.cocrom_no || '—';
                         }
 
                         let aliTag = badge('NO', 'neutral');
@@ -834,11 +886,11 @@ The following image can be moved on the page using keyboard controls (left, righ
                             const safeName = safe(fullName(arb)).replace(/'/g, "\\'");
                             const safeType = safe(arb.ali_case_type || 'Type Unknown').replace(/'/g, "\\'");
                             const safeStatus = safe(arb.ali_case_status || 'Status Unknown').replace(/'/g, "\\'");
-                            aliTag = `<span class="badge badge-danger" style="cursor:pointer; box-shadow: 0 0 0 2px rgba(220,38,38,0.4);" title="Click to view ALI status" onclick="window.showAliInfo('${safeName}', '${safeType}', '${safeStatus}')">YES ðŸ”</span>`;
+                            aliTag = `<span class="badge badge-danger" style="cursor:pointer; box-shadow: 0 0 0 2px rgba(220,38,38,0.4);" title="Click to view ALI status" onclick="window.showAliInfo('${safeName}', '${safeType}', '${safeStatus}')">YES - VIEW</span>`;
                         }
 
                         const taTag = arb.with_ta ? badge('YES','warning') : badge('NO', 'neutral');
-                        const cocromTag = (dispCocrom !== 'â€”') ? badge('YES','success') : badge('NO', 'neutral');
+                        const cocromTag = (dispCocrom !== '—') ? badge(dispCocrom,'success') : badge('NO', 'neutral');
 
                         const validationBadge = badge(arb.validation_status || 'PENDING', arb.validation_status==='Validated'?'success':arb.validation_status==='Rejected'?'danger':'warning');
                         const lStatus = arb.life_status || profile.life_status || 'UNKNOWN';
@@ -865,10 +917,11 @@ The following image can be moved on the page using keyboard controls (left, righ
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
                                     ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
-                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
-                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
-                                    ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                    ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">LEGAL TAG</button>` : ''}
+                                    ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="DEAD">DECEASED</button>` : ''}
+                                    ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                    ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
+                                    ${canAssignArbo() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
                                     ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
                                 </div>
                             </td>
@@ -890,7 +943,7 @@ The following image can be moved on the page using keyboard controls (left, righ
 
                 document.querySelectorAll('.view-arb-btn').forEach(btn => btn.addEventListener('click', () => openArbProfile(btn.dataset.arbId)));
                 document.querySelectorAll('.edit-arb-btn').forEach(btn => btn.addEventListener('click', () => openEditArb(btn.dataset.arbId)));
-                document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
+                document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId, btn.dataset.tagMode)));
                 document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
                 document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
                 document.querySelectorAll('.update-validation-btn').forEach(btn => btn.addEventListener('click', () => openValidationForm(btn.dataset.arbId, btn.dataset.current)));
@@ -972,7 +1025,7 @@ The following image can be moved on the page using keyboard controls (left, righ
 
                 let dispMunicipality = arbo.municipality;
                 let dispBarangay = arbo.barangay;
-                let dispTitle = 'â€”';
+                let dispTitle = '—';
 
                 if (landholdings && landholdings.length > 0) {
                     const validLandholding = landholdings.find(l => l.municipality);
@@ -981,7 +1034,22 @@ The following image can be moved on the page using keyboard controls (left, righ
                         dispBarangay = validLandholding.barangay || dispBarangay;
                     }
                     const lh = landholdings[0];
-                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || 'â€”';
+                    dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
+                }
+
+                const motherTitles = [...new Set(landholdings.map(h => h.original_mother_title_no || h.ccloa_title_raw).filter(Boolean))];
+                let motherGroup = [];
+                if (motherTitles.length) {
+                    const relatedHoldings = await fetchAllRecords(() => secureDbClient.from('arb_landholdings')
+                        .select('arb_profile_id, original_mother_title_no, ccloa_title_raw, title_no, landowner, municipality, barangay, cocrom_certificate_no')
+                        .in('original_mother_title_no', motherTitles));
+                    const relatedProfileIds = [...new Set(relatedHoldings.map(h => h.arb_profile_id).filter(Boolean))];
+                    const relatedProfiles = relatedProfileIds.length ? await fetchInChunks('arb_profiles', 'id, arb_id, e_title_no, cocrom_no', 'id', relatedProfileIds) : [];
+                    const relatedArbIds = relatedProfiles.map(p => p.arb_id).filter(Boolean);
+                    const relatedArbs = relatedArbIds.length ? await fetchInChunks('arb', 'id, first_name, middle_name, last_name', 'id', relatedArbIds) : [];
+                    const pMap = Object.fromEntries(relatedProfiles.map(p => [String(p.id), p]));
+                    const aMap = Object.fromEntries(relatedArbs.map(a => [String(a.id), a]));
+                    motherGroup = relatedHoldings.map(h => ({ ...h, profile: pMap[String(h.arb_profile_id)] || {}, arb: aMap[String(pMap[String(h.arb_profile_id)]?.arb_id)] || {} }));
                 }
 
                 const profilePhotoUrl = await getProfilePhotoUrl(profile);
@@ -1002,11 +1070,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                                     ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                 </div>
                                 <div class="sidebar-actions">
-                                    ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">âœï¸ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">âš ï¸ Profile record missing.</p>`}
-                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddHeirBtn">ðŸ‘ª Add Heir</button>` : ''}
-                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddTagBtn">âš–ï¸ ALI Tag</button>` : ''}
-                                    ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">âœ… Validate</button>` : ''}
-                                    ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">ðŸ“ Create Profile</button>` : ''}
+                                    ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">Profile record missing.</p>`}
+                                    ${profileId && (arb.life_status || profile.life_status)==='Dead' && canTagDeceased() ? `<button class="btn btn-primary" id="profileAddHeirBtn">Add Heir</button>` : ''}
+                                    ${profileId && canManageLegal() ? `<button class="btn btn-primary" id="profileAddTagBtn">Legal Tag</button>` : ''}
+                                    ${profileId && canTagDeceased() ? `<button class="btn btn-primary" id="profileDeceasedBtn">Tag Deceased</button>` : ''}
+                                    ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">Validate</button>` : ''}
+                                    ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">Create Profile</button>` : ''}
                                 </div>
                             </div>
                             <!-- Tabs Content -->
@@ -1016,6 +1085,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                                     <button data-tab="heirs">Heirs (${heirs.length})</button>
                                     <button data-tab="tags">Tags (${tags.length})</button>
                                     <button data-tab="validations">Validations (${validations.length})</button>
+                                    <button data-tab="mother">Mother CLOA Group (${motherGroup.length})</button>
                                 </div>
                                 <div class="tab-content active" id="tab-overview">
                                     ${renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay, dispTitle)}
@@ -1030,6 +1100,9 @@ The following image can be moved on the page using keyboard controls (left, righ
                                 </div>
                                 <div class="tab-content" id="tab-validations">
                                     ${renderValidations(validations)}
+                                </div>
+                                <div class="tab-content" id="tab-mother">
+                                    ${renderMotherGroup(motherGroup)}
                                 </div>
                             </div>
                         </div>
@@ -1052,6 +1125,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     document.getElementById('profileEditBtn')?.addEventListener('click', () => { openEditArb(arbId); });
                     document.getElementById('profileAddHeirBtn')?.addEventListener('click', () => { openHeirForm(arbId); });
                     document.getElementById('profileAddTagBtn')?.addEventListener('click', () => { openTagArb(arbId); });
+                    document.getElementById('profileDeceasedBtn')?.addEventListener('click', () => { openTagArb(arbId, 'DEAD'); });
                     document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { openValidationForm(arbId, arb.validation_status); });
                 } else {
                     document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async function() {
@@ -1072,7 +1146,7 @@ The following image can be moved on the page using keyboard controls (left, righ
 
             } catch (err) {
                 const mBody = document.getElementById('modalBody');
-                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#991b1b;">âŒ ${safe(err.message)}</p>`;
+                if (mBody) mBody.innerHTML = `<p class="empty-msg" style="color:#991b1b;">Error: ${safe(err.message)}</p>`;
                 popToast(err.message, 'err');
             }
         }
@@ -1082,6 +1156,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 { label: 'First Name', value: arb.first_name },
                 { label: 'Middle Name', value: arb.middle_name },
                 { label: 'Last Name', value: arb.last_name },
+                { label: 'Contact Number', value: profile.contact_number },
                 { label: 'FB Name', value: profile.fb_name },
                 { label: 'Gender', value: profile.fb_gender },
                 { label: 'Spouse', value: profile.spouse },
@@ -1096,7 +1171,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 { label: 'Validation Status', value: arb.validation_status, badge: true },
                 { label: 'SPLIT Status', value: profile.split_status, badge: true },
                 { label: 'CCLOA Membership', value: profile.ccloa_membersh },
-                { label: 'CoCROM No.', value: profile.cocrom_no },
+                { label: 'COCROM Certificate', value: profile.cocrom_no || 'NO' },
                 { label: 'Title Distributed', value: profile.is_title_distribute ? 'Yes' : 'No' },
                 { label: 'Death Validation', value: profile.death_validation_ },
                 { label: 'Death Document', value: profile.death_document },
@@ -1122,7 +1197,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 <div class="detail-grid">
             `;
             fields.forEach(f => {
-                const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : 'â€”';
+                const val = f.value !== undefined && f.value !== null && f.value !== '' ? f.value : '—';
                 html += `
                     <div class="detail-item">
                         <span class="label">${f.label}</span>
@@ -1135,7 +1210,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 html += `
                     <div class="detail-item">
                         <span class="label">${f.label}</span>
-                        <span class="value">${f.value ? 'âœ… Yes' : 'âŒ No'}</span>
+                        <span class="value">${f.value ? 'YES' : 'NO'}</span>
                     </div>
                 `;
             });
@@ -1197,11 +1272,37 @@ The following image can be moved on the page using keyboard controls (left, righ
             return html;
         }
 
+        function qrCodeDataUrl(value) {
+            if (!window.QRCode) return '';
+            const holder = document.createElement('div');
+            holder.style.position = 'fixed'; holder.style.left = '-9999px';
+            document.body.appendChild(holder);
+            try {
+                new QRCode(holder, { text: value, width: 180, height: 180, colorDark: '#064e3b', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                const canvas = holder.querySelector('canvas');
+                return canvas ? canvas.toDataURL('image/png') : '';
+            } finally { holder.remove(); }
+        }
+
+        function renderMotherGroup(rows) {
+            if (!rows.length) return '<p class="empty-card">No Mother CLOA group found for this ARB.</p>';
+            return `<h4>ARBs Under the Same Mother CLOA</h4><div class="table-wrap"><table><thead><tr>
+                <th>Mother CLOA</th><th>ARB</th><th>Landowner</th><th>Current/Shared Title</th><th>Individual e-Title</th><th>COCROM</th><th>Location</th>
+            </tr></thead><tbody>${rows.map(r => `<tr>
+                <td>${displayValue(r.original_mother_title_no || r.ccloa_title_raw)}</td>
+                <td><button class="link-button" onclick="window.openArbProfileById('${safe(r.profile.arb_id || '')}')">${displayValue(fullName(r.arb))}</button></td>
+                <td>${displayValue(r.landowner)}</td><td>${displayValue(r.title_no)}</td>
+                <td>${displayValue(r.profile.e_title_no)}</td><td>${displayValue(r.profile.cocrom_no || r.cocrom_certificate_no || 'NO')}</td>
+                <td>${displayValue([r.barangay, r.municipality].filter(Boolean).join(', '))}</td>
+            </tr>`).join('')}</tbody></table></div>
+            <p style="margin-top:12px;color:#475569;">ARBs may share a Mother CLOA/current title and still be assigned their own individual e-Title.</p>`;
+        }
+
         function renderHeirs(heirs) {
             if (!heirs || heirs.length === 0) return `<p class="empty-card">No heirs recorded.</p>`;
             let html = `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Relation</th><th>Contact</th><th>Email</th><th>Supporting Doc</th><th>Verified</th><th>Selected</th></tr></thead><tbody>`;
             heirs.forEach(h => {
-                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? 'âœ…' : 'âŒ'}</td><td>${h.is_selected ? 'âœ…' : 'âŒ'}</td></tr>`;
+                html += `<tr><td>${displayValue(h.heir_name)}</td><td>${displayValue(h.heir_relation)}</td><td>${displayValue(h.heir_contact)}</td><td>${displayValue(h.heir_email)}</td><td>${displayValue(h.supporting_document_reference)}</td><td>${h.is_verified ? 'YES' : 'NO'}</td><td>${h.is_selected ? 'YES' : 'NO'}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -1333,10 +1434,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                     updated_at: new Date().toISOString()
                 };
                 try {
-                    const { error } = await secureDbClient.from('arb_validations').insert(payload);
+                    const { error } = await secureDbClient.rpc('record_arb_validation', {
+                        p_arb_id: Number(arbId), p_validation_status: fd.get('validation_status'), p_validator_type: fd.get('validator_type'),
+                        p_validator_name: payload.validator_name, p_position: payload.position, p_date_validated: payload.date_validated,
+                        p_validation_basis: payload.validation_basis, p_supporting_document_reference: payload.supporting_document_reference
+                    });
                     if (error) throw error;
-                    const valStatus = fd.get('validation_status');
-                    await secureDbClient.from('arb').update({ validation_status: valStatus }).eq('id', arbId);
                     hideSubModal();
                     popToast('Validation added and status updated.', 'ok');
                     openArbProfile(arbId);
@@ -1363,6 +1466,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     <form id="editArbForm">
                         <div class="form-grid">
                             <div class="form-group full"><label>ARB ID</label><input value="${safe(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}" disabled></div>
+                            <div class="form-group"><label for="editContactNumber">Contact Number</label><input id="editContactNumber" name="contact_number" inputmode="tel" maxlength="30" value="${safe(profile.contact_number||'')}" placeholder="e.g., 09XXXXXXXXX"></div>
                             <div class="form-group"><label for="editFirstName">First Name</label><input id="editFirstName" name="first_name" value="${safe(arb.first_name||'')}" required></div>
                             <div class="form-group"><label for="editMiddleName">Middle Name</label><input id="editMiddleName" name="middle_name" value="${safe(arb.middle_name||'')}"></div>
                             <div class="form-group"><label for="editLastName">Last Name</label><input id="editLastName" name="last_name" value="${safe(arb.last_name||'')}" required></div>
@@ -1370,7 +1474,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                             <div class="form-group"><label for="editValidationStatus">Validation Status</label><select id="editValidationStatus" name="validation_status"><option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option><option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option></select></div>
                             <div class="form-group full"><label for="editFbName">FB Name</label><input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}"></div>
                             <div class="form-group"><label for="editSplitStatus">SPLIT Status</label><select id="editSplitStatus" name="split_status"><option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option><option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select></div>
-                            <div class="form-group"><label for="editCocrom">CoCROM No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}"></div>
+                            <div class="form-group"><label for="editCocrom">COCROM Certificate No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}" placeholder="Leave blank to show NO"></div>
                             <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
@@ -1453,6 +1557,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     };
                     const profilePayload = {
                         fb_name: emptyToNull(fd.get('fb_name')),
+                        contact_number: emptyToNull(fd.get('contact_number')),
                         split_status: fd.get('split_status'),
                         cocrom_no: emptyToNull(fd.get('cocrom_no')),
                         is_title_distribute: fd.get('is_title_distribute') === 'true',
@@ -1464,14 +1569,17 @@ The following image can be moved on the page using keyboard controls (left, righ
                     try {
                         const { error: e1 } = await secureDbClient.from('arb').update(payload).eq('id', arbId);
                         if (e1) throw e1;
+                        let savedProfileId = profile.id;
                         if (profile.id) {
                             const { error: e2 } = await secureDbClient.from('arb_profiles').update(profilePayload).eq('id', profile.id);
                             if (e2) throw e2;
                         } else {
                             profilePayload.arb_id = String(arbId);
-                            const { error: e2 } = await secureDbClient.from('arb_profiles').insert(profilePayload);
+                            const { data: insertedProfile, error: e2 } = await secureDbClient.from('arb_profiles').insert(profilePayload).select('id').single();
                             if (e2) throw e2;
+                            savedProfileId = insertedProfile.id;
                         }
+                        await updateCocromForMother(savedProfileId, emptyToNull(fd.get('cocrom_no')));
                         hideSubModal();
                         popToast('ARB updated successfully.', 'ok');
                         openArbProfile(arbId);
@@ -1488,25 +1596,60 @@ The following image can be moved on the page using keyboard controls (left, righ
             } catch(e) { popToast(e.message, 'err'); }
         }
 
-        async function openTagArb(arbId) {
-            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
+        async function updateCocromForMother(profileId, certificateNo) {
+            if (!profileId) return;
+            const ownHoldings = await fetchAllRecords(() => secureDbClient.from('arb_landholdings')
+                .select('original_mother_title_no, ccloa_title_raw').eq('arb_profile_id', profileId));
+            const mothers = [...new Set(ownHoldings.map(h => h.original_mother_title_no || h.ccloa_title_raw).filter(Boolean))];
+            if (!mothers.length) {
+                const { error } = await secureDbClient.from('arb_landholdings').update({ cocrom_certificate_no: certificateNo }).eq('arb_profile_id', profileId);
+                if (error) throw error;
+                return;
+            }
+            const { data: affected, error: lhError } = await secureDbClient.from('arb_landholdings')
+                .update({ cocrom_certificate_no: certificateNo }).in('original_mother_title_no', mothers).select('arb_profile_id');
+            if (lhError) throw lhError;
+            const affectedProfileIds = [...new Set((affected || []).map(r => r.arb_profile_id).filter(Boolean))];
+            for (let i = 0; i < affectedProfileIds.length; i += 200) {
+                const { error } = await secureDbClient.from('arb_profiles').update({ cocrom_no: certificateNo, updated_at: new Date().toISOString() })
+                    .in('id', affectedProfileIds.slice(i, i + 200));
+                if (error) throw error;
+            }
+        }
+
+        async function openTagArb(arbId, forcedMode = '') {
+            if (forcedMode === 'DEAD' ? !canTagDeceased() : !canManageLegal()) { popToast('Insufficient permissions.','err'); return; }
             try {
                 const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
                 if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
                 const profileId = profRes.data.id;
+                const { data: legalHoldings } = await secureDbClient.from('arb_landholdings').select('id,original_mother_title_no,title_no,lot_no,municipality,barangay').eq('arb_profile_id', profileId);
+                const legalHoldingOptions = (legalHoldings || []).map(h => `<option value="${h.id}">${safe(h.original_mother_title_no || h.title_no || 'Untitled')} - Lot ${safe(h.lot_no || 'N/A')} - ${safe(h.barangay || '')}, ${safe(h.municipality || '')}</option>`).join('');
 
-                const tagTypes = [
+                let tagTypes = [
                     { value: 'ALI CASE', label: 'ALI Case' },
                     { value: 'TRANSFER ACTION', label: 'Transfer Action' },
                     { value: 'DISQUALIFICATION', label: 'Disqualification' },
+                    { value: 'CANCELLATION OF TITLE', label: 'Cancellation of Title' },
+                    { value: 'IDENTIFICATION OF NEW ARB', label: 'Identification of New ARB' },
+                    { value: 'DISQUALIFICATION AND IDENTIFICATION', label: 'Disqualification and Identification of New ARB' },
+                    { value: 'AO8', label: 'AO8 Transfer Action' },
+                    { value: 'ORDER OF FINALITY', label: 'AO8 Order of Finality' },
                     { value: 'DEAD', label: 'Mark as Dead' },
                     { value: 'ALIVE', label: 'Mark as Alive' },
                     { value: 'WITH COMPLAIN', label: 'With Existing Complain' }
                 ];
+                if (forcedMode === 'DEAD') tagTypes = tagTypes.filter(t => t.value === 'DEAD');
+                else tagTypes = tagTypes.filter(t => t.value !== 'DEAD');
                 const statusOptions = {
                     'ALI CASE': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
                     'TRANSFER ACTION': ['AT DARPO', 'AT DARMO with MEMO', 'AT DARPO with COMPLIANCE - COMPLETE', 'AT DARPO with COMPLIANCE - INCOMPLETE', 'AT LEGAL', 'FORWARDED TO REGION', 'WITH ORDER - GRANTED', 'WITH ORDER - DENIED', 'WITH MR', 'WITH ORDER OF FINALITY', 'FORWARDED TO ROD', 'EXECUTED'],
                     'DISQUALIFICATION': ['FOR DISQUALIFICATION'],
+                    'CANCELLATION OF TITLE': ['FOR REVIEW','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
+                    'IDENTIFICATION OF NEW ARB': ['FOR VALIDATION','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
+                    'DISQUALIFICATION AND IDENTIFICATION': ['FOR VALIDATION','FOR FILING','FILED','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
+                    'AO8': ['FOR DOCUMENTATION','AT DARMO','AT DARPO','AT LEGAL','WITH ORDER','WITH ORDER OF FINALITY','EXECUTED'],
+                    'ORDER OF FINALITY': ['WITH ORDER OF FINALITY'],
                     'DEAD': ['DECEASED'],
                     'ALIVE': ['ACTIVE'],
                     'WITH COMPLAIN': ['EXISTING']
@@ -1515,8 +1658,9 @@ The following image can be moved on the page using keyboard controls (left, righ
                 const formHtml = `
                     <form id="tagArbForm">
                         <div class="form-grid">
-                            <div class="form-group full"><label>Date of Tagging / Target Date</label><input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required></div>
+                            <div class="form-group full"><label>Target Date</label><input type="date" name="action_date" value="${new Date().toISOString().substring(0,10)}" required><small>The actual tagging date and active user are recorded automatically.</small></div>
                             <div class="form-group"><label for="tagType">Tag Type</label><select id="tagType" name="tag_type" required>${tagTypes.map(t => `<option value="${t.value}">${t.label}</option>`).join('')}</select></div>
+                            <div class="form-group"><label for="tagLandholding">Particular Landholding</label><select id="tagLandholding" name="arb_landholding_id"><option value="">General ARB-level action</option>${legalHoldingOptions}</select></div>
 
                             <div class="form-group" id="aliCategoryGrp" style="display:none;">
                                 <label>ALI Category</label>
@@ -1537,6 +1681,18 @@ The following image can be moved on the page using keyboard controls (left, righ
                             <div class="form-group full"><label for="tagStatus">Status</label><select id="tagStatus" name="status"></select></div>
                             <div class="form-group full"><label for="tagCaseRef">Case Reference No.</label><input id="tagCaseRef" name="case_reference_no"></div>
                             <div class="form-group full"><label for="tagCaseDetails">Case Details / Reason</label><textarea id="tagCaseDetails" name="case_details"></textarea></div>
+                            <div class="form-group full" id="deathDocSection" style="display:none; padding:12px; border:1px solid #f59e0b; border-radius:8px; background:#fffbeb;">
+                                <label>Required Death Supporting Document</label>
+                                <select name="death_document_type" id="deathDocumentType"><option value="DEATH CERTIFICATE">Death Certificate</option><option value="BARANGAY CERTIFICATION">Barangay Certification (if no Death Certificate)</option><option value="PHOTO DOCUMENTATION">Photo Documentation</option></select>
+                                <input type="file" name="death_document_file" id="deathDocumentFile" accept="image/*,application/pdf" style="margin-top:8px;">
+                                <small>Maximum file size: 12 MB. A unique document number will be generated automatically.</small>
+                            </div>
+                            <div class="form-group full" id="finalOwnerSection" style="display:none; padding:12px; border:1px solid #0f766e; border-radius:8px; background:#f0fdfa;">
+                                <label>New Owner / AO8 Transferee (recorded as NON-ARB)</label>
+                                <input name="new_owner_name" id="newOwnerName" placeholder="Complete name">
+                                <input name="new_owner_contact" placeholder="Contact number" style="margin-top:8px;">
+                                <label style="margin-top:8px">Date of Order of Finality</label><input type="date" name="finality_date" id="finalityDate">
+                            </div>
                             <div class="form-group full" id="heirSection" style="display:none;"><label>Heirs (for Transfer Action)</label><div id="heirList"></div><button type="button" class="btn btn-primary btn-sm" id="addHeirRowBtn">+ Add Heir</button></div>
                         </div>
                         <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelTagBtn" style="background:#64748b !important; border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Tag</button></div>
@@ -1549,13 +1705,22 @@ The following image can be moved on the page using keyboard controls (left, righ
                 function updateStatuses() {
                     const type = tagTypeSelect.value;
                     const opts = statusOptions[type] || [];
+                    const previousStatus = tagStatusSelect.value;
                     tagStatusSelect.innerHTML = opts.map(s => `<option value="${s}">${s}</option>`).join('');
-                    document.getElementById('heirSection').style.display = (type === 'TRANSFER ACTION') ? 'block' : 'none';
+                    if (opts.includes(previousStatus)) tagStatusSelect.value = previousStatus;
+                    document.getElementById('heirSection').style.display = ['TRANSFER ACTION', 'DEAD'].includes(type) ? 'block' : 'none';
                     document.getElementById('reasonGrp').style.display = ['ALI CASE', 'TRANSFER ACTION'].includes(type) ? 'flex' : 'none';
                     document.getElementById('aliCategoryGrp').style.display = type === 'ALI CASE' ? 'flex' : 'none';
                     document.getElementById('aliTypeGrp').style.display = type === 'ALI CASE' ? 'flex' : 'none';
+                    document.getElementById('deathDocSection').style.display = type === 'DEAD' ? 'flex' : 'none';
+                    document.getElementById('deathDocumentFile').required = type === 'DEAD';
+                    const finalMode = ['ORDER OF FINALITY'].includes(type) || tagStatusSelect.value === 'WITH ORDER OF FINALITY';
+                    document.getElementById('finalOwnerSection').style.display = finalMode ? 'flex' : 'none';
+                    document.getElementById('newOwnerName').required = finalMode;
+                    document.getElementById('finalityDate').required = finalMode;
                 }
                 tagTypeSelect.addEventListener('change', updateStatuses);
+                tagStatusSelect.addEventListener('change', updateStatuses);
                 updateStatuses();
 
                 document.getElementById('addHeirRowBtn')?.addEventListener('click', function() {
@@ -1566,7 +1731,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         <input type="text" name="heir_name[]" placeholder="Heir Name" style="width:40%;">
                         <input type="text" name="heir_relation[]" placeholder="Relation" style="width:30%;">
                         <input type="text" name="heir_contact[]" placeholder="Contact" style="width:25%;">
-                        <button type="button" class="btn btn-danger btn-sm remove-heir-btn">âœ•</button>
+                        <button type="button" class="btn btn-danger btn-sm remove-heir-btn">Remove</button>
                     `;
                     container.appendChild(row);
                     row.querySelector('.remove-heir-btn').addEventListener('click', function() { row.remove(); });
@@ -1586,6 +1751,24 @@ The following image can be moved on the page using keyboard controls (left, righ
                     const targetDate = fd.get('action_date');
                     const aliCategory = fd.get('ali_category');
                     const aliType = fd.get('ali_type');
+                    const landholdingId = emptyToNull(fd.get('arb_landholding_id'));
+
+                    try {
+                    if (tagType === 'DEAD') {
+                        const deathFile = document.getElementById('deathDocumentFile').files[0];
+                        if (!deathFile) { popToast('A death supporting document is required.', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Save Tag'; return; }
+                        if (deathFile.size > MAX_SOURCE_PHOTO_BYTES) { popToast('Supporting document must be 12 MB or smaller.', 'warn'); submitBtn.disabled = false; submitBtn.textContent = 'Save Tag'; return; }
+                        const storagePath = `${arbId}/${crypto.randomUUID()}-${deathFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+                        const upload = await secureDbClient.storage.from('arb-supporting-documents').upload(storagePath, deathFile, { contentType: deathFile.type, upsert: false });
+                        if (upload.error) throw upload.error;
+                        const docInsert = await secureDbClient.from('arb_supporting_documents').insert({
+                            arb_id: Number(arbId), arb_profile_id: profileId, document_type: fd.get('death_document_type'), storage_path: storagePath,
+                            original_file_name: deathFile.name, mime_type: deathFile.type, file_size_bytes: deathFile.size,
+                            uploaded_by: currentUser?.id, uploaded_by_name: currentUserProfile?.full_name || currentUser?.email
+                        }).select('unique_document_no').single();
+                        if (docInsert.error) { await secureDbClient.storage.from('arb-supporting-documents').remove([storagePath]); throw docInsert.error; }
+                        caseDetails = [caseDetails, `Supporting document: ${docInsert.data.unique_document_no}`].filter(Boolean).join(' | ');
+                    }
 
                     if (tagType === 'ALI CASE') {
                         caseDetails = `[${aliCategory}] [${aliType}] ${caseDetails || ''}`.trim();
@@ -1593,6 +1776,8 @@ The following image can be moved on the page using keyboard controls (left, righ
 
                     const tagPayload = {
                         arb_profile_id: profileId,
+                        arb_id: Number(arbId),
+                        arb_landholding_id: landholdingId,
                         tag_type: tagType,
                         status: status,
                         case_reference_no: caseRef,
@@ -1601,7 +1786,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                         tagged_by_user_id: currentUser?.id || null,
                         updated_at: new Date().toISOString(),
                         updated_by: currentUserProfile?.full_name || currentUser?.email || null,
-                        created_at: targetDate + 'T00:00:00Z',
+                        created_at: new Date().toISOString(),
                         ali_category: tagType === 'ALI CASE' ? aliCategory : null,
                         ali_type: tagType === 'ALI CASE' ? aliType : null
                     };
@@ -1623,6 +1808,21 @@ The following image can be moved on the page using keyboard controls (left, righ
                             arbUpdate.for_disqualification = true;
                             arbUpdate.disqualification_reason = caseDetails || status;
                             break;
+                        case 'CANCELLATION OF TITLE':
+                        case 'IDENTIFICATION OF NEW ARB':
+                        case 'DISQUALIFICATION AND IDENTIFICATION':
+                            arbUpdate.with_ali_case = true;
+                            arbUpdate.ali_case_type = tagType;
+                            arbUpdate.ali_case_status = status;
+                            if (tagType.includes('DISQUALIFICATION')) arbUpdate.for_disqualification = true;
+                            break;
+                        case 'AO8':
+                        case 'ORDER OF FINALITY':
+                            arbUpdate.ao8 = true;
+                            arbUpdate.for_ta = true;
+                            arbUpdate.with_ta = true;
+                            arbUpdate.ta_status = status;
+                            break;
                         case 'DEAD':
                             arbUpdate.life_status = 'Dead';
                             lifeUpdate = 'Dead';
@@ -1636,25 +1836,39 @@ The following image can be moved on the page using keyboard controls (left, righ
                             break;
                     }
 
-                    try {
                         const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
                         if (tagErr) throw tagErr;
 
-                        if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION'].includes(tagType)) {
+                        if (['ALI CASE', 'TRANSFER ACTION', 'DISQUALIFICATION', 'CANCELLATION OF TITLE', 'IDENTIFICATION OF NEW ARB', 'DISQUALIFICATION AND IDENTIFICATION', 'AO8', 'ORDER OF FINALITY'].includes(tagType)) {
                             const { data: existingMon } = await secureDbClient.from('arb_legal_monitoring').select('id').eq('arb_id', arbId).eq('case_type', tagType).single();
                             const trackingPayload = {
                                 arb_id: arbId,
+                                arb_profile_id: profileId,
+                                arb_landholding_id: landholdingId,
                                 case_type: tagType,
+                                action_category: tagType,
                                 status: status,
                                 current_target_date: targetDate,
+                                case_reference_no: caseRef,
+                                finality_date: emptyToNull(fd.get('finality_date')),
+                                new_owner_name: emptyToNull(fd.get('new_owner_name')),
+                                new_owner_contact: emptyToNull(fd.get('new_owner_contact')),
+                                new_owner_is_arb: false,
+                                updated_by: currentUser?.id,
                                 reason_for_rollback: fd.get('rollback_reason'),
                                 remarks: caseDetails
                             };
+                            let legalMonitoringId;
                             if (existingMon) {
-                                await secureDbClient.from('arb_legal_monitoring').update(trackingPayload).eq('id', existingMon.id);
+                                const { data: updated, error } = await secureDbClient.from('arb_legal_monitoring').update(trackingPayload).eq('id', existingMon.id).select('id').single();
+                                if (error) throw error; legalMonitoringId = updated.id;
                             } else {
-                                await secureDbClient.from('arb_legal_monitoring').insert(trackingPayload);
+                                trackingPayload.created_by = currentUser?.id;
+                                const { data: inserted, error } = await secureDbClient.from('arb_legal_monitoring').insert(trackingPayload).select('id').single();
+                                if (error) throw error; legalMonitoringId = inserted.id;
                             }
+                            const { error: historyError } = await secureDbClient.from('arb_legal_action_history').insert({ legal_monitoring_id: legalMonitoringId, arb_id: Number(arbId), arb_landholding_id: landholdingId, action_type: tagType, previous_status: null, new_status: status, action_date: new Date().toISOString().slice(0,10), target_date: targetDate, case_reference_no: caseRef, remarks: caseDetails, acted_by: currentUser?.id, acted_by_name: currentUserProfile?.full_name || currentUser?.email });
+                            if (historyError) throw historyError;
                         }
 
                         if (Object.keys(arbUpdate).length > 0) {
@@ -1701,7 +1915,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         }
 
         async function generateArbId(arbId, arbName, btnElement) {
-            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
+            if (!canCaptureAndIssueId()) { popToast('Insufficient permissions.','err'); return; }
             if (btnElement) { btnElement.disabled = true; btnElement.textContent = 'Processing...'; }
 
             try {
@@ -1742,13 +1956,17 @@ The following image can be moved on the page using keyboard controls (left, righ
                 const address = `${tBrgy ? tBrgy + ', ' : ''}${tTown || ''}`.replace(/,\s*$/, '').trim() || "Address Not Available";
 
                 let lhDisp = lhData && lhData.length > 0 ? lhData[0] : {};
-                let tTitle = lhDisp.title_no || lhDisp.ep_cloa_serial_no || lhDisp.ccloa_title_raw || 'â€”';
-                let tArea = lhDisp.landholding_area || 'â€”';
-                let tAsp = lhDisp.asp_no || 'â€”';
-                let tLot = lhDisp.lot_no || 'â€”';
+                let tTitle = lhDisp.title_no || lhDisp.ep_cloa_serial_no || lhDisp.ccloa_title_raw || '—';
+                let tArea = lhDisp.landholding_area || '—';
+                let tAsp = lhDisp.asp_no || '—';
+                let tLot = lhDisp.lot_no || '—';
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] });
+
+                doc.setDrawColor(217, 119, 6);
+                doc.setLineWidth(0.8);
+                doc.rect(1, 1, 83.6, 52);
 
                 doc.setFillColor(6, 95, 70); // Primary green
                 doc.rect(0, 0, 85.6, 12, 'F');
@@ -1758,7 +1976,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 doc.text("DEPARTMENT OF AGRARIAN REFORM", 42.8, 6, { align: "center" });
                 doc.setFontSize(6);
                 doc.setFont("helvetica", "normal");
-                doc.text("Beneficiary Identity Card", 42.8, 10, { align: "center" });
+                doc.text("AGRARIAN REFORM BENEFICIARY IDENTIFICATION CARD", 42.8, 10, { align: "center" });
 
                 doc.setTextColor(0, 0, 0);
 
@@ -1774,23 +1992,30 @@ The following image can be moved on the page using keyboard controls (left, righ
                     doc.text("NO PHOTO", 14, 26, { align: "center" });
                 }
 
-                doc.setFontSize(9);
+                const qrValue = JSON.stringify({ type: 'DAR_ARB_ID', arb_id: String(arbId), card_no: newId, name: fullName(arb), issued: new Date().toISOString().slice(0,10) });
+                const qrImage = qrCodeDataUrl(qrValue);
+                if (qrImage) {
+                    doc.addImage(qrImage, 'PNG', 68, 15, 13, 13);
+                    doc.setFontSize(4.5); doc.setTextColor(71, 85, 105); doc.text('SCAN TO VERIFY', 74.5, 30, { align: 'center' });
+                }
+
+                doc.setFontSize(8.2);
                 doc.setFont("helvetica", "bold");
-                doc.text(safe(arbName || fullName(arb)).toUpperCase(), 28, 18);
+                doc.text(doc.splitTextToSize(String(arbName || fullName(arb)).toUpperCase(), 37), 28, 18);
 
                 doc.setFontSize(6);
                 doc.setFont("helvetica", "normal");
 
-                doc.text(`ID Number : ${newId}`, 28, 21);
-                doc.text(`Title No : ${tTitle}`, 28, 24);
-                doc.text(`Area : ${tArea}   Lot No : ${tLot}   ASP : ${tAsp}`, 28, 27);
+                doc.text(`ID No.: ${newId}`, 28, 23);
+                doc.text(`Title No.: ${tTitle}`, 28, 26);
+                doc.text(`Area: ${tArea}   Lot: ${tLot}   ASP: ${tAsp}`, 28, 29);
 
                 const arboName = arb.arbo?.name || "No ARBO Assigned";
                 const splitArbo = doc.splitTextToSize(`ARBO : ${arboName}`, 55);
-                doc.text(splitArbo, 28, 30);
+                doc.text(splitArbo, 28, 32);
 
                 const splitAddress = doc.splitTextToSize(`Address : ${address}`, 55);
-                doc.text(splitAddress, 28, 34);
+                doc.text(splitAddress, 28, 36);
 
                 doc.setDrawColor(0, 0, 0);
                 doc.line(4, 46, 26, 46); 
@@ -1815,7 +2040,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         }
 
         async function openPhotoUpload(arbId) {
-            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
+            if (!canCaptureAndIssueId()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
                 <form id="photoForm">
                     <div class="form-group"><label>Upload Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
@@ -1929,7 +2154,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         }
 
         async function openAssignArbo(arbId) {
-            if (!canValidateOrAssign()) { popToast('Insufficient permissions.','err'); return; }
+            if (!canAssignArbo()) { popToast('Insufficient permissions.','err'); return; }
             if (arboList.length === 0) await loadArboList();
 
             const arbRes = await secureDbClient.from('arb').select('first_name, last_name, middle_name').eq('id', arbId).single();
@@ -2003,7 +2228,13 @@ The following image can be moved on the page using keyboard controls (left, righ
 
             const currentName = currentUserProfile?.full_name || currentUser?.email || '';
 
-            const munSet = Object.keys(locData).sort();
+            let allowedScopes = [];
+            if (isDarmo()) {
+                const { data, error } = await secureDbClient.from('validator_access_scopes').select('municipality,barangay').eq('validator_user_id', currentUser.id).eq('is_active', true).lte('assigned_from', new Date().toISOString().slice(0,10));
+                if (error) { popToast(error.message,'err'); return; }
+                allowedScopes = (data || []).filter(s => !s.assigned_until || s.assigned_until >= new Date().toISOString().slice(0,10));
+            }
+            const munSet = (isDarmo() ? [...new Set(allowedScopes.map(s => s.municipality))] : Object.keys(locData)).sort();
             const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
             const formHtml = `
@@ -2071,7 +2302,8 @@ The following image can be moved on the page using keyboard controls (left, righ
                     barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
                     return;
                 }
-                const barangays = locData[mun].sort();
+                const municipalityWide = allowedScopes.some(s => s.municipality === mun && !s.barangay);
+                const barangays = (isDarmo() && !municipalityWide ? allowedScopes.filter(s => s.municipality === mun).map(s => s.barangay) : (locData[mun] || [])).filter(Boolean).sort();
                 const options = barangays.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 barangaySelect.innerHTML = `<option value="">Select Barangay</option>${options}`;
             });
@@ -2132,21 +2364,12 @@ The following image can be moved on the page using keyboard controls (left, righ
                     const userId = currentUser?.id || null;
 
                     for (const arbId of allArbIds) {
-                        await secureDbClient.from('arb').update({ validation_status: validationStatus }).eq('id', arbId);
-                        await secureDbClient.from('arb_validations').insert({
-                            arb_id: arbId,
-                            validator_type: validatorType,
-                            validator_name: validatorName,
-                            validator_barangay: barangay,
-                            validator_town: municipality,
-                            position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
-                            date_validated: today,
-                            validation_basis: validationBasis,
-                            supporting_document_reference: supportingDoc,
-                            recorded_by: userName,
-                            recorded_by_user_id: userId,
-                            updated_at: new Date().toISOString()
+                        const { error } = await secureDbClient.rpc('record_arb_validation', {
+                            p_arb_id: Number(arbId), p_validation_status: validationStatus, p_validator_type: validatorType,
+                            p_validator_name: validatorName, p_position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
+                            p_date_validated: today, p_validation_basis: validationBasis, p_supporting_document_reference: supportingDoc
                         });
+                        if (error) throw error;
                     }
                     hideSubModal();
                     popToast(`Batch validation applied to ${allArbIds.length} ARB(s).`, 'ok');
@@ -2460,13 +2683,65 @@ The following image can be moved on the page using keyboard controls (left, righ
         }
 
 
+        async function openExcelLikeView() {
+            showModal('Excel-like View - Filtered ARB Data', '<p class="empty-card">Loading all filtered records...</p>');
+            try {
+                let arbIds = lastFilteredArbIds;
+                if (arbIds === null) {
+                    const allArbs = await fetchAllRecords(() => secureDbClient.from('arb').select('id'));
+                    arbIds = allArbs.map(a => String(a.id));
+                }
+                if (!arbIds.length) {
+                    showModal('Excel-like View - Filtered ARB Data', '<p class="empty-card">No records match the current filters.</p>');
+                    return;
+                }
+                const [arbs, profiles] = await Promise.all([
+                    fetchInChunks('arb', 'id, generated_arb_id, first_name, middle_name, last_name, validation_status, life_status, with_ali_case, ali_case_type, ali_case_status, with_ta, arbo_id', 'id', arbIds),
+                    fetchInChunks('arb_profiles', 'id, arb_id, contact_number, sequence_no, fb_name, split_status, cocrom_no, e_title_no, is_title_distribute, district', 'arb_id', arbIds)
+                ]);
+                const pMap = Object.fromEntries(profiles.map(p => [String(p.arb_id), p]));
+                const profileIds = profiles.map(p => p.id).filter(Boolean);
+                const holdings = profileIds.length ? await fetchInChunks('arb_landholdings', '*', 'arb_profile_id', profileIds) : [];
+                const holdingsMap = {};
+                holdings.forEach(h => (holdingsMap[String(h.arb_profile_id)] ||= []).push(h));
+                const rows = [];
+                arbs.forEach(a => {
+                    const p = pMap[String(a.id)] || {};
+                    const hs = holdingsMap[String(p.id)] || [{}];
+                    hs.forEach(h => rows.push({ a, p, h }));
+                });
+                const body = `<div class="excel-grid-wrap"><table class="excel-grid"><thead><tr>
+                    <th>ARB ID</th><th>Name</th><th>Contact Number</th><th>Validation</th><th>Life</th><th>SPLIT Status</th>
+                    <th>Mother CLOA</th><th>Landowner</th><th>Current Title</th><th>Individual e-Title</th><th>COCROM Certificate</th>
+                    <th>Claim No.</th><th>LHID</th><th>Survey No.</th><th>Lot No.</th><th>Area</th><th>Municipality</th><th>Barangay</th>
+                    <th>ALI</th><th>ALI Type</th><th>ALI Status</th><th>Transfer Action</th><th>Title Distributed</th><th>Sequence No.</th>
+                </tr></thead><tbody>${rows.map(({a,p,h}) => `<tr>
+                    <td>${displayValue(a.generated_arb_id || a.id)}</td><td>${displayValue(fullName(a))}</td><td>${displayValue(p.contact_number)}</td>
+                    <td>${displayValue(a.validation_status)}</td><td>${displayValue(a.life_status)}</td><td>${displayValue(p.split_status)}</td>
+                    <td>${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td><td>${displayValue(h.landowner)}</td><td>${displayValue(h.title_no || h.ep_cloa_serial_no)}</td>
+                    <td>${displayValue(p.e_title_no)}</td><td>${displayValue(p.cocrom_no || h.cocrom_certificate_no || 'NO')}</td>
+                    <td>${displayValue(h.claim_no)}</td><td>${displayValue(h.lhid)}</td><td>${displayValue(h.survey_no)}</td><td>${displayValue(h.lot_no)}</td><td>${displayValue(h.landholding_area)}</td>
+                    <td>${displayValue(h.municipality)}</td><td>${displayValue(h.barangay)}</td><td>${a.with_ali_case ? 'YES' : 'NO'}</td>
+                    <td>${displayValue(a.ali_case_type)}</td><td>${displayValue(a.ali_case_status)}</td><td>${a.with_ta ? 'YES' : 'NO'}</td><td>${p.is_title_distribute ? 'YES' : 'NO'}</td><td>${displayValue(p.sequence_no)}</td>
+                </tr>`).join('')}</tbody></table></div>`;
+                showModal(`Excel-like View - ${rows.length} row(s)`, body);
+                document.getElementById('modalContentContainer')?.classList.add('excel-modal');
+            } catch (e) {
+                showModal('Excel-like View', `<p class="empty-card" style="color:#991b1b;">${safe(e.message)}</p>`);
+            }
+        }
+
+        window.openArbProfileById = openArbProfile;
+
         // -------- Listeners & Initialization --------
         document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
         document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0; loadArbs(currentPage); });
         document.getElementById('batchValidateBtn')?.addEventListener('click', openBatchValidation);
         document.getElementById('generateReportBtn')?.addEventListener('click', openGenerateReport);
+        document.getElementById('excelViewBtn')?.addEventListener('click', openExcelLikeView);
         document.getElementById('clearFiltersBtn')?.addEventListener('click', function() {
             document.querySelectorAll('#filterRow select').forEach(s => s.value = '');
+            document.querySelectorAll('#filterRow input').forEach(i => i.value = '');
             document.getElementById('globalSearchInput').value = '';
             currentPage = 0;
             loadArbs(currentPage);
@@ -2497,7 +2772,7 @@ The following image can be moved on the page using keyboard controls (left, righ
         document.getElementById('toggleFiltersBtn')?.addEventListener('click', function() {
             const filters = document.getElementById('advancedFilters');
             filters.classList.toggle('open');
-            this.textContent = filters.classList.contains('open') ? 'ðŸ”½ Hide Filters' : 'âš™ï¸ Advanced Filters';
+            this.textContent = filters.classList.contains('open') ? 'Hide Filters' : 'Advanced Filters';
         });
 
         (async function init() {
@@ -2524,7 +2799,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     document.body.innerHTML = `
                         <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
                             <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
-                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">ðŸš«</h1>
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">ACCESS</h1>
                                 <h2 style="color:#0f172a; margin-top:15px;">Access Denied</h2>
                                 <p style="color:#475569;">Your role does not have permission to view the ARB Management page.</p>
                                 <button onclick="window.location.href='dashboard.html'" class="btn btn-primary" style="margin-top:20px;">Return to Dashboard</button>
@@ -2538,7 +2813,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                     document.body.innerHTML = `
                         <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
                             <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
-                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">ðŸš«</h1>
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">INACTIVE</h1>
                                 <h2 style="color:#0f172a; margin-top:15px;">Account Inactive</h2>
                                 <p style="color:#475569;">Your account has been marked as inactive by the administrator.</p>
                             </div>
@@ -2554,7 +2829,7 @@ The following image can be moved on the page using keyboard controls (left, righ
                 popToast('ARB Management ready.', 'ok');
             } catch(e) {
                 console.error(e);
-                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">âŒ ${safe(e.message)}</td></tr>`;
+                document.getElementById('arbTableBody').innerHTML = `<tr><td colspan="14" class="empty-card" style="text-align:center;padding:30px;color:#991b1b;">Error: ${safe(e.message)}</td></tr>`;
             }
         })();
 
