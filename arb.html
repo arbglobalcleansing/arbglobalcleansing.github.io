@@ -366,10 +366,18 @@
             clearTimeout(el._toastTimer);
             el._toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
         }
-        function canEdit() {
-            const role = String(currentUserProfile?.role || '').toLowerCase();
-            return role === 'admin' || role === 'staff';
+
+        /* ----- ROLE BASED ACCESS CONTROL ----- */
+        function isFullAdmin() {
+            const role = String(currentUserProfile?.role || '').toUpperCase();
+            return ['ADMIN', 'STAFF'].includes(role);
         }
+        function canValidateOrAssign() {
+            const role = String(currentUserProfile?.role || '').toUpperCase();
+            return isFullAdmin() || ['PBDD PERSONNEL', 'PBDD ADMIN'].includes(role);
+        }
+        // Aliases for historical functions
+        function canEdit() { return isFullAdmin(); }
 
         window.showAliInfo = function(arbName, aliType, aliStatus) {
             showSubModal('⚖️ ALI Case Status', `
@@ -802,12 +810,12 @@
                             <td>
                                 <div class="action-group">
                                     <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
-                                    ${canEdit() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
+                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
+                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}">ALI TAG</button>` : ''}
+                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
+                                    ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                    ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
                                 </div>
                             </td>
                         </tr>`;
@@ -831,11 +839,7 @@
                 document.querySelectorAll('.tag-arb-btn').forEach(btn => btn.addEventListener('click', () => openTagArb(btn.dataset.arbId)));
                 document.querySelectorAll('.photo-btn').forEach(btn => btn.addEventListener('click', () => openPhotoUpload(btn.dataset.arbId)));
                 document.querySelectorAll('.arbo-btn').forEach(btn => btn.addEventListener('click', () => openAssignArbo(btn.dataset.arbId)));
-
-                // Re-routed individual VALIDATE button directly to the full comprehensive validation form
                 document.querySelectorAll('.update-validation-btn').forEach(btn => btn.addEventListener('click', () => openValidationForm(btn.dataset.arbId, btn.dataset.current)));
-
-                // Double-click preventer for PDF gen
                 document.querySelectorAll('.gen-id-btn').forEach(btn => btn.addEventListener('click', function() {
                     generateArbId(this.dataset.arbId, this.dataset.name, this);
                 }));
@@ -942,11 +946,11 @@
                                     ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                 </div>
                                 <div class="sidebar-actions">
-                                    ${profileId ? (canEdit() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">⚠️ Profile record missing. Please create one via Edit.</p>`}
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddHeirBtn">👪 Add Heir</button>` : ''}
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ ALI Tag</button>` : ''}
-                                    ${profileId && canEdit() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Validate</button>` : ''}
-                                    ${!profileId && canEdit() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
+                                    ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">✏️ Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">⚠️ Profile record missing.</p>`}
+                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddHeirBtn">👪 Add Heir</button>` : ''}
+                                    ${profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileAddTagBtn">⚖️ ALI Tag</button>` : ''}
+                                    ${profileId && canValidateOrAssign() ? `<button class="btn btn-primary" id="profileAddValidationBtn">✅ Validate</button>` : ''}
+                                    ${!profileId && isFullAdmin() ? `<button class="btn btn-primary" id="profileCreateProfileBtn">📝 Create Profile</button>` : ''}
                                 </div>
                             </div>
                             <!-- Tabs Content -->
@@ -988,28 +992,26 @@
                     });
                 });
 
-                if (canEdit()) {
-                    if (profileId) {
-                        document.getElementById('profileEditBtn')?.addEventListener('click', () => { openEditArb(arbId); });
-                        document.getElementById('profileAddHeirBtn')?.addEventListener('click', () => { openHeirForm(arbId); });
-                        document.getElementById('profileAddTagBtn')?.addEventListener('click', () => { openTagArb(arbId); });
-                        document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { openValidationForm(arbId, arb.validation_status); });
-                    } else {
-                        document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async function() {
-                            this.disabled = true; this.textContent = "Processing...";
-                            try {
-                                const { data, error } = await secureDbClient.from('arb_profiles').insert({
-                                    arb_id: String(arbId),
-                                    created_at: new Date().toISOString(),
-                                    updated_at: new Date().toISOString()
-                                }).select('id').single();
-                                if (error) { popToast('RLS policy error: ' + error.message, 'err'); return; }
-                                hideModal();
-                                popToast('Profile created successfully. Re-open to edit.', 'ok');
-                                openArbProfile(arbId);
-                            } catch (e) { popToast(e.message, 'err'); }
-                        });
-                    }
+                if (profileId) {
+                    document.getElementById('profileEditBtn')?.addEventListener('click', () => { openEditArb(arbId); });
+                    document.getElementById('profileAddHeirBtn')?.addEventListener('click', () => { openHeirForm(arbId); });
+                    document.getElementById('profileAddTagBtn')?.addEventListener('click', () => { openTagArb(arbId); });
+                    document.getElementById('profileAddValidationBtn')?.addEventListener('click', () => { openValidationForm(arbId, arb.validation_status); });
+                } else {
+                    document.getElementById('profileCreateProfileBtn')?.addEventListener('click', async function() {
+                        this.disabled = true; this.textContent = "Processing...";
+                        try {
+                            const { data, error } = await secureDbClient.from('arb_profiles').insert({
+                                arb_id: String(arbId),
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            }).select('id').single();
+                            if (error) { popToast('RLS policy error: ' + error.message, 'err'); return; }
+                            hideModal();
+                            popToast('Profile created successfully. Re-open to edit.', 'ok');
+                            openArbProfile(arbId);
+                        } catch (e) { popToast(e.message, 'err'); }
+                    });
                 }
 
             } catch (err) {
@@ -1225,6 +1227,9 @@
         }
 
         async function openValidationForm(arbId, currentStatus = 'Pending') {
+            const currentName = currentUserProfile?.full_name || currentUser?.email || '';
+            const currentPos = currentUserProfile?.position || '';
+
             const formHtml = `
                 <form id="validationForm">
                     <div class="form-grid">
@@ -1242,8 +1247,8 @@
                                 <option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option>
                             </select>
                         </div>
-                        <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" required></div>
-                        <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position"></div>
+                        <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" value="${safe(currentName)}" required></div>
+                        <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position" value="${safe(currentPos)}"></div>
                         <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
                         <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis"></div>
                         <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference" required placeholder="Required"></div>
@@ -1288,7 +1293,7 @@
         }
 
         async function openEditArb(arbId) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
             try {
                 const arbRes = await secureDbClient.from('arb').select(`
                     *, arbo:arbo_id (id, name, municipality, barangay)
@@ -1428,7 +1433,7 @@
         }
 
         async function openTagArb(arbId) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
             try {
                 const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
                 if (profRes.error) { popToast('Profile not found. Please create profile first.', 'err'); return; }
@@ -1640,7 +1645,7 @@
         }
 
         async function generateArbId(arbId, arbName, btnElement) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
             if (btnElement) { btnElement.disabled = true; btnElement.textContent = 'Processing...'; }
 
             try {
@@ -1753,7 +1758,7 @@
         }
 
         async function openPhotoUpload(arbId) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!isFullAdmin()) { popToast('Insufficient permissions.','err'); return; }
             const formHtml = `
                 <form id="photoForm">
                     <div class="form-group"><label>Upload Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
@@ -1856,7 +1861,7 @@
         }
 
         async function openAssignArbo(arbId) {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!canValidateOrAssign()) { popToast('Insufficient permissions.','err'); return; }
             if (arboList.length === 0) await loadArboList();
 
             const arbRes = await secureDbClient.from('arb').select('first_name, last_name, middle_name').eq('id', arbId).single();
@@ -1926,7 +1931,9 @@
         }
 
         async function openBatchValidation() {
-            if (!canEdit()) { popToast('Insufficient permissions.','err'); return; }
+            if (!canValidateOrAssign()) { popToast('Insufficient permissions.','err'); return; }
+
+            const currentName = currentUserProfile?.full_name || currentUser?.email || '';
 
             const munSet = Object.keys(locData).sort();
             const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
@@ -1965,7 +1972,7 @@
                         </div>
                         <div class="form-group full">
                             <label for="batchValidatorName">Validator Name (optional)</label>
-                            <input id="batchValidatorName" name="validator_name" placeholder="If left blank, current user will be used">
+                            <input id="batchValidatorName" name="validator_name" value="${safe(currentName)}" placeholder="If left blank, current user will be used">
                         </div>
                         <div class="form-group full">
                             <label for="batchBarangayCaptain">Barangay Captain Name (if Barangay validation)</label>
@@ -2085,6 +2092,8 @@
 
         // -------- BARANGAY REPORT GENERATOR --------
         async function openGenerateReport() {
+            if (!canValidateOrAssign()) { popToast('Insufficient permissions.','err'); return; }
+
             const munSet = Object.keys(locData).sort();
             const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
@@ -2161,7 +2170,7 @@
                 const profData = await fetchInChunks('arb_profiles', 'id, arb_id', 'id', profIds);
 
                 const arbIds = [...new Set(profData.map(p => p.arb_id).filter(Boolean))];
-                const arbData = await fetchInChunks('arb', 'id, first_name, middle_name, last_name, validation_status', 'id', arbIds);
+                const arbData = await fetchInChunks('arb', 'id, first_name, middle_name, last_name, validation_status, arbo_id', 'id', arbIds);
 
                 const validArbMap = {};
                 arbData.forEach(a => { 
@@ -2210,6 +2219,7 @@
 
                     grouped[groupKey].push({
                         name: arbName,
+                        isArbo: a.arbo_id ? 'YES' : 'NO',
                         survey: lh.survey_no || '',
                         lot: lh.lot_no || '',
                         area: lh.landholding_area || '',
@@ -2257,6 +2267,7 @@
                     const head = [
                         [
                             {content: 'PANGARAN KANG PARA-UMA (ARB)\n\n\n\n', rowSpan: 2, styles: {valign: 'top', halign: 'center'}},
+                            {content: 'ARBO\nMEMBER', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
                             {content: 'IMPORMASYON MANUNGOD SA DAGA', colSpan: 4, styles: {halign: 'center'}},
                             {content: 'PANGARAN KANG AKTUAL NA NAG-UUMA\nKAN DAGA SA NGUNYAN', rowSpan: 2, styles: {valign: 'middle', halign: 'center'}},
                             {content: 'Kun iba na ang nag-uuma,\nano ang dahilan?', colSpan: 4, styles: {halign: 'center'}},
@@ -2278,7 +2289,7 @@
                     ];
 
                     const body = grouped[brgy].map(row => [
-                        row.name, row.survey, row.lot, row.area, row.title,
+                        row.name, row.isArbo, row.survey, row.lot, row.area, row.title,
                         '', '', '', '', '', '', '', ''
                     ]);
 
@@ -2291,13 +2302,20 @@
                         styles: { fontSize: 8, cellPadding: 1.5, lineColor: [0, 0, 0], lineWidth: 0.1, valign: 'middle', minCellHeight: 6, overflow: 'linebreak' },
                         headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
                         columnStyles: {
-                            0: { cellWidth: 50 },
-                            1: { cellWidth: 20 },
-                            2: { cellWidth: 15 },
+                            0: { cellWidth: 55 },
+                            1: { cellWidth: 15, halign: 'center' },
+                            2: { cellWidth: 20 },
                             3: { cellWidth: 15 },
-                            4: { cellWidth: 30 },
-                            5: { cellWidth: 70 },
-                            12: { cellWidth: 40 }
+                            4: { cellWidth: 15 },
+                            5: { cellWidth: 25 },
+                            6: { cellWidth: 55 },
+                            7: { cellWidth: 12 },
+                            8: { cellWidth: 12 },
+                            9: { cellWidth: 12 },
+                            10: { cellWidth: 12 },
+                            11: { cellWidth: 12 },
+                            12: { cellWidth: 12 },
+                            13: { cellWidth: 35 }
                         },
                         didDrawCell: function(data) {
                             if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
@@ -2426,6 +2444,34 @@
                 const { data: profile, error: profErr } = await secureDbClient.from('profiles').select('*').eq('id', currentUser.id).single();
                 if (profErr && profErr.code !== 'PGRST116') throw profErr;
                 currentUserProfile = profile;
+                
+                // RESTRICT ARBO ADMIN ENTIRELY
+                if (String(profile?.role).toUpperCase() === 'ARBO ADMIN') {
+                    document.body.innerHTML = `
+                        <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
+                            <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">🚫</h1>
+                                <h2 style="color:#0f172a; margin-top:15px;">Access Denied</h2>
+                                <p style="color:#475569;">Your role does not have permission to view the ARB Management page.</p>
+                                <button onclick="window.location.href='dashboard.html'" class="btn btn-primary" style="margin-top:20px;">Return to Dashboard</button>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
+                // Check specifically if user is inactive
+                if (String(profile?.status).toUpperCase() === 'INACTIVE') {
+                    document.body.innerHTML = `
+                        <div style="display:flex; height:100vh; width:100%; align-items:center; justify-content:center; background:#f1f5f9;">
+                            <div style="text-align:center; background:white; padding:40px; border-radius:10px; box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+                                <h1 style="color:#991b1b; font-size:3rem; margin:0;">🚫</h1>
+                                <h2 style="color:#0f172a; margin-top:15px;">Account Inactive</h2>
+                                <p style="color:#475569;">Your account has been marked as inactive by the administrator.</p>
+                            </div>
+                        </div>`;
+                    return;
+                }
+
                 await buildNavbar(profile);
 
                 await populateFilterOptions();
