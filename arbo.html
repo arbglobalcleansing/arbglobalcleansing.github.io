@@ -238,7 +238,8 @@
     const formatDate = (v) => { if (!v) return '—'; const d=new Date(String(v).length===10?v+'T00:00:00':v); return Number.isNaN(d.getTime())?esc(v):d.toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}); };
     const badge = (text, kind='gray') => `<span class="badge badge-${kind}">${val(text)}</span>`;
     const role = () => String(state.profile?.role || '').toLowerCase();
-    const isManager = () => ['admin','staff'].includes(role());
+    const isManager = () => ['admin','staff','ltsp','ltsp personnel'].includes(role());
+    const isArboAdmin = () => role()==='arbo admin';
     const isSystemAdmin = () => role()==='admin';
     const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
     const addMonths = (value,months) => { if(!value)return '';const d=new Date(dateOnly(value)+'T00:00:00'),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+Number(months||0));d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
@@ -269,15 +270,23 @@
         const navEl=$('mainNav'); if(!navEl) return;
         const {data:navItems}=await state.db.from('system_navigation').select('*').order('id',{ascending:true});
         const curPath=window.location.pathname;
-        const links=navItems?.length?navItems:[
+        let links=navItems?.length?navItems:[
             {label:'Dashboard',url:'/dashboard.html',icon:'📊'},{label:'ARBO Management',url:'/arbo.html',icon:'🏢'},
             {label:'ARB Management',url:'/arb.html',icon:'👤'},{label:'Validators',url:'/validators.html',icon:'✅'},{label:'Reports',url:'/reports.html',icon:'📈'}
         ];
+        if(isArboAdmin())links=links.filter(l=>l.label==='ARBO Management'||String(l.url||'').includes('arbo.html'));
         const unique=[]; const seen=new Set(); for(const item of links){if(!seen.has(item.label)){seen.add(item.label);unique.push(item);}}
-        let html=unique.map(l=>{const target=(l.url||'').replace('/','');const active=curPath.includes(target)&&target?'active':'';return `<a href="${esc(l.url)}" class="${active}">${esc(l.icon||'')} ${esc(l.label)}</a>`;}).join('');
+        const fallbackIcons={'Dashboard':'📊','ARBO Management':'🏢','ARB Management':'👤','Validators':'✅','Reports':'📈'};
+        let html=unique.map(l=>{const target=(l.url||'').replace('/','');const active=curPath.includes(target)&&target?'active':'';return `<a href="${esc(l.url)}" class="${active}">${esc(fallbackIcons[l.label]||l.icon||'')} ${esc(l.label)}</a>`;}).join('');
         const display=userProfile?.full_name?.trim()||authData.user.email;
-        html+=`<span class="user-badge" style="margin-left:auto;color:#0a3d62;font-weight:600;">👤 ${esc(display)} (${esc(userProfile?.role)})</span><span id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
-        navEl.innerHTML=html; $('navLogoutBtn')?.addEventListener('click',async()=>{await state.db.auth.signOut();location.href='login.html';});
+        html+=`<span class="user-badge" id="navProfileBtn" title="Modify my profile" style="margin-left:auto;color:#0a3d62;font-weight:600;cursor:pointer;">👤 ${esc(display)} (${esc(userProfile?.role)})</span><span id="navLogoutBtn" style="color:#b91c1c;font-weight:600;margin-left:10px;cursor:pointer;">🚪 Logout</span>`;
+        navEl.innerHTML=html;$('navProfileBtn')?.addEventListener('click',openMyProfile);$('navLogoutBtn')?.addEventListener('click',async()=>{await state.db.auth.signOut();location.href='login.html';});
+    }
+
+    function openMyProfile() {
+        openModal('My Profile','my_profile');
+        $('saveEntity').textContent='Save Profile';
+        $('entityFormBody').innerHTML=`<div class="access-note">You may update your own name, position, and password. Your email, role, ARBO assignment, and account status remain controlled by the system administrator.</div><div class="form-grid-2">${input('profile_email','Email / Login',state.user?.email||state.profile?.email||'','email','readonly')}${input('profile_name','Complete Name',state.profile?.full_name||'','text','required')}${input('profile_position','Position',state.profile?.position||'')}${input('profile_password','New Password','','password','minlength="6" placeholder="Leave blank to keep the current password"')}</div>`;
     }
 
     function showSetupWarning(message) { const el=$('setupWarning'); el.innerHTML=`<strong>Database setup required:</strong> ${esc(message)} Run <code>ARBO_Cooperative_Management_Schema.sql</code> once in Supabase SQL Editor.`; el.style.display='block'; }
@@ -343,7 +352,7 @@
     function signedCapital(tx) { return String(tx.transaction_type).toUpperCase()==='REFUND' ? -(Number(tx.amount)||0) : Number(tx.amount)||0; }
     function isDue(date) { if(!date) return false; const days=(new Date(dateOnly(date)+'T00:00:00')-new Date(today()+'T00:00:00'))/86400000; return days<=30; }
     function isOverdue(date) { return Boolean(date) && dateOnly(date)<today(); }
-    function currentUserAssignment() { return state.data.validators.find(v=>String(v.validator_user_id)===String(state.user.id) && v.is_active && dateOnly(v.assigned_from)<=today() && (!v.assigned_until||dateOnly(v.assigned_until)>=today()))||null; }
+    function currentUserAssignment() { return isArboAdmin()?state.data.validators.find(v=>String(v.validator_user_id)===String(state.user.id) && String(v.assignment_role||'').toUpperCase()==='ARBO ADMIN' && v.is_active && dateOnly(v.assigned_from)<=today() && (!v.assigned_until||dateOnly(v.assigned_until)>=today()))||null:null; }
     function canEditCurrent() { return isManager() || Boolean(currentUserAssignment()); }
     function currentAccessLabel() {const assignment=currentUserAssignment();return isManager()?'System administrator/staff access.':assignment?.assignment_role==='ARBO ADMIN'?'ARBO ADMIN access: you may modify this assigned ARBO only.':'Validator access is limited to this assigned ARBO.';}
     function memberName(id) { return byId(state.data.members,id)?.arb_name || 'Unknown member'; }
@@ -566,6 +575,7 @@
     async function saveEntity(event) {
         event.preventDefault(); const type=$('entityType').value,id=$('entityId').value,isNew=!id; let table,payload;
         try {
+            if(type==='my_profile'){const fullName=String(formValue('profile_name')||'').trim(),position=nullIfBlank(formValue('profile_position')),password=String(formValue('profile_password')||'');if(!fullName)throw new Error('Complete name is required.');const saved=await state.db.from('profiles').update({full_name:fullName,position,updated_at:new Date().toISOString()}).eq('id',state.user.id);if(saved.error)throw saved.error;if(password){const authSaved=await state.db.auth.updateUser({password});if(authSaved.error)throw authSaved.error;}state.profile={...state.profile,full_name:fullName,position};closeModal();await buildNavbar(state.profile,{user:state.user});return;}
             if(type==='depreciation'){const result=await state.db.rpc('post_arbo_asset_depreciation',{p_arbo_id:currentId(),p_fixed_asset_id:formValue('fixed_asset_id'),p_through_date:formValue('through_date'),p_reference_no:nullIfBlank(formValue('reference_no')),p_remarks:nullIfBlank(formValue('remarks'))});if(result.error)throw result.error;closeModal();await openArbo(currentId());return;}
             if(type==='historical_loan'){if(!formValue('membership_id'))throw new Error('Search and select the borrower from ARBO membership.');const original=Number(formValue('original_principal'))||0,outstanding=Number(formValue('outstanding_principal'))||0;if(original<outstanding)throw new Error('Original principal cannot be lower than the outstanding principal.');const result=await state.db.rpc('backpost_arbo_existing_loan',{p_arbo_id:currentId(),p_membership_id:formValue('membership_id'),p_loan_no:formValue('loan_no'),p_original_principal:original,p_outstanding_principal:outstanding,p_outstanding_interest:Number(formValue('outstanding_interest'))||0,p_annual_interest_rate:Number(formValue('annual_interest_rate'))||0,p_remaining_term_months:Number(formValue('remaining_term_months'))||0,p_original_release_date:formValue('original_release_date'),p_cutoff_date:formValue('cutoff_date'),p_first_due_date:formValue('first_due_date'),p_status:formValue('status'),p_purpose:nullIfBlank(formValue('purpose')),p_collateral:nullIfBlank(formValue('collateral')),p_co_maker:nullIfBlank(formValue('co_maker')),p_reference_no:nullIfBlank(formValue('reference_no')),p_remarks:nullIfBlank(formValue('remarks'))});if(result.error)throw result.error;closeModal();await openArbo(currentId());return;}
             if(type==='report'){generateSelectedReport();return;}
@@ -714,6 +724,8 @@
         state.db=resolveClient(); if(!state.db)throw new Error('Supabase client configuration was not found.');
         const auth=await state.db.auth.getUser(); if(auth.error||!auth.data?.user){location.href='login.html';return;} state.user=auth.data.user;
         const p=await state.db.from('profiles').select('*').eq('id',state.user.id).single(); if(p.error)throw p.error; state.profile=p.data;
+        if(String(state.profile?.status||'ACTIVE').toUpperCase()==='INACTIVE')throw new Error('Your account is inactive.');
+        if(!isManager()&&!isArboAdmin())throw new Error('Only system administrators, authorized staff, and assigned ARBO ADMIN users may open ARBO Management.');
         await buildNavbar(state.profile,auth.data); $('addArboBtn').style.display=isManager()?'inline-flex':'none'; await loadArbos();
     } catch(e) { $('arboTableBody').innerHTML=`<tr><td colspan="8" class="empty-panel" style="color:#b91c1c;">${esc(e.message)}</td></tr>`; }
 })();
