@@ -27,7 +27,7 @@
         .monitor-table th{background:#f8fafc;color:#475569;font-size:.76rem;text-transform:uppercase;letter-spacing:.025em;white-space:nowrap}
         .monitor-table tbody tr:last-child td{border-bottom:0}
         .monitor-table tbody tr:hover{background:#fbfdff}
-        .arbo-name{color:#003f70;font-weight:800;text-transform:uppercase;line-height:1.35}
+        .arbo-name{color:#003f70;font-weight:normal;text-transform:uppercase;line-height:1.35}
         .money{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right!important}
         .status{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:.68rem;font-weight:800;white-space:nowrap}
         .status-green{background:#dcfce7;color:#166534}.status-blue{background:#dbeafe;color:#1e40af}.status-amber{background:#fef3c7;color:#92400e}.status-red{background:#fee2e2;color:#991b1b}.status-gray{background:#e2e8f0;color:#475569}
@@ -112,7 +112,7 @@
 
     <div id="setupWarning" class="access-note error-note"></div>
 
-    <section class="section">
+    <section class="section" id="arboListSection">
         <div class="module-heading">
             <div><h2>ARBO Management</h2></div>
             <div class="module-actions"><button class="btn btn-info" id="summaryReport" type="button" style="display:none">ARBO Summary Report</button></div>
@@ -192,12 +192,12 @@
         SIB:['CAPACITY DEVELOPMENT','ARBO CARAVAN','ORGANIZATIONAL DEVELOPMENT','OTHER SIB SUPPORT'],
         'SUPERVISION AND MANAGEMENT':['MONITORING AND EVALUATION','SEMESTER REVIEW AND PLANNING','INCLUSIVE DEVELOPMENT','OTHER SUPERVISION SUPPORT']
     };
-    const PROJECT_TABS=[['overview','Overview'],['profile','ARBO Profile'],['projects','PBDD Projects'],['monitoring','Monitoring Updates'],['training','Trainings'],['machinery','Machinery'],['products','Products and Sales'],['income','Monthly Income']];
+    const PROJECT_TABS=[['overview','Overview'],['profile','ARBO Profile'],['projects','PBDD Projects'],['monitoring','Monitoring Updates'],['training','Trainings'],['machinery','Machinery'],['products','Products and Sales'],['merkado','Agraryo Merkado'],['income','Monthly Income']];
     const LIMITED_TABS=[['profile','ARBO Profile']];
     const TRAINING_TYPES=['ORGANIZATIONAL MANAGEMENT','FINANCIAL MANAGEMENT','BOOKKEEPING','PARLIAMENTARY RULES AND PROCEDURES','TECHNICAL AND PRODUCTION','ENTERPRISE DEVELOPMENT','CLIMATE RESILIENCE','COMPLIANCE','LEADERSHIP AND GOVERNANCE','OTHER'];
     const TRAINING_STATUSES=['PLANNED','SCHEDULED','ONGOING','COMPLETED','CANCELLED'];
     const ARBO_REPORT_TITLES={COMPREHENSIVE:'DAR ARBO PROFILE AND ARBDSP INTERVENTION REPORT',PROJECTS:'DAR ARBDSP PROJECT ACCOMPLISHMENT AND MONITORING REPORT',TRAINING:'DAR CAPABILITY DEVELOPMENT AND TRAINING REPORT',MACHINERY:'DAR FARM MACHINERY AND EQUIPMENT UTILIZATION REPORT',PRODUCTS:'DAR ENTERPRISE PRODUCT DEVELOPMENT AND SALES REPORT',INCOME:'DAR MONTHLY ARBO INCOME MONITORING REPORT'};
-    const state={db:null,user:null,profile:null,arbos:[],projects:[],updates:[],training:[],income:[],assignments:[],personnel:[],machinery:[],utilization:[],products:[],sales:[],current:null,tab:'profile',page:0,filtered:[]};
+    const state={db:null,user:null,profile:null,arbos:[],projects:[],updates:[],training:[],income:[],assignments:[],personnel:[],machinery:[],utilization:[],products:[],sales:[],merkado:[],current:null,tab:'profile',page:0,filtered:[]};
     const $=id=>document.getElementById(id);
     const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
     const blank=v=>v===null||v===undefined||String(v).trim()==='';
@@ -227,6 +227,7 @@
     const utilizationFor=id=>state.utilization.filter(i=>String(i.arbo_id)===String(id)).sort((a,b)=>dateOnly(b.activity_date).localeCompare(dateOnly(a.activity_date)));
     const productsFor=id=>state.products.filter(i=>String(i.arbo_id)===String(id)).sort((a,b)=>String(a.product_name||'').localeCompare(String(b.product_name||'')));
     const salesFor=id=>state.sales.filter(i=>String(i.arbo_id)===String(id)).sort((a,b)=>dateOnly(b.sale_date).localeCompare(dateOnly(a.sale_date)));
+    const merkadoFor=id=>state.merkado.filter(i=>String(i.arbo_id)===String(id)).sort((a,b)=>dateOnly(b.sale_date).localeCompare(dateOnly(a.sale_date)));
     const projectById=id=>state.projects.find(p=>String(p.id)===String(id));
     const machineryById=id=>state.machinery.find(p=>String(p.id)===String(id));
     const productById=id=>state.products.find(p=>String(p.id)===String(id));
@@ -270,21 +271,23 @@
         try{
             state.arbos=await fetchAll('arbo','name',true);
             const results=await Promise.allSettled([
-                fetchAll('arbo_pbdd_projects','created_at',false),
-                fetchAll('arbo_project_monitoring_updates','monitoring_date',false),
-                fetchAll('arbo_training_activities','start_date',false),
-                fetchAll('arbo_monthly_income','report_month',false),
-                fetchAll('arbo_validators','assigned_from',false),
-                fetchAll('pbdd_unit_personnel_v','full_name',true),
-                fetchAll('arbo_machinery_assets','created_at',false),
-                fetchAll('arbo_machinery_utilization','activity_date',false),
-                fetchAll('arbo_enterprise_products','created_at',false),
-                fetchAll('arbo_product_sales','sale_date',false)
+                fetchAll('arbo_pbdd_projects','created_at',false), // 0
+                fetchAll('arbo_project_monitoring_updates','monitoring_date',false), // 1
+                fetchAll('arbo_training_activities','start_date',false), // 2
+                fetchAll('arbo_monthly_income','report_month',false), // 3
+                fetchAll('arbo_validators','assigned_from',false), // 4
+                fetchAll('pbdd_unit_personnel_v','full_name',true), // 5
+                fetchAll('arbo_machinery_assets','created_at',false), // 6
+                fetchAll('arbo_machinery_utilization','activity_date',false), // 7
+                fetchAll('arbo_enterprise_products','created_at',false), // 8
+                fetchAll('arbo_product_sales','sale_date',false), // 9
+                fetchAll('arbo_merkado_sales','sale_date',false) // 10
             ]);
-            if(results.slice(0,4).some(result=>result.status==='rejected')||results.slice(6).some(result=>result.status==='rejected')){
+            if(results.slice(0,4).some(result=>result.status==='rejected')||results.slice(6,10).some(result=>result.status==='rejected')){
                 throw new Error('Run ARBO_PBDD_Project_Monitoring_Schema.sql before opening this page.');
             }
             state.projects=results[0].value;state.updates=results[1].value;state.training=results[2].value;state.income=results[3].value;state.assignments=results[4].status==='fulfilled'?results[4].value:[];state.personnel=results[5].status==='fulfilled'?results[5].value:[];state.machinery=results[6].value;state.utilization=results[7].value;state.products=results[8].value;state.sales=results[9].value;
+            state.merkado=results[10].status==='fulfilled'?results[10].value:[];
             populateFilters();applyFilters();
         }catch(error){showSetup(error.message);$('arboRows').innerHTML=`<tr><td colspan="8" class="empty" style="color:#b91c1c">${esc(error.message)}</td></tr>`;}
     }
@@ -327,7 +330,7 @@
         const total=state.filtered.length,start=state.page*PAGE_SIZE,rows=state.filtered.slice(start,start+PAGE_SIZE),allActive=state.projects.filter(p=>['APPROVED','ONGOING','ON HOLD'].includes(p.status)).length,overdue=state.projects.filter(p=>p.next_monitoring_date&&dateOnly(p.next_monitoring_date)<today()&&!['COMPLETED','CANCELLED'].includes(p.status)).length,currentIncome=state.income.filter(i=>dateOnly(i.report_month)===currentMonth()).reduce((sum,i)=>sum+Number(i.income_amount||0),0),completedTraining=state.training.filter(t=>t.status==='COMPLETED').length;
         const summary=isPbDDProjectUser()?[['Accessible ARBOs',state.arbos.length],['Active Projects',allActive],['Machinery',state.machinery.length],['Active Products',state.products.filter(p=>p.development_status==='ACTIVE').length],['Current-Month Income',money(currentIncome)]]:[['Accessible ARBOs',state.arbos.length],['Project Access','Restricted'],['Required Role','PBDD Personnel'],['Alternate Role','PBDD Unit Head'],['Project Records','Protected']];
         $('masterKpis').innerHTML=kpis(summary);
-        $('arboRows').innerHTML=rows.length?rows.map(a=>{const latest=latestIncome(a.id),projectCell=isPbDDProjectUser()?`${activeProjects(a.id).length}${overdueProjects(a.id).length?` ${badge('OVERDUE '+overdueProjects(a.id).length)}`:''}`:'RESTRICTED',incomeCell=isPbDDProjectUser()?(latest?`${money(latest.income_amount)}<span class="small-note">${formatMonth(latest.report_month)}</span>`:'—'):'RESTRICTED';return `<tr><td><strong>${show(a.dar_arbo_id||a.id)}</strong></td><td><span class="arbo-name">${esc(upper(a.name))}</span></td><td>${show(a.municipality)}</td><td>${show(a.barangay)}</td><td>${badge(a.arc_classification||'NOT SET')}</td><td>${projectCell}</td><td class="money">${incomeCell}</td><td><button class="btn btn-info btn-sm" type="button" data-open-arbo="${esc(a.id)}">Open</button></td></tr>`}).join(''):'<tr><td colspan="8" class="empty">No ARBO matched the selected filters.</td></tr>';
+        $('arboRows').innerHTML=rows.length?rows.map(a=>{const latest=latestIncome(a.id),projectCell=isPbDDProjectUser()?`${activeProjects(a.id).length}${overdueProjects(a.id).length?` ${badge('OVERDUE '+overdueProjects(a.id).length)}`:''}`:'RESTRICTED',incomeCell=isPbDDProjectUser()?(latest?`${money(latest.income_amount)}<span class="small-note">${formatMonth(latest.report_month)}</span>`:'—'):'RESTRICTED';return `<tr><td>${show(a.dar_arbo_id||a.id)}</td><td><span class="arbo-name">${esc(upper(a.name))}</span></td><td>${show(a.municipality)}</td><td>${show(a.barangay)}</td><td>${badge(a.arc_classification||'NOT SET')}</td><td>${projectCell}</td><td class="money">${incomeCell}</td><td><button class="btn btn-info btn-sm" type="button" data-open-arbo="${esc(a.id)}">Open</button></td></tr>`}).join(''):'<tr><td colspan="8" class="empty">No ARBO matched the selected filters.</td></tr>';
         $('pageInfo').textContent=`Page ${state.page+1} of ${Math.max(1,Math.ceil(total/PAGE_SIZE))} · ${total} ARBO(s)`;
         $('previousPage').disabled=state.page===0;$('nextPage').disabled=start+PAGE_SIZE>=total;
         document.querySelectorAll('[data-open-arbo]').forEach(button=>button.onclick=()=>openArbo(button.dataset.openArbo));
@@ -388,7 +391,15 @@
         if(['COMPREHENSIVE','INCOME'].includes(type))html+=reportSection('Monthly Income Details',incomeDetails);
         return {html,count:arbos.length};
     }
-    function openArbo(id){state.current=state.arbos.find(a=>String(a.id)===String(id));if(!state.current)return;state.tab=isPbDDProjectUser()?'overview':'profile';$('workspace').style.display='block';renderWorkspace();$('workspace').scrollIntoView({behavior:'smooth',block:'start'});}
+    function openArbo(id){
+        state.current=state.arbos.find(a=>String(a.id)===String(id));
+        if(!state.current)return;
+        state.tab=isPbDDProjectUser()?'overview':'profile';
+        $('arboListSection').style.display='none';
+        $('workspace').style.display='block';
+        renderWorkspace();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
     function renderWorkspace(){
         const a=state.current,projects=projectsFor(a.id),trainings=trainingFor(a.id),income=incomeFor(a.id),yearIncome=income.filter(i=>dateOnly(i.report_month).startsWith(String(new Date().getFullYear()))).reduce((sum,i)=>sum+Number(i.income_amount||0),0),women=projects.reduce((sum,p)=>sum+Number(p.women_beneficiaries||0),0),target=projects.reduce((sum,p)=>sum+Number(p.target_beneficiaries||0),0);
         $('workspaceTitle').textContent=upper(a.name);$('workspaceSubtitle').textContent=[a.dar_arbo_id,a.barangay,a.municipality,a.arc_classification].filter(Boolean).join(' · ');
@@ -409,6 +420,7 @@
         if(state.tab==='training')return renderTraining();
         if(state.tab==='machinery')return renderMachinery();
         if(state.tab==='products')return renderProducts();
+        if(state.tab==='merkado')return renderMerkado();
         if(state.tab==='income')return renderIncome();
     }
     function heading(title,note,action=''){return `<div class="section-heading"><div><h3>${esc(title)}</h3><p>${esc(note)}</p></div>${action}</div>`}
@@ -468,6 +480,14 @@
         document.querySelectorAll('[data-edit-product]').forEach(b=>b.onclick=()=>openProduct(productById(b.dataset.editProduct)));
         document.querySelectorAll('[data-add-sale]').forEach(b=>b.onclick=()=>openProductSale(productById(b.dataset.addSale)));
         document.querySelectorAll('[data-edit-sale]').forEach(b=>{const record=state.sales.find(s=>String(s.id)===String(b.dataset.editSale));b.onclick=()=>openProductSale(productById(record?.product_id),record)});
+    }
+    
+    function renderMerkado(){
+        const sales=merkadoFor(currentId()),gross=sales.reduce((sum,row)=>sum+Number(row.gross_sales||0),0),actions=canEditProject()?'<button class="btn btn-success" type="button" data-add-merkado>Add Merkado Sale</button>':'';
+        const rows=sales.map(s=>`<tr><td>${formatDate(s.sale_date)}</td><td><strong>${show(s.activity_name)}</strong></td><td>${show(s.product_description)}</td><td class="money"><strong>${money(s.gross_sales)}</strong></td><td>${canEditProject()?`<button class="btn btn-warning btn-sm" type="button" data-edit-merkado="${esc(s.id)}">Edit</button>`:'View only'}</td></tr>`);
+        $('workspaceBody').innerHTML=heading('Agraryo Merkado Income Monitoring','Record sales during specific activities, market days, or ordinary operations.',actions)+`<div class="monitor-kpis">${kpis([['Recorded Activities / Sales',sales.length],['Total Gross Sales',money(gross)]])}</div>`+table(['Date','Activity / Event','Product Description','Gross Sales','Action'],rows,'No Agraryo Merkado sales recorded for this ARBO.');
+        document.querySelector('[data-add-merkado]')?.addEventListener('click',()=>openMerkadoSale());
+        document.querySelectorAll('[data-edit-merkado]').forEach(b=>b.onclick=()=>openMerkadoSale(state.merkado.find(s=>String(s.id)===String(b.dataset.editMerkado))));
     }
 
     function renderIncome(){
@@ -538,6 +558,21 @@
         openModal(record.id?'Edit Product Sale':'Record Product Sale','product_sale',record.id||'',`<div class="access-note"><strong>${esc(upper(product.product_name))}</strong> · ${esc(product.pbdd_unit)}. Gross sales are computed from quantity × unit price when the amount is left at zero.</div><div class="form-grid">${input('product_id','Product ID',product.id,'text','readonly','full')}${input('sale_date','Sale Date',dateOnly(record.sale_date)||today(),'date','required')}${input('buyer_name','Buyer Name',record.buyer_name||'')}${input('buyer_type','Buyer Type',record.buyer_type||'')}${input('sales_channel','Sales Channel',record.sales_channel||'')}${input('market_location','Market Location',record.market_location||'')}${input('quantity_sold','Quantity Sold',record.quantity_sold||0,'number','min="0" step="0.01"')}${input('unit_price','Unit Price',record.unit_price??product.standard_selling_price??0,'number','min="0" step="0.01"')}${input('gross_sales','Gross Sales',record.gross_sales||0,'number','min="0" step="0.01"')}${input('amount_collected','Amount Collected',record.amount_collected||0,'number','min="0" step="0.01"')}${select('payment_status','Payment Status',['UNPAID','PARTIALLY PAID','PAID'],record.payment_status||'PAID','required')}${input('receipt_reference','Receipt Reference',record.receipt_reference||'')}${input('document_reference','Document Reference',record.document_reference||'','text','','full')}${textarea('remarks','Remarks',record.remarks||'')}</div>`);
     }
 
+    function openMerkadoSale(record={}){
+        const existingActivities = [...new Set(state.merkado.filter(m=>String(m.arbo_id)===String(currentId())).map(m=>m.activity_name))].filter(Boolean);
+        const datalist = `<datalist id="activityList"><option value="Ordinary sales">${existingActivities.map(a=>a!=='Ordinary sales'?`<option value="${esc(a)}">`:'').join('')}</datalist>`;
+        openModal(record.id?'Edit Merkado Sale':'Add Merkado Sale','merkado_sale',record.id||'',
+        `<div class="access-note">Record sales specifically for Agraryo Merkado. Select or enter a new Activity (e.g., "Market Day 2024") or leave it as "Ordinary sales".</div>
+        <div class="form-grid">
+            ${datalist}
+            ${input('sale_date','Sale Date',dateOnly(record.sale_date)||today(),'date','required')}
+            ${input('activity_name','Activity / Event',record.activity_name||'Ordinary sales','text','list="activityList" required')}
+            ${input('product_description','Product(s) Sold',record.product_description||'','text','','full')}
+            ${input('gross_sales','Gross Sales Amount',record.gross_sales||0,'number','min="0" step="0.01" required')}
+            ${textarea('remarks','Remarks',record.remarks||'')}
+        </div>`);
+    }
+
     async function saveRecord(event){
         event.preventDefault();const type=$('recordType').value,id=$('recordId').value,data=formData();$('saveModal').disabled=true;
         try{
@@ -599,13 +634,17 @@
                 const payload={product_id:data.get('product_id'),arbo_id:currentId(),sale_date:data.get('sale_date'),buyer_name:textOrNull(data.get('buyer_name')),buyer_type:textOrNull(data.get('buyer_type')),sales_channel:textOrNull(data.get('sales_channel')),market_location:textOrNull(data.get('market_location')),quantity_sold:Number(data.get('quantity_sold'))||0,unit_price:Number(data.get('unit_price'))||0,gross_sales:Number(data.get('gross_sales'))||0,amount_collected:Number(data.get('amount_collected'))||0,payment_status:data.get('payment_status'),receipt_reference:textOrNull(data.get('receipt_reference')),document_reference:textOrNull(data.get('document_reference')),remarks:textOrNull(data.get('remarks'))};
                 const result=id?await state.db.from('arbo_product_sales').update(payload).eq('id',id):await state.db.from('arbo_product_sales').insert(payload);if(result.error)throw result.error;
             }
+            if(type==='merkado_sale'){
+                const payload={arbo_id:currentId(),sale_date:data.get('sale_date'),activity_name:textOrNull(data.get('activity_name'))||'Ordinary sales',product_description:textOrNull(data.get('product_description')),gross_sales:Number(data.get('gross_sales'))||0,remarks:textOrNull(data.get('remarks'))};
+                const result=id?await state.db.from('arbo_merkado_sales').update(payload).eq('id',id):await state.db.from('arbo_merkado_sales').insert(payload);if(result.error)throw result.error;
+            }
             closeModal();await reloadMonitoringData();renderMaster();renderWorkspace();
         }catch(error){alert('Unable to save: '+error.message)}finally{$('saveModal').disabled=false}
     }
 
     async function reloadMonitoringData(){
-        const [projects,updates,training,income,machinery,utilization,products,sales]=await Promise.all([fetchAll('arbo_pbdd_projects','created_at',false),fetchAll('arbo_project_monitoring_updates','monitoring_date',false),fetchAll('arbo_training_activities','start_date',false),fetchAll('arbo_monthly_income','report_month',false),fetchAll('arbo_machinery_assets','created_at',false),fetchAll('arbo_machinery_utilization','activity_date',false),fetchAll('arbo_enterprise_products','created_at',false),fetchAll('arbo_product_sales','sale_date',false)]);
-        state.projects=projects;state.updates=updates;state.training=training;state.income=income;state.machinery=machinery;state.utilization=utilization;state.products=products;state.sales=sales;
+        const [projects,updates,training,income,machinery,utilization,products,sales,merkado]=await Promise.all([fetchAll('arbo_pbdd_projects','created_at',false),fetchAll('arbo_project_monitoring_updates','monitoring_date',false),fetchAll('arbo_training_activities','start_date',false),fetchAll('arbo_monthly_income','report_month',false),fetchAll('arbo_machinery_assets','created_at',false),fetchAll('arbo_machinery_utilization','activity_date',false),fetchAll('arbo_enterprise_products','created_at',false),fetchAll('arbo_product_sales','sale_date',false),fetchAll('arbo_merkado_sales','sale_date',false)]);
+        state.projects=projects;state.updates=updates;state.training=training;state.income=income;state.machinery=machinery;state.utilization=utilization;state.products=products;state.sales=sales;state.merkado=merkado;
     }
 
     $('searchText').addEventListener('input',applyFilters);['unitFilter','pillarFilter','projectStatusFilter','monitoringFilter','barangayFilter'].forEach(id=>$(id).addEventListener('change',applyFilters));
@@ -613,7 +652,7 @@
     $('clearFilters').addEventListener('click',()=>{$('searchText').value='';$('municipalityFilter').value='';populateBarangays();$('barangayFilter').value='';$('unitFilter').value='';$('pillarFilter').value='';$('projectStatusFilter').value='';$('monitoringFilter').value='';applyFilters()});
     $('previousPage').addEventListener('click',()=>{state.page=Math.max(0,state.page-1);renderMaster()});$('nextPage').addEventListener('click',()=>{state.page++;renderMaster()});
     $('editArboProfile').addEventListener('click',()=>openArboProfile(state.current));$('openArboReport').addEventListener('click',openArboReportCenter);$('summaryReport').addEventListener('click',openSummaryReportCenter);
-    $('closeWorkspace').addEventListener('click',()=>{$('workspace').style.display='none';state.current=null});$('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('monitorModal').addEventListener('click',event=>{if(event.target===$('monitorModal'))closeModal()});$('monitorForm').addEventListener('submit',saveRecord);
+    $('closeWorkspace').addEventListener('click',()=>{$('workspace').style.display='none';$('arboListSection').style.display='block';state.current=null;});$('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('monitorModal').addEventListener('click',event=>{if(event.target===$('monitorModal'))closeModal()});$('monitorForm').addEventListener('submit',saveRecord);
     $('closeReportPreview').addEventListener('click',closeReportTable);$('cancelReportPreview').addEventListener('click',closeReportTable);$('printReportPreview').addEventListener('click',printCurrentReport);$('reportModal').addEventListener('click',event=>{if(event.target===$('reportModal'))closeReportTable()});
 
     try{
