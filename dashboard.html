@@ -316,6 +316,14 @@
 
                 const { data: profile } = await secureDbClient.from('profiles').select('*').eq('id', authData.user.id).single();
 
+                // ARBO ADMIN accounts have a deliberately single-page workspace.
+                // Send them to their assigned cooperative instead of exposing
+                // dashboard modules or their aggregate counts.
+                if (String(profile?.role || '').toUpperCase() === 'ARBO ADMIN') {
+                    window.location.replace('arbo.html');
+                    return;
+                }
+
                 await buildNavbar(profile);
 
                 const qrs = await Promise.all([
