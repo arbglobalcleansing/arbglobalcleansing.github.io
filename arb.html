@@ -1443,25 +1443,32 @@
                 submitBtn.disabled = true; submitBtn.textContent = 'Processing...';
 
                 const fd = new FormData(e.target);
-                const payload = {
-                    arb_id: arbId,
-                    validator_type: fd.get('validator_type'),
-                    validator_name: emptyToNull(fd.get('validator_name')),
-                    position: emptyToNull(fd.get('position')),
-                    date_validated: fd.get('date_validated'),
-                    validation_basis: emptyToNull(fd.get('validation_basis')),
-                    supporting_document_reference: emptyToNull(fd.get('supporting_document_reference')),
-                    recorded_by: currentUserProfile?.full_name || currentUser?.email || null,
-                    recorded_by_user_id: currentUser?.id || null,
-                    updated_at: new Date().toISOString()
-                };
                 try {
-                    const { error } = await secureDbClient.rpc('record_arb_validation', {
-                        p_arb_id: Number(arbId), p_validation_status: fd.get('validation_status'), p_validator_type: fd.get('validator_type'),
-                        p_validator_name: payload.validator_name, p_position: payload.position, p_date_validated: payload.date_validated,
-                        p_validation_basis: payload.validation_basis, p_supporting_document_reference: payload.supporting_document_reference
-                    });
-                    if (error) throw error;
+                    // Fix: Validations are per ARB (person), not per lot number. 
+                    // When multiple lot numbers exist for the same ARB, they share the same ARB ID.
+                    // Using upsert prevents the duplicate key violation error when validating the second lot.
+                    const valPayload = {
+                        arb_id: Number(arbId),
+                        validator_type: fd.get('validator_type'),
+                        validator_name: emptyToNull(fd.get('validator_name')),
+                        position: emptyToNull(fd.get('position')),
+                        date_validated: fd.get('date_validated'),
+                        validation_basis: emptyToNull(fd.get('validation_basis')),
+                        supporting_document_reference: emptyToNull(fd.get('supporting_document_reference')),
+                        recorded_by: currentUserProfile?.full_name || currentUser?.email || null,
+                        recorded_by_user_id: currentUser?.id || null,
+                        updated_at: new Date().toISOString()
+                    };
+
+                    const { error: valErr } = await secureDbClient.from('arb_validations')
+                        .upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                    if (valErr) throw valErr;
+
+                    const { error: arbErr } = await secureDbClient.from('arb')
+                        .update({ validation_status: fd.get('validation_status'), updated_at: new Date().toISOString() })
+                        .eq('id', arbId);
+                    if (arbErr) throw arbErr;
+
                     hideSubModal();
                     popToast('Validation added and status updated.', 'ok');
                     if (options.returnToTable) await openTableView();
@@ -2187,18 +2194,20 @@
                     if (arbErr) throw arbErr;
 
                     // Automatically validate them when assigned to an ARBO
-                    const valInsert = await secureDbClient.from('arb_validations').insert({
-                        arb_id: arbId,
+                    const valPayload = {
+                        arb_id: Number(arbId),
                         validator_type: 'System',
                         validator_name: currentUserProfile?.full_name || currentUser?.email || 'System',
+                        position: null,
                         date_validated: new Date().toISOString().substring(0,10),
                         validation_basis: 'Legitimate ARBO Member',
-                        supporting_document_reference: memNo || 'ARBO Membership Form', // Fallback to ensure it's not null since it's "always required"
+                        supporting_document_reference: memNo || 'ARBO Membership Form',
                         recorded_by: currentUserProfile?.full_name || currentUser?.email || 'System',
                         recorded_by_user_id: currentUser?.id || null,
                         updated_at: new Date().toISOString()
-                    });
-                    if (valInsert.error) console.warn('Failed to insert auto validation:', valInsert.error);
+                    };
+                    const { error: valErr } = await secureDbClient.from('arb_validations').upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                    if (valErr) console.warn('Failed to insert auto validation:', valErr);
 
                     const pRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
                     if (pRes.data && pRes.data.id) {
@@ -2364,12 +2373,26 @@
                     const userId = currentUser?.id || null;
 
                     for (const arbId of allArbIds) {
-                        const { error } = await secureDbClient.rpc('record_arb_validation', {
-                            p_arb_id: Number(arbId), p_validation_status: validationStatus, p_validator_type: validatorType,
-                            p_validator_name: validatorName, p_position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
-                            p_date_validated: today, p_validation_basis: validationBasis, p_supporting_document_reference: supportingDoc
-                        });
-                        if (error) throw error;
+                        const valPayload = {
+                            arb_id: Number(arbId),
+                            validator_type: validatorType,
+                            validator_name: validatorName,
+                            position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
+                            date_validated: today,
+                            validation_basis: validationBasis,
+                            supporting_document_reference: supportingDoc,
+                            recorded_by: userName,
+                            recorded_by_user_id: userId,
+                            updated_at: new Date().toISOString()
+                        };
+                        const { error: valErr } = await secureDbClient.from('arb_validations').upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                        if (valErr) throw valErr;
+
+                        const { error: arbErr } = await secureDbClient.from('arb').update({
+                            validation_status: validationStatus,
+                            updated_at: new Date().toISOString()
+                        }).eq('id', arbId);
+                        if (arbErr) throw arbErr;
                     }
                     hideSubModal();
                     popToast(`Batch validation applied to ${allArbIds.length} ARB(s).`, 'ok');
@@ -2690,7 +2713,7 @@
             try {
                 const candidates = await fetchAllRecords(() => secureDbClient.from('arb_duplicate_candidates_v').select('*').order('arb_name_a'));
                 if (!candidates.length) { showModal('Duplicate Record Verification', '<p class="empty-card">No unreviewed duplicate candidates found.</p>'); return; }
-                const body = `<p style="color:#475569;">A duplicate is never deleted automatically. Names, title numbers, survey numbers, and Lot Nos. are shown separately for human comparison.</p><div class="duplicate-review-scroll"><table><thead><tr><th>Record A</th><th>Record B</th><th>Matching Basis</th><th>Location</th><th>Decision</th><th>Action</th></tr></thead><tbody>${candidates.map(c=>`<tr data-duplicate-a="${c.arb_id_a}" data-duplicate-b="${c.arb_id_b}"><td><strong>${safe(c.arb_name_a)}</strong><br>ARB ${safe(c.arb_id_a)}<br>Title: ${safe(c.title_no_a||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_a||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_a||c.survey_no||'—')}</td><td><strong>${safe(c.arb_name_b)}</strong><br>ARB ${safe(c.arb_id_b)}<br>Title: ${safe(c.title_no_b||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_b||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_b||c.survey_no||'—')}</td><td>${safe(c.match_reason)}</td><td>${safe([c.barangay,c.municipality].filter(Boolean).join(', '))}</td><td><select class="duplicate-decision"><option value="CONFIRMED DUPLICATE">Confirmed Duplicate</option><option value="NOT DUPLICATE">Not Duplicate</option><option value="NEEDS FIELD VALIDATION">Needs Field Validation</option></select><input class="duplicate-notes" placeholder="Review notes" style="margin-top:5px;"></td><td><button class="btn btn-primary btn-sm save-duplicate-review">Save Review</button></td></tr>`).join('')}</tbody></table></div>`;
+                const body = `<p style="color:#475569;">A duplicate is never deleted automatically. Names, title numbers, survey numbers, and Lot Nos. are shown separately for human comparison.</p><div class="duplicate-review-scroll"><table><thead><tr><th>Record A</th><th>Record B</th><th>Matching Basis</th><th>Location</th><th>Decision</th><th>Action</th></tr></thead><tbody>${candidates.map(c=>`<tr data-duplicate-a="${c.arb_id_a}" data-duplicate-b="${c.arb_id_b}"><td><strong>${safe(c.arb_name_a)}</strong><br>ARB ${safe(c.arb_id_a)}<br>Title: ${safe(c.title_no_a||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_a||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_a||c.survey_no||'—')}</td><td><strong>${safe(c.arb_name_b)}</strong><br>ARB ${safe(c.arb_id_b)}<br>Title: ${safe(c.title_no_b||c.title_no||'—')}<br><strong>Lot No.: ${safe(c.lot_no_b||c.lot_no||'—')}</strong><br>Survey: ${safe(c.survey_no_b||c.survey_no||'—')}</td><td>${safe(c.match_reason)}</td><td>${safe([c.barangay,c.municipality].filter(Boolean).join(', '))}</td><td><select class="duplicate-decision"><option value="SAME ARB, DIFFERENT LOT (MERGE)">Same ARB, Different Lot (Merge to 1 Profile)</option><option value="EXACT DUPLICATE (DELETE ONE)">Exact Duplicate / Repetition (Delete One)</option><option value="NOT A DUPLICATE (DIFFERENT PERSON)">Not a Duplicate (Different Persons)</option><option value="NEEDS FIELD VALIDATION">Needs Field Validation</option></select><input class="duplicate-notes" placeholder="Review notes" style="margin-top:5px;"></td><td><button class="btn btn-primary btn-sm save-duplicate-review">Save Review</button></td></tr>`).join('')}</tbody></table></div>`;
                 showModal(`Duplicate Record Verification - ${candidates.length} candidate(s)`, body);
                 document.querySelectorAll('.save-duplicate-review').forEach(btn=>btn.addEventListener('click',async()=>{const row=btn.closest('tr');btn.disabled=true;const {error}=await secureDbClient.from('arb_duplicate_reviews').upsert({arb_id_a:Number(row.dataset.duplicateA),arb_id_b:Number(row.dataset.duplicateB),decision:row.querySelector('.duplicate-decision').value,review_notes:row.querySelector('.duplicate-notes').value||null,reviewed_by:currentUser.id,reviewed_by_name:currentUserProfile?.full_name||currentUser.email,reviewed_at:new Date().toISOString()},{onConflict:'arb_id_a,arb_id_b'});if(error){popToast(error.message,'err');btn.disabled=false;return}row.style.opacity='.5';row.querySelectorAll('input,select,button').forEach(x=>x.disabled=true);popToast('Duplicate review saved.','ok')}));
             } catch(e) { showModal('Duplicate Record Verification', `<p class="empty-card" style="color:#991b1b;">${safe(e.message)}</p>`); }
