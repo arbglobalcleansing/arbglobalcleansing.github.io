@@ -747,8 +747,6 @@
                     filterSets.push(profiles.map(p => String(p.arb_id)).filter(Boolean));
                 }
 
-                // COCROM requires an actual certificate number. An individual title
-                // requires a unique TCT number that is different from the Mother CLOA.
                 if (cocrom !== '' || hasETitle !== '') {
                     let statusQ = () => {
                         let q = secureDbClient.from('arb_intelligent_search_v').select('arb_id');
@@ -1534,7 +1532,7 @@
                     const landholdingId = emptyToNull(fd.get('arb_landholding_id'));
                     const valPayload = {
                         arb_id: Number(arbId),
-                        arb_landholding_id: landholdingId,
+                        arb_landholding_id: landholdingId ? Number(landholdingId) : null,
                         validator_type: fd.get('validator_type'),
                         validator_name: emptyToNull(fd.get('validator_name')),
                         position: emptyToNull(fd.get('position')),
@@ -1589,7 +1587,7 @@
                             <div class="form-group"><label for="editValidationStatus">Validation Status</label><select id="editValidationStatus" name="validation_status"><option value="Pending" ${arb.validation_status==='Pending'?'selected':''}>Pending</option><option value="Validated" ${arb.validation_status==='Validated'?'selected':''}>Validated</option><option value="Rejected" ${arb.validation_status==='Rejected'?'selected':''}>Rejected</option></select></div>
                             <div class="form-group full"><label for="editFbName">FB Name</label><input id="editFbName" name="fb_name" value="${safe(profile.fb_name||'')}"></div>
                             <div class="form-group"><label for="editSplitStatus">SPLIT Status</label><select id="editSplitStatus" name="split_status"><option value="PENDING VALIDATION" ${profile.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option value="SPLIT" ${profile.split_status==='SPLIT'?'selected':''}>SPLIT</option><option value="NON-SPLIT" ${profile.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select></div>
-                            <div class="form-group"><label for="editCocrom">COCROM Certificate No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}" placeholder="Leave blank to show NO"></div>
+                            <div class="form-group"><label for="editCocrom">COCROM Certificate No.</label><input id="editCocrom" name="cocrom_no" value="${safe(profile.cocrom_no||'')}" placeholder="Leave blank to show NO" ${profile.cocrom_no ? 'readonly style="background-color: #f1f5f9; cursor: not-allowed;" title="COCROM Certificate cannot be edited once set."' : ''}></div>
                             <div class="form-group"><label for="editTitleDistributed">Title Distributed</label><select id="editTitleDistributed" name="is_title_distribute"><option value="false" ${!profile.is_title_distribute?'selected':''}>No</option><option value="true" ${profile.is_title_distribute?'selected':''}>Yes</option></select></div>
                             <div class="form-group"><label for="editETitle">Individual Title / e-Title</label><input id="editETitle" name="e_title_no" value="${safe(profile.e_title_no||'')}"></div>
                             <div class="form-group"><label for="editDistrict">District</label><input id="editDistrict" name="district" value="${safe(profile.district||'')}"></div>
