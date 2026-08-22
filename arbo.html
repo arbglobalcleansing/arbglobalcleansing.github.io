@@ -255,6 +255,7 @@
     const assignmentFor=id=>state.assignments.find(a=>String(a.arbo_id)===String(id)&&String(a.validator_user_id)===String(state.user?.id)&&String(a.assignment_role||'').toUpperCase()==='ARBO ADMIN'&&a.is_active&&dateOnly(a.assigned_from)<=today()&&(!a.assigned_until||dateOnly(a.assigned_until)>=today()));
     const canEditProject=()=>isPbDDProjectUser();
     const canEditProfile=id=>isPbDDProjectUser()||isFullEditor()||(isArboAdmin()&&Boolean(assignmentFor(id)));
+    const canDeleteMember=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN'].includes(role());
     const formData=()=>new FormData($('monitorForm'));
     const defaultUnit=preferred=>{const profileUnit=String(state.profile?.pbdd_unit||'').toUpperCase();if(['PBDD PERSONNEL','PBDD UNIT HEAD'].includes(role())&&PBDD_UNITS.includes(profileUnit))return profileUnit;return PBDD_UNITS.includes(String(preferred||'').toUpperCase())?String(preferred).toUpperCase():(PBDD_UNITS.includes(profileUnit)?profileUnit:'SIB')};
     const personnelOptions=(unit,value='')=>{const rows=state.personnel.filter(p=>!unit||p.pbdd_unit===unit),options=[['','Unassigned / Unit-managed'],...rows.map(p=>[p.id,`${upper(p.full_name||p.email)}${p.pbdd_unit?` (${p.pbdd_unit})`:''}`])];if(value&&!options.some(o=>String(o[0])===String(value)))options.push([value,'CURRENT ASSIGNED PERSONNEL']);return options};
@@ -500,11 +501,13 @@
     }
 
     function renderMembers(){
+        const canDeleteMember = () => ['ADMIN', 'PBDD ADMIN', 'PBDD-ADMIN'].includes(role());
         const members=membersFor(currentId()), active=members.filter(m=>m.membership_status==='ACTIVE'||!m.date_to).length, actions=canEditProject()?'<button class="btn btn-success" type="button" data-add-member>Add / Register Members</button>':'';
-        const rows=members.map(m=>`<tr><td><strong>${show(m.arb_name)}</strong><br><small>${show(m.membership_no)}</small></td><td>${m.is_arb?badge('ARB','green'):badge('NON-ARB','gray')}</td><td>${show(m.contact_number)}<br><small>${show(m.email)}</small></td><td>${show(m.municipality)}<br><small>${show(m.barangay)}</small></td><td>${formatDate(m.date_from)}<br><small>To: ${formatDate(m.date_to)}</small></td><td>${badge(m.membership_status||(!m.date_to?'ACTIVE':'ENDED'),!m.date_to?'green':'gray')}</td><td>${canEditProject()?`<button class="btn btn-warning btn-sm" type="button" data-edit-member="${esc(m.id)}">Edit</button>`:'View only'}</td></tr>`);
+        const rows=members.map(m=>`<tr><td><strong>${show(m.arb_name)}</strong><br><small>${show(m.membership_no)}</small></td><td>${m.is_arb?badge('ARB','green'):badge('NON-ARB','gray')}</td><td>${show(m.contact_number)}<br><small>${show(m.email)}</small></td><td>${show(m.municipality)}<br><small>${show(m.barangay)}</small></td><td>${formatDate(m.date_from)}<br><small>To: ${formatDate(m.date_to)}</small></td><td>${badge(m.membership_status||(!m.date_to?'ACTIVE':'ENDED'),!m.date_to?'green':'gray')}</td><td><div class="actions">${canEditProject()?`<button class="btn btn-warning btn-sm" type="button" data-edit-member="${esc(m.id)}">Edit</button>`:'View only'}${canDeleteMember()&&m.membership_status==='ACTIVE'?`<button class="btn btn-danger btn-sm" type="button" data-delete-member="${esc(m.id)}">Remove</button>`:''}</div></td></tr>`);
         $('workspaceBody').innerHTML=heading('Membership Registry','Register ARBs from the database or manually add non-ARB members.',actions)+`<div class="monitor-kpis">${kpis([['Total Members',members.length],['Active Members',active]])}</div>`+table(['Member / No.','Type','Contact','Location','Membership Period','Status','Action'],rows,'No members registered.');
         document.querySelector('[data-add-member]')?.addEventListener('click',()=>openMember());
         document.querySelectorAll('[data-edit-member]').forEach(b=>b.onclick=()=>openMember(state.members.find(m=>String(m.id)===String(b.dataset.editMember))));
+        document.querySelectorAll('[data-delete-member]').forEach(b=>b.onclick=()=>openDeleteMember(b.dataset.deleteMember));
     }
 
     function renderProjects(){
@@ -580,7 +583,7 @@
     function unitPersonnelFields(unit,personnelId=''){return select('pbdd_unit','Responsible PBDD Unit',availableUnits(unit),unit,'required')+select('assigned_personnel_id','Assigned PBDD Personnel',personnelOptions(unit,personnelId),personnelId)}
     function wireUnitPersonnel(){const unit=$('f_pbdd_unit'),personnel=$('f_assigned_personnel_id');if(!unit||!personnel)return;unit.addEventListener('change',()=>{const selected=personnel.value;personnel.innerHTML=personnelOptions(unit.value,selected).map(pair=>`<option value="${esc(pair[0])}"${String(pair[0])===String(selected)?' selected':''}>${esc(pair[1])}</option>`).join('')})}
     function openModal(title,type,id='',body=''){ $('monitorModalTitle').textContent=title;$('recordType').value=type;$('recordId').value=id||'';$('monitorModalBody').innerHTML=body;$('saveModal').textContent='Save';$('monitorModal').classList.add('active'); }
-    function closeModal(){ $('monitorModal').classList.remove('active');$('monitorForm').reset();$('monitorModalBody').innerHTML='';$('saveModal').textContent='Save'; state.selectedBulkMembers=new Map(); clearTimeout(state.arbSearchTimer); }
+    function closeModal(){ $('monitorModal').classList.remove('active');$('monitorForm').reset();$('monitorModalBody').innerHTML='';$('saveModal').textContent='Save';$('saveModal').className='btn btn-success'; state.selectedBulkMembers=new Map(); clearTimeout(state.arbSearchTimer); }
 
     function openMyProfile(){openModal('My Profile','my_profile','',`<div class="access-note">You may update your own name, position and password. Email, role, status and ARBO assignments remain administrator-controlled.</div><div class="form-grid">${input('email','Email / Login',state.user.email,'email','readonly','full')}${input('full_name','Complete Name',state.profile.full_name||'','text','required')}${input('position','Position',state.profile.position||'')}${input('password','New Password','','password','minlength="6" placeholder="Leave blank to keep current password"')}</div>`)}
     function openArboProfile(a){openModal('Edit ARBO Profile','arbo_profile',a.id,`<div class="access-note"><strong>${esc(upper(a.name))}</strong><br>Official name, DAR ARBO IDs, municipality, barangay and ARC classification come from the masterlist and are read-only here.</div><div class="form-grid">${input('dar_arbo_id','DAR ARBO ID',a.dar_arbo_id||'','text','readonly')}${input('municipality','Municipality',a.municipality||'','text','readonly')}${input('barangay','Barangay',a.barangay||'','text','readonly')}${input('chairperson','Chairperson',a.chairperson||'')}${input('contact_number','Contact Number',a.contact_number||'')}${input('email','Email',a.email||'','email')}${input('address','Address',a.address||'','text','','full')}${input('cda_registration_no','CDA Registration Number',a.cda_registration_no||'')}${input('date_organized','Date Organized',dateOnly(a.date_organized),'date')}${input('date_registered','Date Registered',dateOnly(a.date_registered),'date')}${input('cda_last_renewal_date','Last CDA Renewal',dateOnly(a.cda_last_renewal_date),'date')}${select('status','Organization Status',['ACTIVE','INACTIVE'],a.status||'ACTIVE')}${textarea('remarks','Remarks',a.remarks||'')}</div>`)}
@@ -598,6 +601,34 @@
             $('f_default_membership_date').addEventListener('change',renderSelectedBulkMembers);
             toggleMemberType(); renderSelectedBulkMembers();
         }
+    }
+
+    function openDeleteMember(memberId) {
+        const m = state.members.find(x => String(x.id) === String(memberId));
+        if(!m) return;
+        openModal('Remove Member', 'delete_member', m.id, `
+            <div class="access-note warning-note">Please provide a reason for removing <strong>${esc(m.arb_name)}</strong> from this ARBO.</div>
+            <div class="form-grid">
+                ${select('removal_reason', 'Reason for Removal', [
+                    ['WITHDRAWN', 'Voluntary Withdrawal'],
+                    ['TERMINATED', 'Terminated / Expelled'],
+                    ['DECEASED', 'Death / Deceased'],
+                    ['OTHER', 'Other Reason']
+                ], 'WITHDRAWN', 'required')}
+                ${textarea('remarks', 'Detailed Remarks', '', 'full', 'required')}
+            </div>
+            <div class="access-note" id="deathNotice" style="display:none; border-left-color: var(--red); background: #fff1f2; color: #881337;">
+                <strong>Notice:</strong> Marking this ARB as Deceased will immediately change their life status to Dead and record a "Transfer Action" case.
+            </div>
+        `);
+        $('saveModal').textContent = 'Confirm Removal';
+        $('saveModal').className = 'btn btn-danger';
+
+        const reasonSelect = $('f_removal_reason');
+        reasonSelect.addEventListener('change', () => {
+            $('deathNotice').style.display = (reasonSelect.value === 'DECEASED' && m.is_arb) ? 'block' : 'none';
+        });
+        if(m.is_arb && reasonSelect.value === 'DECEASED') $('deathNotice').style.display = 'block';
     }
 
     async function searchMemberDatabase() {
@@ -958,6 +989,67 @@
                         };
                         const result=await state.db.from('arbo_members').insert(payload);
                         if(result.error)throw result.error;
+                    }
+                }
+            }
+            if(type==='delete_member'){
+                const member = state.members.find(x => String(x.id) === String(id));
+                if(!member) throw new Error("Member not found.");
+                const reason = data.get('removal_reason');
+                const remarks = data.get('remarks');
+                const payload = {
+                    membership_status: reason === 'DECEASED' ? 'DECEASED' : (reason === 'WITHDRAWN' ? 'WITHDRAWN' : 'TERMINATED'),
+                    date_to: today(),
+                    remarks: `Reason: ${reason}. Remarks: ${textOrNull(remarks)}`,
+                    updated_at: new Date().toISOString(),
+                    updated_by: state.user?.id
+                };
+                const result = await state.db.from('arbo_members').update(payload).eq('id', id);
+                if(result.error) throw result.error;
+
+                if (reason === 'DECEASED' && member.is_arb && member.profile_id) {
+                    await state.db.from('arb_profiles').update({ life_status: 'Dead', updated_at: new Date().toISOString() }).eq('id', member.profile_id);
+                    if (member.arb_id) {
+                        await state.db.from('arb').update({ life_status: 'Dead', with_ta: true, for_ta: true, ta_status: 'REQUEST RECEIVED', updated_at: new Date().toISOString() }).eq('id', member.arb_id);
+                    }
+                    const tagPayload = {
+                        arb_profile_id: member.profile_id,
+                        arb_id: member.arb_id,
+                        tag_type: 'TRANSFER ACTION',
+                        status: 'REQUEST RECEIVED',
+                        case_details: `Triggered by ARBO Member Removal (Death). Remarks: ${textOrNull(remarks)}`,
+                        tagged_by: state.profile?.full_name || state.user?.email || null,
+                        tagged_by_user_id: state.user?.id || null,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    };
+                    const tagRes = await state.db.from('arb_tags').insert(tagPayload);
+                    if (tagRes.error) console.warn("Failed to tag Transfer Action:", tagRes.error);
+
+                    const monPayload = {
+                        arb_profile_id: member.profile_id,
+                        arb_id: member.arb_id,
+                        case_type: 'TRANSFER ACTION',
+                        action_category: 'TRANSFER ACTION',
+                        status: 'REQUEST RECEIVED',
+                        current_target_date: today(),
+                        remarks: `Triggered by ARBO Member Removal (Death). Remarks: ${textOrNull(remarks)}`,
+                        created_by: state.user?.id,
+                        updated_by: state.user?.id
+                    };
+                    const monRes = await state.db.from('arb_legal_monitoring').insert(monPayload).select('id').single();
+                    if (monRes.data) {
+                        await state.db.from('arb_legal_action_history').insert({
+                            legal_monitoring_id: monRes.data.id,
+                            arb_id: member.arb_id,
+                            action_type: 'TRANSFER ACTION',
+                            new_status: 'REQUEST RECEIVED',
+                            action_date: today(),
+                            target_date: today(),
+                            remarks: `Triggered by ARBO Member Removal (Death). Remarks: ${textOrNull(remarks)}`,
+                            acted_by: state.user?.id,
+                            acted_by_name: state.profile?.full_name || state.user?.email
+                        });
                     }
                 }
             }
