@@ -113,6 +113,8 @@
                 toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
             }
 
+            function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
+
             let secureDbClient = null;
             try {
                 if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
@@ -123,6 +125,18 @@
                 }
             } catch (err) {
                 logDebug(`Setup Exception: ${err.message}`, 'err');
+            }
+
+            // Helper to fetch in chunks
+            async function fetchInChunks(table, selectStr, column, idArray) {
+                let results = [];
+                const chunkSize = 150; 
+                for(let i=0; i<idArray.length; i+=chunkSize) {
+                    const chunk = idArray.slice(i, i+chunkSize);
+                    const {data} = await secureDbClient.from(table).select(selectStr).in(column, chunk);
+                    if(data) results.push(...data);
+                }
+                return results;
             }
 
             // --- Navigation Renderer ---
@@ -200,10 +214,11 @@
                 }
 
                 try {
-                    let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arb_validations(validator_type, date_validated)');
+                    // Added arbo_id to check if they belong to an ARBO
+                    let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)');
                     if (filterField) req = req.eq(filterField, filterValue);
                     
-                    const { data, error } = await req.order('last_name', { ascending: true });
+                    const { data, error } = await req.order('last_name', { ascending: true }).limit(1500);
                     if (error) throw new Error(error.message);
                     
                     if (!data || data.length === 0) {
@@ -211,14 +226,45 @@
                         return;
                     }
 
-                    let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>Val. Type</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
+                    // Extract all current IDs to find former ARBO members and membership numbers
+                    const arbIds = data.map(r => String(r.id));
+                    const profs = await fetchInChunks('arb_profiles', 'id, arb_id', 'arb_id', arbIds);
+                    const profMap = {};
+                    const profIds = [];
+                    profs.forEach(p => {
+                        profMap[p.arb_id] = p.id;
+                        profIds.push(p.id);
+                    });
+
+                    const mems = await fetchInChunks('arbo_members', 'profile_id, membership_no', 'profile_id', profIds);
+                    const memMap = {};
+                    mems.forEach(m => {
+                        memMap[m.profile_id] = m;
+                    });
+
+                    let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>Val. Type</th><th>Ref. No.</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
                     data.forEach(r => {
                         const sColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
                         
                         let valType = '—';
+                        let valRef = '—';
                         if (r.arb_validations && r.arb_validations.length > 0) {
                             const sortedVals = r.arb_validations.sort((a, b) => new Date(b.date_validated || 0) - new Date(a.date_validated || 0));
                             valType = sortedVals[0].validator_type || '—';
+                            valRef = sortedVals[0].supporting_document_reference || '—';
+                        }
+
+                        const pId = profMap[String(r.id)];
+                        const isMember = pId ? memMap[pId] : null;
+
+                        // Check ARBO membership override (Active or Former)
+                        if (r.arbo_id || isMember) {
+                            valType = 'PBDD / ARBO MEMBERSHIP';
+                            if (isMember && isMember.membership_no) {
+                                valRef = isMember.membership_no;
+                            } else if (valRef === '—') {
+                                valRef = 'ARBO Registry';
+                            }
                         }
 
                         tHtml += `<tr>
@@ -226,6 +272,7 @@
                             <td style="font-weight:600; color:#0a3d62">${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
                             <td><span class="badge ${sColor}">${r.validation_status || 'Pending'}</span></td>
                             <td style="font-size:0.75rem; font-weight:700; color:#475569;">${valType}</td>
+                            <td style="font-size:0.75rem; color:#475569;">${safe(valRef)}</td>
                             <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
                             <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
                         </tr>`;
