@@ -200,7 +200,7 @@
                 }
 
                 try {
-                    let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal');
+                    let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arb_validations(validator_type, date_validated)');
                     if (filterField) req = req.eq(filterField, filterValue);
                     
                     const { data, error } = await req.order('last_name', { ascending: true });
@@ -211,13 +211,21 @@
                         return;
                     }
 
-                    let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
+                    let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>Val. Type</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
                     data.forEach(r => {
                         const sColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
+                        
+                        let valType = '—';
+                        if (r.arb_validations && r.arb_validations.length > 0) {
+                            const sortedVals = r.arb_validations.sort((a, b) => new Date(b.date_validated || 0) - new Date(a.date_validated || 0));
+                            valType = sortedVals[0].validator_type || '—';
+                        }
+
                         tHtml += `<tr>
                             <td style="font-family: monospace; color:#64748b">${(r.id || '-').toString().substring(0,6)}</td>
                             <td style="font-weight:600; color:#0a3d62">${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
                             <td><span class="badge ${sColor}">${r.validation_status || 'Pending'}</span></td>
+                            <td style="font-size:0.75rem; font-weight:700; color:#475569;">${valType}</td>
                             <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
                             <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
                         </tr>`;
