@@ -894,16 +894,18 @@
                     const memberType=data.get('member_type'),membershipDate=data.get('default_membership_date')||today();
                     if(memberType==='ARB'){
                         const rows=[...document.querySelectorAll('[data-bulk-profile]')];if(!rows.length)throw new Error('Check at least one ARB from the search results.');
-                        const members=rows.map(row=>{
+                        const membersToInsert = [];
+                        const arbIdsToUpdate = [];
+                        rows.forEach(row=>{
                             const profileId = String(row.dataset.bulkProfile);
                             const candidate=state.selectedBulkMembers.get(profileId);
-                            if(!candidate) return null;
+                            if(!candidate) return;
+                            if (candidate.arb_id_uuid) arbIdsToUpdate.push(candidate.arb_id_uuid);
                             const get=field=>row.querySelector(`[data-bulk-field="${field}"]`)?.value||'';
                             const cloaRef = (candidate.titles && candidate.titles !== '—') ? candidate.titles : ((candidate.ccloas && candidate.ccloas !== '—') ? candidate.ccloas : null);
-                            return {
+                            membersToInsert.push({
                                 arbo_id: parseInt(currentId(), 10),
                                 profile_id: candidate.arb_profile_id,
-                                arb_id: candidate.arb_id_uuid || null,
                                 arb_name: candidate.display_name,
                                 is_arb: true,
                                 date_from: get('membership_date')||membershipDate,
@@ -920,15 +922,14 @@
                                 updated_by: state.user?.id,
                                 updated_at: new Date().toISOString(),
                                 email: textOrNull(get('email'))
-                            };
-                        }).filter(Boolean);
+                            });
+                        });
                         
-                        if(members.length === 0) throw new Error('No valid ARB members selected.');
+                        if(membersToInsert.length === 0) throw new Error('No valid ARB members selected.');
 
-                        const result=await state.db.from('arbo_members').insert(members);
+                        const result=await state.db.from('arbo_members').insert(membersToInsert);
                         if(result.error)throw result.error;
                         
-                        const arbIdsToUpdate = members.map(m => m.arb_id).filter(Boolean);
                         if (arbIdsToUpdate.length > 0) {
                             const arbUpdateRes = await state.db.from('arb').update({ arbo_id: parseInt(currentId(), 10), validation_status: 'Validated' }).in('id', arbIdsToUpdate);
                             if (arbUpdateRes.error) console.warn("Failed to update ARB table directly due to permissions:", arbUpdateRes.error);
