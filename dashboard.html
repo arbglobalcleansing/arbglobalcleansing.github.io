@@ -244,7 +244,7 @@
                     const { data, error } = await secureDbClient
                         .from('arbo_members')
                         .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo(name)')
-                        .or('membership_status.is.null,membership_status.neq.DELETED')
+                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                         .order('arb_name', { ascending: true });
 
                     if (error) throw new Error(error.message);
@@ -334,7 +334,7 @@
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('with_ta', true),
                     secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true),
                     secureDbClient.from('arbo_members').select('*', { count: 'exact', head: true })
-                        .or('membership_status.is.null,membership_status.neq.DELETED')
+                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                 ]);
 
                 if (qrs[0].error) throw new Error(qrs[0].error.message);
