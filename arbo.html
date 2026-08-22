@@ -90,7 +90,7 @@
         .report-preview{min-width:900px;padding:18px;background:#fff}
         .report-preview>h1{margin:0;color:#0a3d62;font-size:1.3rem;text-align:center}.report-preview>p{margin:5px 0 14px;color:#475569;text-align:center}
         .report-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.report-controls .field{min-width:180px}.report-controls .field label{margin-bottom:3px}
-        .picker-results{max-height:350px;overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:7px;background:#fff;}
+        .picker-results{max-height:400px;overflow:auto;margin-top:10px;border:1px solid var(--line);border-radius:7px;background:#fff;}
         .picker-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border-bottom:1px solid #e8edf2;transition:background 0.2s;cursor:pointer;}
         .picker-row:hover:not([data-disabled="true"]){background:#f1f5f9;}
         .picker-row:last-child{border-bottom:0;}
@@ -661,6 +661,7 @@
                 
                 return {
                     arb_profile_id: p.id,
+                    arb_id_uuid: a.id || null,
                     arb_id: a.generated_arb_id || a.id,
                     display_name: name,
                     municipalities: [...l.muns].join(', ') || 'N/A',
@@ -849,7 +850,7 @@
             }
             if(type==='member'){
                 if(id){
-                    const payload={membership_no:textOrNull(data.get('membership_no')),date_from:data.get('date_from'),date_to:textOrNull(data.get('date_to')),membership_status:data.get('membership_status'),contact_number:textOrNull(data.get('contact_number')),email:textOrNull(data.get('email')),address:textOrNull(data.get('address')),remarks:textOrNull(data.get('remarks'))};
+                    const payload={membership_no:textOrNull(data.get('membership_no')),date_from:data.get('date_from'),date_to:textOrNull(data.get('date_to')),membership_status:data.get('membership_status'),contact_number:textOrNull(data.get('contact_number')),email:textOrNull(data.get('email')),address:textOrNull(data.get('address')),remarks:textOrNull(data.get('remarks')),updated_at:new Date().toISOString(),updated_by:state.user?.id};
                     const result=await state.db.from('arbo_members').update(payload).eq('id',id);if(result.error)throw result.error;
                 }else{
                     const memberType=data.get('member_type'),membershipDate=data.get('default_membership_date')||today();
@@ -858,11 +859,54 @@
                         const members=rows.map(row=>{
                             const candidate=state.selectedBulkMembers.get(row.dataset.bulkProfile);
                             const get=field=>row.querySelector(`[data-bulk-field="${field}"]`)?.value||'';
-                            return {profile_id:candidate.arb_profile_id,membership_date:get('membership_date')||membershipDate,subscribed_capital:0,paid_up_capital:0,membership_no:get('membership_no'),contact_number:get('contact_number'),email:''};
+                            const cloaRef = (candidate.titles && candidate.titles !== '—') ? candidate.titles : ((candidate.ccloas && candidate.ccloas !== '—') ? candidate.ccloas : null);
+                            return {
+                                arbo_id: parseInt(currentId()),
+                                profile_id: candidate.arb_profile_id,
+                                arb_id: candidate.arb_id_uuid || null,
+                                arb_name: candidate.display_name,
+                                is_arb: true,
+                                date_from: get('membership_date')||membershipDate,
+                                membership_no: textOrNull(get('membership_no')),
+                                contact_number: textOrNull(get('contact_number')),
+                                municipality: candidate.municipalities !== 'N/A' ? candidate.municipalities : null,
+                                barangay: candidate.barangays !== 'N/A' ? candidate.barangays : null,
+                                cloa_reference: textOrNull(cloaRef),
+                                membership_status: 'ACTIVE',
+                                position: 'Member',
+                                assigned_at: new Date().toISOString(),
+                                created_by: state.user?.id,
+                                updated_by: state.user?.id,
+                                updated_at: new Date().toISOString()
+                            };
                         });
-                        const result=await state.db.rpc('register_arbo_members_bulk',{p_arbo_id:currentId(),p_members:members});if(result.error)throw result.error;
+                        const result=await state.db.from('arbo_members').insert(members);
+                        if(result.error)throw result.error;
+                        
+                        const arbIdsToUpdate = members.map(m => m.arb_id).filter(Boolean);
+                        if (arbIdsToUpdate.length > 0) {
+                            await state.db.from('arb').update({ arbo_id: parseInt(currentId()), validation_status: 'Validated' }).in('id', arbIdsToUpdate);
+                        }
                     }else{
-                        const result=await state.db.rpc('register_non_arb_member',{p_arbo_id:currentId(),p_name:textOrNull(data.get('non_arb_name')),p_membership_date:membershipDate,p_paid_up_capital:0,p_subscribed_capital:0,p_membership_no:textOrNull(data.get('membership_no')),p_contact_number:textOrNull(data.get('contact_number')),p_email:textOrNull(data.get('email')),p_address:textOrNull(data.get('address')),p_remarks:textOrNull(data.get('remarks'))});if(result.error)throw result.error;
+                        const payload={
+                            arbo_id: parseInt(currentId()),
+                            arb_name: textOrNull(data.get('non_arb_name')),
+                            is_arb: false,
+                            date_from: membershipDate,
+                            membership_no: textOrNull(data.get('membership_no')),
+                            contact_number: textOrNull(data.get('contact_number')),
+                            email: textOrNull(data.get('email')),
+                            address: textOrNull(data.get('address')),
+                            remarks: textOrNull(data.get('remarks')),
+                            membership_status: 'ACTIVE',
+                            position: 'Member',
+                            assigned_at: new Date().toISOString(),
+                            created_by: state.user?.id,
+                            updated_by: state.user?.id,
+                            updated_at: new Date().toISOString()
+                        };
+                        const result=await state.db.from('arbo_members').insert(payload);
+                        if(result.error)throw result.error;
                     }
                 }
             }
