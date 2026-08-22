@@ -523,6 +523,29 @@
             return results;
         }
 
+        // -------- JS Safe Upsert Logic --------
+        async function saveValidationRecord(valPayload) {
+            let matchQuery = secureDbClient.from('arb_validations')
+                .select('id')
+                .eq('arb_id', valPayload.arb_id)
+                .eq('validator_type', valPayload.validator_type);
+            
+            if (valPayload.arb_landholding_id) {
+                matchQuery = matchQuery.eq('arb_landholding_id', valPayload.arb_landholding_id);
+            } else {
+                matchQuery = matchQuery.is('arb_landholding_id', null);
+            }
+
+            const { data: existingVals, error: matchErr } = await matchQuery;
+            if (matchErr) throw matchErr;
+            
+            if (existingVals && existingVals.length > 0) {
+                return await secureDbClient.from('arb_validations').update(valPayload).eq('id', existingVals[0].id);
+            } else {
+                return await secureDbClient.from('arb_validations').insert(valPayload);
+            }
+        }
+
         // -------- Main Modal (Fixed Size) --------
         const modalEl = document.getElementById('modal');
         function showModal(title, body) {
@@ -862,7 +885,7 @@
                     let lhData = [];
                     if (profIds.length > 0) {
                         const { data: landholdings } = await secureDbClient.from('arb_landholdings').select(`
-                            arb_profile_id, municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no
+                            id, arb_profile_id, municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no
                         `).in('arb_profile_id', profIds);
                         lhData = landholdings || [];
                     }
@@ -918,36 +941,79 @@
                         const lStatus = arb.life_status || profile.life_status || 'UNKNOWN';
                         const lifeBadge = badge(lStatus, lStatus==='Active'?'success':lStatus==='Dead'?'danger':'neutral');
 
-                        html += `<tr>
-                            <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
-                            <td>
-                                <strong style="color:var(--text-dark); font-size:0.95rem;">${safe(fullName(arb))}</strong>
-                                <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
-                            </td>
-                            <td>${displayValue(dispTitle)}</td>
-                            <td>${displayValue(dispLot)}</td>
-                            <td>${displayValue(dispArea)}</td>
-                            <td>${displayValue(dispSurvey)}</td>
-                            <td>${displayValue(dispMunicipality)}</td>
-                            <td>${displayValue(dispBarangay)}</td>
-                            <td>${validationBadge}</td>
-                            <td>${lifeBadge}</td>
-                            <td>${cocromTag}</td>
-                            <td>${taTag}</td>
-                            <td>${aliTag}</td>
-                            <td>
-                                <div class="action-group">
-                                    <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
-                                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
-                                    ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">TAG / CASE</button>` : ''}
-                                    ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="DEAD">DECEASED</button>` : ''}
-                                    ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
-                                    ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
-                                    ${canAssignArbo() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
-                                    ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
-                                </div>
-                            </td>
-                        </tr>`;
+                        // Handle Multiple Rows for Multiple Lots
+                        if (arbLhs.length > 1) {
+                            arbLhs.forEach((lh, index) => {
+                                const thisTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
+                                const thisLot = lh.lot_no || '—';
+                                const thisArea = lh.landholding_area || '—';
+                                const thisSurvey = lh.survey_no || '—';
+                                const thisMun = lh.municipality || dispMunicipality;
+                                const thisBrgy = lh.barangay || dispBarangay;
+                                
+                                html += `<tr>
+                                    <td>${index === 0 ? `<input type="checkbox" class="arb-select-cb" value="${arb.id}">` : ''}</td>
+                                    <td>
+                                        ${index === 0 ? `<strong style="color:var(--text-dark); font-size:0.95rem;">${safe(fullName(arb))}</strong>
+                                        <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>` : ''}
+                                    </td>
+                                    <td>${displayValue(thisTitle)}</td>
+                                    <td><strong style="color:var(--primary-green);">${displayValue(thisLot)}</strong></td>
+                                    <td>${displayValue(thisArea)}</td>
+                                    <td>${displayValue(thisSurvey)}</td>
+                                    <td>${displayValue(thisMun)}</td>
+                                    <td>${displayValue(thisBrgy)}</td>
+                                    <td>${index === 0 ? validationBadge : ''}</td>
+                                    <td>${index === 0 ? lifeBadge : ''}</td>
+                                    <td>${index === 0 ? cocromTag : ''}</td>
+                                    <td>${index === 0 ? taTag : ''}</td>
+                                    <td>${index === 0 ? aliTag : ''}</td>
+                                    <td>
+                                        ${index === 0 ? `<div class="action-group">
+                                            <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
+                                            ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
+                                            ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">TAG / CASE</button>` : ''}
+                                            ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="DEAD">DECEASED</button>` : ''}
+                                            ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                            ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
+                                            ${canAssignArbo() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                            ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
+                                        </div>` : ''}
+                                    </td>
+                                </tr>`;
+                            });
+                        } else {
+                            html += `<tr>
+                                <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
+                                <td>
+                                    <strong style="color:var(--text-dark); font-size:0.95rem;">${safe(fullName(arb))}</strong>
+                                    <div style="font-size:0.75rem; color:var(--text-muted); font-family:monospace; margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
+                                </td>
+                                <td>${displayValue(dispTitle)}</td>
+                                <td><strong style="color:var(--primary-green);">${displayValue(dispLot)}</strong></td>
+                                <td>${displayValue(dispArea)}</td>
+                                <td>${displayValue(dispSurvey)}</td>
+                                <td>${displayValue(dispMunicipality)}</td>
+                                <td>${displayValue(dispBarangay)}</td>
+                                <td>${validationBadge}</td>
+                                <td>${lifeBadge}</td>
+                                <td>${cocromTag}</td>
+                                <td>${taTag}</td>
+                                <td>${aliTag}</td>
+                                <td>
+                                    <div class="action-group">
+                                        <button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${arb.id}">View</button>
+                                        ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${arb.id}">Edit</button>` : ''}
+                                        ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="LEGAL">TAG / CASE</button>` : ''}
+                                        ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${arb.id}" data-tag-mode="DEAD">DECEASED</button>` : ''}
+                                        ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${arb.id}" data-name="${safe(fullName(arb))}">ID</button>` : ''}
+                                        ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm photo-btn" data-arb-id="${arb.id}">Photo</button>` : ''}
+                                        ${canAssignArbo() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${arb.id}">ARBO</button>` : ''}
+                                        ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${arb.id}" data-current="${arb.validation_status||'Pending'}">VALIDATE</button>` : ''}
+                                    </div>
+                                </td>
+                            </tr>`;
+                        }
                     });
                     tbody.innerHTML = html;
                 }
@@ -1035,7 +1101,7 @@
                         secureDbClient.from('arb_heirs').select('*').eq('arb_profile_id', profileId).order('created_at', {ascending:true}),
                         secureDbClient.from('arb_landholdings').select('*').eq('arb_profile_id', profileId).order('is_primary', {ascending:false}),
                         secureDbClient.from('arb_tags').select('*').eq('arb_profile_id', profileId).order('created_at', {ascending:false}),
-                        secureDbClient.from('arb_validations').select('*').eq('arb_id', arbId).order('date_validated', {ascending:false})
+                        secureDbClient.from('arb_validations').select('id, validator_type, validator_name, position, date_validated, validation_basis, supporting_document_reference, arb_landholding_id').eq('arb_id', arbId).order('date_validated', {ascending:false})
                     ]);
                     heirs = hRes.data || [];
                     landholdings = lRes.data || [];
@@ -1121,7 +1187,7 @@
                                     ${renderTags(tags)}
                                 </div>
                                 <div class="tab-content" id="tab-validations">
-                                    ${renderValidations(validations)}
+                                    ${renderValidations(validations, landholdings)}
                                 </div>
                                 <div class="tab-content" id="tab-mother">
                                     ${renderMotherGroup(motherGroup)}
@@ -1267,7 +1333,7 @@
                     <td>${displayValue(h.lhid)}</td>
                     <td>${displayValue(h.survey_no)}</td>
                     <td>${displayValue(h.asp_no)}</td>
-                    <td>${displayValue(h.lot_no)}</td>
+                    <td><strong style="color:var(--primary-green);">${displayValue(h.lot_no)}</strong></td>
                     <td>${displayValue(h.landholding_area)}</td>
                     <td>${displayValue(h.arb_share_area)}</td>
                     <td>${displayValue(h.ccloa_area)}</td>
@@ -1340,11 +1406,16 @@
             return html;
         }
 
-        function renderValidations(validations) {
+        function renderValidations(validations, landholdings) {
             if (!validations || validations.length === 0) return `<p class="empty-card">No validations recorded.</p>`;
-            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Position</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
+            let html = `<div class="table-wrap"><table><thead><tr><th>Validator</th><th>Type</th><th>Landholding</th><th>Position</th><th>Date</th><th>Basis</th><th>Document</th></tr></thead><tbody>`;
             validations.forEach(v => {
-                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td>${displayValue(v.position)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
+                let lhText = 'All / General Validation';
+                if (v.arb_landholding_id && landholdings) {
+                    const lh = landholdings.find(l => String(l.id) === String(v.arb_landholding_id));
+                    if (lh) lhText = `${lh.original_mother_title_no || lh.title_no || 'Untitled'} - Lot ${lh.lot_no || 'N/A'}`;
+                }
+                html += `<tr><td>${displayValue(v.validator_name)}</td><td>${displayValue(v.validator_type)}</td><td><strong style="color:var(--primary-green);">${safe(lhText)}</strong></td><td>${displayValue(v.position)}</td><td>${formatDateValue(v.date_validated)}</td><td>${displayValue(v.validation_basis)}</td><td>${displayValue(v.supporting_document_reference)}</td></tr>`;
             });
             html += `</tbody></table></div>`;
             return html;
@@ -1409,6 +1480,15 @@
             const currentName = currentUserProfile?.full_name || currentUser?.email || '';
             const currentPos = currentUserProfile?.position || '';
 
+            let legalHoldingOptions = '';
+            try {
+                const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
+                if (profRes.data && profRes.data.id) {
+                    const { data: legalHoldings } = await secureDbClient.from('arb_landholdings').select('id,original_mother_title_no,title_no,lot_no,municipality,barangay').eq('arb_profile_id', profRes.data.id);
+                    legalHoldingOptions = (legalHoldings || []).map(h => `<option value="${h.id}">${safe(h.original_mother_title_no || h.title_no || 'Untitled')} - Lot ${safe(h.lot_no || 'N/A')} - ${safe(h.barangay || '')}, ${safe(h.municipality || '')}</option>`).join('');
+                }
+            } catch(e) { console.warn('Could not fetch landholdings for validation form', e); }
+
             const formHtml = `
                 <form id="validationForm">
                     <div class="form-grid">
@@ -1425,6 +1505,13 @@
                                 <option value="Validated" ${currentStatus==='Validated'?'selected':''}>Validated</option>
                                 <option value="Rejected" ${currentStatus==='Rejected'?'selected':''}>Rejected</option>
                             </select>
+                        </div>
+                        <div class="form-group full"><label for="valLandholding">Particular Landholding (Optional)</label>
+                            <select id="valLandholding" name="arb_landholding_id">
+                                <option value="">All Landholdings / General Validation</option>
+                                ${legalHoldingOptions}
+                            </select>
+                            <small>Select if this validation applies only to a specific landholding.</small>
                         </div>
                         <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" value="${safe(currentName)}" required></div>
                         <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position" value="${safe(currentPos)}"></div>
@@ -1444,11 +1531,10 @@
 
                 const fd = new FormData(e.target);
                 try {
-                    // Fix: Validations are per ARB (person), not per lot number. 
-                    // When multiple lot numbers exist for the same ARB, they share the same ARB ID.
-                    // Using upsert prevents the duplicate key violation error when validating the second lot.
+                    const landholdingId = emptyToNull(fd.get('arb_landholding_id'));
                     const valPayload = {
                         arb_id: Number(arbId),
+                        arb_landholding_id: landholdingId,
                         validator_type: fd.get('validator_type'),
                         validator_name: emptyToNull(fd.get('validator_name')),
                         position: emptyToNull(fd.get('position')),
@@ -1460,8 +1546,7 @@
                         updated_at: new Date().toISOString()
                     };
 
-                    const { error: valErr } = await secureDbClient.from('arb_validations')
-                        .upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                    const { error: valErr } = await saveValidationRecord(valPayload);
                     if (valErr) throw valErr;
 
                     const { error: arbErr } = await secureDbClient.from('arb')
@@ -2197,6 +2282,7 @@
                     const valPayload = {
                         arb_id: Number(arbId),
                         validator_type: 'System',
+                        arb_landholding_id: null,
                         validator_name: currentUserProfile?.full_name || currentUser?.email || 'System',
                         position: null,
                         date_validated: new Date().toISOString().substring(0,10),
@@ -2206,7 +2292,7 @@
                         recorded_by_user_id: currentUser?.id || null,
                         updated_at: new Date().toISOString()
                     };
-                    const { error: valErr } = await secureDbClient.from('arb_validations').upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                    const { error: valErr } = await saveValidationRecord(valPayload);
                     if (valErr) console.warn('Failed to insert auto validation:', valErr);
 
                     const pRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
@@ -2375,6 +2461,7 @@
                     for (const arbId of allArbIds) {
                         const valPayload = {
                             arb_id: Number(arbId),
+                            arb_landholding_id: null,
                             validator_type: validatorType,
                             validator_name: validatorName,
                             position: validatorType === 'Barangay' ? (barangayCaptain || 'Barangay Captain') : null,
@@ -2385,7 +2472,7 @@
                             recorded_by_user_id: userId,
                             updated_at: new Date().toISOString()
                         };
-                        const { error: valErr } = await secureDbClient.from('arb_validations').upsert(valPayload, { onConflict: 'arb_id, validator_type' });
+                        const { error: valErr } = await saveValidationRecord(valPayload);
                         if (valErr) throw valErr;
 
                         const { error: arbErr } = await secureDbClient.from('arb').update({
