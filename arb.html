@@ -3575,12 +3575,11 @@
             }
 
             // ========================================================================
-            // ENHANCED: Capture Validation Form with Action Detection & ARBO dropdown
+            // IMPROVED: Capture Validation Form with robust OCR parsing and Reference Number
             // ========================================================================
             async function openValidationCapture() {
                 if (!canValidateOrAssign()) { popToast('Your role cannot capture validation forms.', 'err'); return; }
 
-                // Pre-fetch ARBO list for dropdown
                 if (arboList.length === 0) await loadArboList();
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
@@ -3598,6 +3597,7 @@
                                     <li><strong>NAGADAN NA</strong> → TRANSFER ACTION (tags ARB for Transfer Action, captures heir info)</li>
                                     <li><strong>ARBO MEMBER = YES</strong> → shows dropdown to assign to an ARBO</li>
                                 </ul>
+                                <p style="margin-top:6px;font-weight:600;color:#065f46;">📎 Reference Number (ARB-GC-...) will be auto-captured from the form.</p>
                             </div>
                             <div class="modal-actions">
                                 <button type="button" class="btn btn-primary" id="cancelOcrBtn" style="background:#64748b!important;">Cancel</button>
@@ -3640,18 +3640,20 @@
                             });
                             fullText += `\n--- PAGE ${i+1} ---\n${result.data.text}`;
                         }
-                        const reportRef = (fullText.match(/ARB-GC-[A-Z0-9-]+/i) || [null])[0];
 
-                        // --- ENHANCED: Parse ARB rows with action detection ---
-                        const arbRows = parseOcrArbRows(fullText);
-                        const arbIds = arbRows.map(r => r.arbId).filter(Boolean);
+                        // --- Extract the form reference number ---
+                        const formRefMatch = fullText.match(/ARB-GC-[A-Z0-9-]+/i);
+                        const formRef = formRefMatch ? formRefMatch[0] : null;
+
+                        // --- Improved: Parse all ARB rows from the OCR text ---
+                        const arbRows = parseOcrArbRowsImproved(fullText);
 
                         const batch = await secureDbClient.from('validation_capture_batches').insert({
                             storage_path: storagePath,
                             original_file_name: file.name,
                             mime_type: file.type,
                             file_size_bytes: file.size,
-                            source_report_ref: reportRef,
+                            source_report_ref: formRef,
                             ocr_text: fullText,
                             ocr_status: 'PENDING_VERIFICATION',
                             captured_by: currentUser.id,
@@ -3660,19 +3662,12 @@
                         if (batch.error) throw batch.error;
 
                         if (arbRows.length) {
-                            // Build row payload with action metadata
                             const rowPayload = arbRows.map(r => ({
                                 batch_id: batch.data.id,
                                 arb_id: Number(r.arbId),
                                 extracted_identifier: `ARB:${r.arbId}`,
-                                source_report_ref: reportRef,
+                                source_report_ref: formRef,
                                 proposed_validation_status: 'Validated',
-                                raw_ocr_text: fullText,
-                                verification_status: 'PENDING',
-                                // Store action metadata as JSON in a separate column or as text
-                                // We'll store it in the raw_ocr_text field for now since the schema may not have dedicated columns
-                                // But we'll enrich the review UI with the parsed data
-                                // Use a comment in the raw text to preserve the action info
                                 raw_ocr_text: JSON.stringify({
                                     action: r.action,
                                     arboMember: r.arboMember === 'YES' ? true : false,
@@ -3681,8 +3676,10 @@
                                     survey: r.survey || null,
                                     lot: r.lot || null,
                                     area: r.area || null,
-                                    title: r.title || null
-                                })
+                                    title: r.title || null,
+                                    formRef: formRef
+                                }),
+                                verification_status: 'PENDING'
                             }));
                             const rowInsert = await secureDbClient.from('validation_capture_rows').insert(
                                 rowPayload);
@@ -3690,9 +3687,9 @@
                         }
 
                         const detectedCount = arbRows.length;
-                        popToast(`OCR completed. ${detectedCount} ARB record(s) require human verification.`,
+                        popToast(`OCR completed. ${detectedCount} ARB record(s) require human verification. Form Ref: ${formRef || 'Not found'}`,
                             detectedCount ? 'ok' : 'warn');
-                        await reviewValidationCaptureEnhanced(batch.data.id, arbRows);
+                        await reviewValidationCaptureEnhanced(batch.data.id, arbRows, formRef);
                     } catch (err) {
                         if (storagePath) await secureDbClient.storage.from('validation-form-captures').remove([
                             storagePath
@@ -3704,140 +3701,83 @@
             }
 
             /**
-             * Parse OCR text to extract ARB rows with action detection.
-             * Looks for patterns like: "NAME [ARB:12345]" followed by survey, lot, area, title,
-             * and then detects which action column has a mark (GURANG NA, NAGHALI NA, BINENTA NA, NAGADAN NA)
-             * Also detects ARBO MEMBER = YES/NO.
+             * IMPROVED: Parse OCR text to extract ALL ARB rows with action detection and reference number.
+             * Uses multiple strategies to catch all ARBs from the OCR text.
              */
-            function parseOcrArbRows(ocrText) {
+            function parseOcrArbRowsImproved(ocrText) {
                 const rows = [];
-                // Clean up the text: normalize whitespace, handle line breaks
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-                // Look for ARB entries with pattern: "NAME [ARB:12345]" or "NAME [ARB:12345]" with various spacing
-                // Also capture the table columns that follow
-                const arbRegex = /([A-Z][A-Z\s,.-]+?)\s*\[ARB:\s*(\d+)\s*\]/gi;
+                // Strategy 1: Look for lines with [ARB:number] pattern
+                const arbRegex = /([A-Z][A-Z\s,.-]*?)\s*\[ARB:\s*(\d+)\s*\]/gi;
                 let match;
 
-                // We need to capture the context around each ARB match to determine the action columns
-                // Approach: split text into lines and process each line
+                // Strategy 2: Also look for lines with ARB:number without brackets
+                const arbRegex2 = /([A-Z][A-Z\s,.-]*?)\s*ARB[:#]?\s*(\d+)/gi;
+
+                // Strategy 3: Look for standalone ARB numbers in the text
+                const arbRegex3 = /\[?ARB[:#]?\s*(\d+)\]?/gi;
+
+                // Collect all lines that contain ARB references
                 const lines = clean.split('\n').filter(l => l.trim().length > 0);
 
-                // First, identify the column headers to understand the table structure
-                let headerIndices = {
-                    name: -1,
-                    arboMember: -1,
-                    survey: -1,
-                    lot: -1,
-                    area: -1,
-                    title: -1,
-                    gurang: -1,
-                    naghali: -1,
-                    binenta: -1,
-                    nagadan: -1,
-                    mayo: -1,
-                    igwa: -1,
-                    mobile: -1
-                };
+                // First pass: collect all ARB entries with their context
+                const arbEntries = [];
 
-                // Try to find the header row
-                for (let i = 0; i < Math.min(lines.length, 10); i++) {
-                    const line = lines[i].toUpperCase();
-                    if (line.includes('PANGARAN KANG PARA-UMA') || line.includes('PANGARAN KANG PARA-UMA (ARB)')) {
-                        // This is the header row, try to parse column positions
-                        const parts = line.split(/\s{2,}|\|/);
-                        parts.forEach((part, idx) => {
-                            const p = part.trim().toUpperCase();
-                            if (p.includes('PARA-UMA') || p.includes('(ARB)') || p.includes('PANGARAN')) {
-                                headerIndices.name = idx;
-                            } else if (p.includes('ARBO') || p.includes('MEMBER')) {
-                                headerIndices.arboMember = idx;
-                            } else if (p.includes('SURVEY')) {
-                                headerIndices.survey = idx;
-                            } else if (p.includes('LOT NO')) {
-                                headerIndices.lot = idx;
-                            } else if (p.includes('AREA')) {
-                                headerIndices.area = idx;
-                            } else if (p.includes('TITLE NUMBER') || p.includes('TITLE')) {
-                                headerIndices.title = idx;
-                            } else if (p.includes('GURANG')) {
-                                headerIndices.gurang = idx;
-                            } else if (p.includes('NAGHALI')) {
-                                headerIndices.naghali = idx;
-                            } else if (p.includes('BINENTA')) {
-                                headerIndices.binenta = idx;
-                            } else if (p.includes('NAGADAN')) {
-                                headerIndices.nagadan = idx;
-                            } else if (p.includes('MAYO')) {
-                                headerIndices.mayo = idx;
-                            } else if (p.includes('IGWA')) {
-                                headerIndices.igwa = idx;
-                            } else if (p.includes('CELLPHONE') || p.includes('MOBILE') || p.includes('PHONE') || p
-                                .includes('CONTACT')) {
-                                headerIndices.mobile = idx;
-                            }
-                        });
-                        break;
-                    }
-                }
-
-                // If we didn't find a clear header, use a simpler approach: look for ARB patterns in each line
-                // and try to extract the surrounding data
-                if (headerIndices.name === -1) {
-                    // Fallback: use regex to find ARB entries and capture the surrounding text
-                    const fallbackRegex = /([A-Z][A-Z\s,.-]*?)\s*\[ARB:\s*(\d+)\s*\][\s|]*([A-Z0-9\-]+)[\s|]*([A-Z0-9\-]+)[\s|]*([0-9.]+)[\s|]*([A-Z0-9\-]+)/gi;
-                    let fm;
-                    while ((fm = fallbackRegex.exec(clean)) !== null) {
-                        const name = fm[1].trim();
-                        const arbId = fm[2].trim();
-                        const survey = fm[3] || '';
-                        const lot = fm[4] || '';
-                        const area = fm[5] || '';
-                        const title = fm[6] || '';
-                        rows.push({
-                            arbId,
-                            name,
-                            survey,
-                            lot,
-                            area,
-                            title,
-                            arboMember: 'NO',
-                            action: null,
-                            actualName: null,
-                            mobile: null,
-                            raw: fm[0]
-                        });
-                    }
-                    return rows;
-                }
-
-                // Now process each line that might contain ARB data
-                // Look for lines that contain "[ARB:" and parse them with the header structure
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
-                    const arbMatch = line.match(/\[ARB:\s*(\d+)\s*\]/i);
-                    if (!arbMatch) continue;
+                    let found = false;
 
-                    const arbId = arbMatch[1].trim();
-                    // Extract the name (everything before [ARB:])
-                    const namePart = line.substring(0, line.indexOf(arbMatch[0])).trim();
-                    const name = namePart.replace(/^\s*[|]\s*/, '').trim();
+                    // Try pattern 1
+                    let m;
+                    while ((m = arbRegex.exec(line)) !== null) {
+                        const name = m[1].trim();
+                        const id = m[2].trim();
+                        // Get the rest of the line after the ARB
+                        const rest = line.substring(line.indexOf(m[0]) + m[0].length).trim();
+                        arbEntries.push({ line, name, id, rest, index: i, raw: line });
+                        found = true;
+                    }
 
-                    // Parse the rest of the line by splitting on pipes or multiple spaces
-                    let parts = line.split(/\s{2,}|\|/).map(p => p.trim()).filter(p => p.length > 0);
-
-                    // Find where the ARB part is
-                    let arbIndex = -1;
-                    for (let j = 0; j < parts.length; j++) {
-                        if (parts[j].includes('[ARB:') || parts[j].includes(arbId)) {
-                            arbIndex = j;
-                            break;
+                    // If no match with pattern 1, try pattern 2
+                    if (!found) {
+                        let m2;
+                        while ((m2 = arbRegex2.exec(line)) !== null) {
+                            const name = m2[1].trim();
+                            const id = m2[2].trim();
+                            const rest = line.substring(line.indexOf(m2[0]) + m2[0].length).trim();
+                            arbEntries.push({ line, name, id, rest, index: i, raw: line });
+                            found = true;
                         }
                     }
-                    if (arbIndex === -1) continue;
 
-                    // Now map the parts to columns based on the header indices
-                    // The data parts follow the same order as the header
+                    // If still no match, try to find standalone ARB numbers
+                    if (!found) {
+                        const idMatch = line.match(/\[?ARB[:#]?\s*(\d+)\]?/i);
+                        if (idMatch) {
+                            const id = idMatch[1].trim();
+                            // Try to extract a name from the line (before the ARB)
+                            const namePart = line.substring(0, line.indexOf(idMatch[0])).trim();
+                            const name = namePart.replace(/^\s*[|]\s*/, '').trim() || 'Unknown ARB';
+                            const rest = line.substring(line.indexOf(idMatch[0]) + idMatch[0].length).trim();
+                            arbEntries.push({ line, name, id, rest, index: i, raw: line });
+                            found = true;
+                        }
+                    }
+                }
+
+                // Deduplicate by ID (keep first occurrence)
+                const seenIds = new Set();
+                const uniqueEntries = [];
+                for (const entry of arbEntries) {
+                    if (!seenIds.has(entry.id)) {
+                        seenIds.add(entry.id);
+                        uniqueEntries.push(entry);
+                    }
+                }
+
+                // Now parse each entry to extract data
+                for (const entry of uniqueEntries) {
                     let survey = '',
                         lot = '',
                         area = '',
@@ -3847,150 +3787,183 @@
                         actualName = null,
                         mobile = null;
 
-                    // Determine which action column has a mark by looking for "YES", "X", "✓", "●", "■", "☑", "✔", etc.
-                    const actionCols = ['gurang', 'naghali', 'binenta', 'nagadan'];
-                    const actionLabels = ['GURANG NA', 'NAGHALI NA', 'BINENTA NA', 'NAGADAN NA'];
-                    const actionMapping = {
-                        'gurang': 'VALIDATED',
-                        'naghali': 'DISQUALIFICATION',
-                        'binenta': 'AO8',
-                        'nagadan': 'TRANSFER ACTION'
+                    // The rest of the line contains the data columns
+                    const rest = entry.rest;
+
+                    // Try to extract survey, lot, area, title from the rest
+                    // Common patterns: survey starts with letters (CSD, PSD, BSD, CAD, etc.)
+                    const surveyMatch = rest.match(/([A-Z]{2,3}-[0-9]{2,3}-[0-9]{4,5})/i);
+                    if (surveyMatch) survey = surveyMatch[1];
+
+                    // Lot: alphanumeric, often with - or /
+                    const lotMatch = rest.match(/([0-9]+[A-Z]?-[A-Z0-9]+|[0-9]+\s*\([A-Z]+\)[A-Z0-9-]+|[A-Z0-9-]+)/i);
+                    if (lotMatch) {
+                        const potentialLot = lotMatch[1];
+                        // Make sure it's not the survey or title
+                        if (!surveyMatch || potentialLot !== surveyMatch[1]) {
+                            lot = potentialLot;
+                        }
+                    }
+
+                    // Area: decimal number
+                    const areaMatch = rest.match(/([0-9]+\.[0-9]+)/);
+                    if (areaMatch) area = areaMatch[1];
+
+                    // Title: starts with OCT, TCT, etc.
+                    const titleMatch = rest.match(/(OCT|TCT|EP|CLOA)[-\s]*[0-9]+/i);
+                    if (titleMatch) title = titleMatch[0];
+
+                    // If title not found, try to find any alphanumeric at the end
+                    if (!title) {
+                        const parts = rest.split(/\s+/);
+                        for (const part of parts) {
+                            if (part.match(/^[A-Z0-9-]{5,}$/) && !part.match(/^[0-9.]+$/)) {
+                                title = part;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Detect ARBO MEMBER = YES/NO
+                    if (rest.toUpperCase().includes('YES') && rest.toUpperCase().includes('ARBO')) {
+                        arboMember = 'YES';
+                    } else if (rest.toUpperCase().includes('NO') && rest.toUpperCase().includes('ARBO')) {
+                        arboMember = 'NO';
+                    }
+
+                    // Detect action: look for keywords in the line and surrounding context
+                    const lineUpper = entry.line.toUpperCase();
+                    const actionKeywords = {
+                        'GURANG': 'VALIDATED',
+                        'NAGHALI': 'DISQUALIFICATION',
+                        'BINENTA': 'AO8',
+                        'NAGADAN': 'TRANSFER ACTION'
                     };
 
-                    // Check for action marks in the remaining parts after the ARB data
-                    // The ARB data typically takes 5-6 columns: Name, ARBO Member, Survey, Lot, Area, Title
-                    // Then the action columns follow
-                    let startIdx = arbIndex + 1;
-                    // Look for ARBO MEMBER value (YES/NO) right after the name
-                    if (startIdx < parts.length) {
-                        const val = parts[startIdx].toUpperCase();
-                        if (val === 'YES' || val === 'NO') {
-                            arboMember = val;
-                            startIdx++;
-                        }
-                    }
-                    // Now the next 4-5 columns are Survey, Lot, Area, Title
-                    if (startIdx < parts.length) survey = parts[startIdx++];
-                    if (startIdx < parts.length) lot = parts[startIdx++];
-                    if (startIdx < parts.length) area = parts[startIdx++];
-                    if (startIdx < parts.length) title = parts[startIdx++];
-
-                    // Now check the action columns (remaining parts)
-                    let actionFound = null;
-                    for (let k = startIdx; k < parts.length; k++) {
-                        const val = parts[k].toUpperCase().trim();
-                        // Check if this value is a mark (YES, X, ✓, ●, ■, ☑, ✔, or just a non-empty value)
-                        const isMark = val === 'YES' || val === 'X' || val === '✓' || val === '✔' || val === '●' ||
-                            val === '■' || val === '☑' || val === '1' || val === 'TRUE' || val.length > 0;
-                        if (isMark) {
-                            // Determine which action column this corresponds to based on position
-                            const colIndex = k - startIdx;
-                            const actionKey = actionCols[colIndex] || null;
-                            if (actionKey) {
-                                actionFound = {
-                                    key: actionKey,
-                                    label: actionLabels[colIndex] || actionKey.toUpperCase(),
-                                    value: actionMapping[actionKey] || actionKey.toUpperCase()
-                                };
-                                // If we find a match, stop (the first marked action wins)
-                                break;
-                            }
-                        }
-                    }
-
-                    // Also check if there's an "actual name" in the "PANGARAN KANG AKTUAL..." column
-                    // This is typically after the action columns
-                    let actualNameVal = null;
-                    let mobileVal = null;
-                    // Look for a name pattern after the action columns
-                    for (let k = startIdx + 4; k < parts.length; k++) {
-                        const val = parts[k].trim();
-                        if (val.match(/^[A-Z][A-Z\s,.]+$/i) && val.length > 2 && !val.match(/^[0-9.]+$/)) {
-                            actualNameVal = val;
-                            break;
-                        }
-                    }
-                    // Look for a mobile number (11 digits starting with 09 or 0)
-                    for (let k = 0; k < parts.length; k++) {
-                        const val = parts[k].trim();
-                        if (val.match(/^(09|0)[0-9]{9,10}$/)) {
-                            mobileVal = val;
+                    // Check if the line contains action keywords
+                    for (const [keyword, actionVal] of Object.entries(actionKeywords)) {
+                        if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
+                            action = actionVal;
                             break;
                         }
                     }
 
-                    // If we didn't find an action from the structured parsing, try to detect from the raw text
-                    if (!actionFound) {
-                        // Look for keywords in the line or surrounding lines
-                        const lineUpper = line.toUpperCase();
-                        const actionKeywords = {
-                            'GURANG': 'VALIDATED',
-                            'NAGHALI': 'DISQUALIFICATION',
-                            'BINENTA': 'AO8',
-                            'NAGADAN': 'TRANSFER ACTION'
-                        };
+                    // Also check the rest of the line for action marks
+                    if (!action) {
+                        const restUpper = rest.toUpperCase();
                         for (const [keyword, actionVal] of Object.entries(actionKeywords)) {
-                            if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes(
+                            if (restUpper.includes(keyword) && !restUpper.includes('NO') && !restUpper.includes(
                                 'MAYO')) {
-                                actionFound = { key: keyword.toLowerCase().replace(/\s/g, '_'), label: keyword,
-                                    value: actionVal };
+                                action = actionVal;
                                 break;
                             }
                         }
                     }
 
-                    // If the action is AO8 or TRANSFER ACTION and we have an actual name, capture it
-                    const isAo8 = actionFound && (actionFound.value === 'AO8' || actionFound.key === 'binenta');
-                    const isTransfer = actionFound && (actionFound.value === 'TRANSFER ACTION' || actionFound.key ===
-                        'nagadan');
+                    // Also check the previous and next lines for action context
+                    if (!action) {
+                        const prevLine = entry.index > 0 ? lines[entry.index - 1].toUpperCase() : '';
+                        const nextLine = entry.index < lines.length - 1 ? lines[entry.index + 1].toUpperCase() : '';
+                        const context = prevLine + ' ' + nextLine;
+                        for (const [keyword, actionVal] of Object.entries(actionKeywords)) {
+                            if (context.includes(keyword) && !context.includes('NO') && !context.includes('MAYO')) {
+                                action = actionVal;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Extract actual name (for AO8 and Transfer Action)
+                    if (action === 'AO8' || action === 'TRANSFER ACTION') {
+                        // Look for a name pattern in the rest or surrounding lines
+                        const namePattern = /([A-Z][A-Z\s,.]+)/i;
+                        const nameMatch = rest.match(namePattern);
+                        if (nameMatch) {
+                            const possibleName = nameMatch[1].trim();
+                            if (possibleName.length > 3 && !possibleName.match(/^[0-9.]+$/)) {
+                                actualName = possibleName;
+                            }
+                        }
+                        // Also check next line for name
+                        if (!actualName && entry.index < lines.length - 1) {
+                            const nextLine = lines[entry.index + 1].trim();
+                            if (nextLine.match(/^[A-Z][A-Z\s,.]+$/i) && nextLine.length > 3) {
+                                actualName = nextLine;
+                            }
+                        }
+                    }
+
+                    // Extract mobile number
+                    const mobileMatch = rest.match(/(09[0-9]{9})/);
+                    if (mobileMatch) mobile = mobileMatch[1];
 
                     rows.push({
-                        arbId,
-                        name,
-                        survey,
-                        lot,
-                        area,
-                        title,
-                        arboMember,
-                        action: actionFound ? actionFound.value : null,
-                        actionLabel: actionFound ? actionFound.label : null,
-                        actualName: (isAo8 || isTransfer) ? (actualNameVal || null) : null,
-                        mobile: mobileVal || null,
-                        raw: line
+                        arbId: entry.id,
+                        name: entry.name,
+                        survey: survey,
+                        lot: lot,
+                        area: area,
+                        title: title,
+                        arboMember: arboMember,
+                        action: action,
+                        actualName: actualName,
+                        mobile: mobile,
+                        raw: entry.line
                     });
                 }
 
-                // Deduplicate by ARB ID (keep first occurrence)
-                const seen = new Set();
-                const uniqueRows = [];
-                for (const row of rows) {
-                    if (!seen.has(row.arbId)) {
-                        seen.add(row.arbId);
-                        uniqueRows.push(row);
+                // If no rows found with the detailed parsing, fallback to simple pattern
+                if (rows.length === 0) {
+                    const fallbackRegex = /([A-Z][A-Z\s,.-]*?)\s*\[?ARB[:#]?\s*(\d+)\]?/gi;
+                    let fm;
+                    while ((fm = fallbackRegex.exec(clean)) !== null) {
+                        const name = fm[1].trim();
+                        const id = fm[2].trim();
+                        // Try to extract data from the surrounding text
+                        const start = Math.max(0, fm.index - 50);
+                        const end = Math.min(clean.length, fm.index + fm[0].length + 100);
+                        const context = clean.substring(start, end);
+                        const surveyMatch = context.match(/([A-Z]{2,3}-[0-9]{2,3}-[0-9]{4,5})/i);
+                        const titleMatch = context.match(/(OCT|TCT|EP|CLOA)[-\s]*[0-9]+/i);
+                        const areaMatch = context.match(/([0-9]+\.[0-9]+)/);
+
+                        rows.push({
+                            arbId: id,
+                            name: name,
+                            survey: surveyMatch ? surveyMatch[1] : '',
+                            lot: '',
+                            area: areaMatch ? areaMatch[1] : '',
+                            title: titleMatch ? titleMatch[0] : '',
+                            arboMember: 'NO',
+                            action: null,
+                            actualName: null,
+                            mobile: null,
+                            raw: context
+                        });
                     }
                 }
-                return uniqueRows;
+
+                // Filter out any rows with empty arbId
+                return rows.filter(r => r.arbId && r.arbId.trim() !== '');
             }
 
             /**
-             * Enhanced review UI that shows action selection, ARBO dropdown, and capture fields.
+             * Enhanced review UI that shows action selection, ARBO dropdown, and captures the reference number.
+             * Uses the same format as the Validate button for posting.
              */
-            async function reviewValidationCaptureEnhanced(batchId, parsedRows) {
+            async function reviewValidationCaptureEnhanced(batchId, parsedRows, formRef) {
                 const { data: rows, error } = await secureDbClient.from('validation_capture_rows').select('*')
                     .eq('batch_id', batchId).order('created_at');
                 if (error) throw error;
 
-                // Fetch ARB names
                 const arbIds = (rows || []).map(r => String(r.arb_id)).filter(Boolean);
                 const arbs = arbIds.length ? await fetchInChunks('arb',
                     'id,first_name,middle_name,last_name,validation_status', 'id', arbIds) : [];
                 const amap = Object.fromEntries(arbs.map(a => [String(a.id), a]));
 
-                // Build a map from parsed rows for quick lookup
                 const parsedMap = {};
                 parsedRows.forEach(r => { parsedMap[r.arbId] = r; });
 
-                // ARBO options for dropdown
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
                 let content = '';
@@ -3999,8 +3972,8 @@
                 } else {
                     content = `
                             <p style="color:#475569;margin-bottom:16px;">
-                                🔍 <strong>${rows.length} ARB(s)</strong> detected. For each row, select the action that matches the marks on the validation form.
-                                ${canAssignArbo() ? 'When ARBO MEMBER = YES, assign an ARBO from the dropdown.' : ''}
+                                🔍 <strong>${rows.length} ARB(s)</strong> detected. Form Reference: <strong style="color:var(--dar-gold);">${safe(formRef || 'Not detected')}</strong>
+                                <br><span style="font-size:0.75rem;">For each row, select the action that matches the marks on the validation form. The reference number will be used as the supporting document reference.</span>
                             </p>
                             <div style="max-height:58vh;overflow:auto;">
                                 ${rows.map(r => {
@@ -4010,15 +3983,16 @@
                                     const arboMember = parsed.arboMember || 'NO';
                                     const actualName = parsed.actualName || '';
                                     const mobile = parsed.mobile || '';
+                                    const titleNo = parsed.title || '';
 
                                     return `
                                         <div class="ocr-review-row" data-review-row="${r.id}" data-arb-id="${r.arb_id}" data-arbo-member="${arboMember}">
                                             <div class="ocr-arb-info">
                                                 <span>${safe(fullName(arb) || 'Unknown ARB')}</span>
-                                                <small>ARB ${safe(r.arb_id)}</small>
+                                                <small>ARB ${safe(r.arb_id)} ${titleNo ? '| Title: '+safe(titleNo) : ''}</small>
                                             </div>
 
-                                            <!-- Action Selection -->
+                                            <!-- Action Selection - matches the Validate button format -->
                                             <select class="ocr-action-select" data-row-id="${r.id}">
                                                 <option value="">— Select Action —</option>
                                                 <option value="VALIDATED" ${defaultAction === 'VALIDATED' ? 'selected' : ''}>✅ GURANG NA → Validated</option>
@@ -4046,7 +4020,7 @@
                                             <span class="ocr-status-badge pending" id="statusBadge_${r.id}">⏳ Pending</span>
 
                                             <!-- Post button -->
-                                            <button class="ocr-post-btn" data-row-id="${r.id}" data-arb-id="${r.arb_id}">📌 Verify & Post</button>
+                                            <button class="ocr-post-btn" data-row-id="${r.id}" data-arb-id="${r.arb_id}" data-form-ref="${safe(formRef || '')}">📌 Verify & Post</button>
                                         </div>
                                     `;
                                 }).join('')}
@@ -4079,6 +4053,7 @@
                     btn.addEventListener('click', async function() {
                         const rowId = this.dataset.rowId;
                         const arbId = this.dataset.arbId;
+                        const formRefFromBtn = this.dataset.formRef || formRef || null;
                         const row = this.closest('.ocr-review-row');
                         const actionSelect = row.querySelector('.ocr-action-select');
                         const action = actionSelect.value;
@@ -4097,7 +4072,7 @@
                         this.textContent = 'Posting...';
 
                         try {
-                            // First, update the validation capture row
+                            // Update the validation capture row
                             const { error: updateErr } = await secureDbClient.from(
                                 'validation_capture_rows')
                                 .update({
@@ -4107,10 +4082,10 @@
                                 }).eq('id', rowId);
                             if (updateErr) throw updateErr;
 
-                            // Then perform the action on the ARB
-                            await performActionOnArb(arbId, action, actualName, mobile, arboId);
+                            // Perform the action on the ARB - pass the form reference
+                            await performActionOnArb(arbId, action, actualName, mobile, arboId,
+                                formRefFromBtn);
 
-                            // Update UI
                             badge.className = 'ocr-status-badge posted';
                             badge.textContent = '✅ Posted';
                             this.textContent = 'Posted';
@@ -4118,7 +4093,8 @@
                             row.querySelectorAll('input,select,button').forEach(el => {
                                 if (el !== this) el.disabled = true;
                             });
-                            popToast(`ARB ${arbId}: ${action} applied.`, 'ok');
+                            popToast(`ARB ${arbId}: ${action} applied. Ref: ${formRefFromBtn || 'N/A'}`,
+                                'ok');
 
                         } catch (err) {
                             popToast(err.message, 'err');
@@ -4158,45 +4134,45 @@
 
             /**
              * Perform the appropriate action on an ARB based on the selected action.
+             * Uses the same validation record format as the Validate button.
              */
-            async function performActionOnArb(arbId, action, actualName, mobile, arboId) {
+            async function performActionOnArb(arbId, action, actualName, mobile, arboId, formRef) {
                 const today = new Date().toISOString().substring(0, 10);
                 const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
                 const userId = currentUser?.id || null;
 
-                // Get profile ID
                 const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId))
                     .single();
                 if (profRes.error) throw new Error('Profile not found for ARB ' + arbId);
                 const profileId = profRes.data.id;
 
+                // Common validation record fields (matches the Validate button format)
+                const commonValPayload = {
+                    arb_id: Number(arbId),
+                    arb_landholding_id: null,
+                    validator_type: 'System',
+                    validator_name: userName,
+                    position: 'OCR Capture',
+                    date_validated: today,
+                    supporting_document_reference: formRef || 'OCR Capture',
+                    recorded_by: userName,
+                    recorded_by_user_id: userId,
+                    updated_at: new Date().toISOString()
+                };
+
                 switch (action) {
                     case 'VALIDATED':
-                        // Update validation status to Validated
                         const { error: valErr } = await secureDbClient.from('arb')
                             .update({ validation_status: 'Validated', updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (valErr) throw valErr;
-                        // Add a validation record
-                        const valPayload = {
-                            arb_id: Number(arbId),
-                            arb_landholding_id: null,
-                            validator_type: 'System',
-                            validator_name: userName,
-                            position: null,
-                            date_validated: today,
-                            validation_basis: 'GURANG NA — validated from OCR capture',
-                            supporting_document_reference: 'OCR Capture',
-                            recorded_by: userName,
-                            recorded_by_user_id: userId,
-                            updated_at: new Date().toISOString()
-                        };
+                        const valPayload = { ...commonValPayload,
+                            validation_basis: 'GURANG NA — validated from OCR capture' };
                         const { error: vErr } = await saveValidationRecord(valPayload);
                         if (vErr) throw vErr;
                         break;
 
                     case 'DISQUALIFICATION':
-                        // Create a DISQUALIFICATION tag
                         const tagPayload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
@@ -4212,16 +4188,18 @@
                         };
                         const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
                         if (tagErr) throw tagErr;
-                        // Update ARB flag
                         const { error: arbErr } = await secureDbClient.from('arb')
                             .update({ for_disqualification: true, validation_status: 'Rejected',
                                 updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arbErr) throw arbErr;
+                        const disqValPayload = { ...commonValPayload,
+                            validation_basis: 'NAGHALI NA — disqualified from OCR capture' };
+                        const { error: dVErr } = await saveValidationRecord(disqValPayload);
+                        if (dVErr) throw dVErr;
                         break;
 
                     case 'AO8':
-                        // Create an AO8 tag with the captured name
                         const ao8Payload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
@@ -4237,7 +4215,6 @@
                         };
                         const { error: ao8TagErr } = await secureDbClient.from('arb_tags').insert(ao8Payload);
                         if (ao8TagErr) throw ao8TagErr;
-                        // Also create a legal monitoring record
                         const ao8MonPayload = {
                             arb_id: arbId,
                             arb_profile_id: profileId,
@@ -4256,15 +4233,17 @@
                         const { error: monErr } = await secureDbClient.from('arb_legal_monitoring')
                             .insert(ao8MonPayload);
                         if (monErr) throw monErr;
-                        // Update ARB flag
                         const { error: ao8ArbErr } = await secureDbClient.from('arb')
                             .update({ ao8: true, updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (ao8ArbErr) throw ao8ArbErr;
+                        const ao8ValPayload = { ...commonValPayload,
+                            validation_basis: 'BINENTA NA — AO8 transfer from OCR capture' };
+                        const { error: ao8VErr } = await saveValidationRecord(ao8ValPayload);
+                        if (ao8VErr) throw ao8VErr;
                         break;
 
                     case 'TRANSFER ACTION':
-                        // Create a TRANSFER ACTION tag with the captured name
                         const taPayload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
@@ -4280,7 +4259,6 @@
                         };
                         const { error: taTagErr } = await secureDbClient.from('arb_tags').insert(taPayload);
                         if (taTagErr) throw taTagErr;
-                        // Also create a legal monitoring record
                         const taMonPayload = {
                             arb_id: arbId,
                             arb_profile_id: profileId,
@@ -4299,11 +4277,14 @@
                         const { error: taMonErr } = await secureDbClient.from('arb_legal_monitoring')
                             .insert(taMonPayload);
                         if (taMonErr) throw taMonErr;
-                        // Update ARB flag
                         const { error: taArbErr } = await secureDbClient.from('arb')
                             .update({ with_ta: true, for_ta: true, updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (taArbErr) throw taArbErr;
+                        const taValPayload = { ...commonValPayload,
+                            validation_basis: 'NAGADAN NA — Transfer Action from OCR capture' };
+                        const { error: taVErr } = await saveValidationRecord(taValPayload);
+                        if (taVErr) throw taVErr;
                         break;
 
                     default:
@@ -4319,19 +4300,11 @@
                                 updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arboAssignErr) throw arboAssignErr;
-                        // Also create a validation record for the ARBO assignment
-                        const arboValPayload = {
-                            arb_id: Number(arbId),
-                            arb_landholding_id: null,
+                        const arboValPayload = { ...commonValPayload,
                             validator_type: 'System',
-                            validator_name: userName,
-                            position: null,
-                            date_validated: today,
                             validation_basis: 'ARBO MEMBER = YES — assigned to ARBO from OCR capture',
-                            supporting_document_reference: 'ARBO Membership',
-                            recorded_by: userName,
-                            recorded_by_user_id: userId,
-                            updated_at: new Date().toISOString()
+                            supporting_document_reference: formRef || 'ARBO Membership',
+                            position: 'ARBO Assignment'
                         };
                         const { error: arboValErr } = await saveValidationRecord(arboValPayload);
                         if (arboValErr) console.warn('Failed to record ARBO validation:', arboValErr);
