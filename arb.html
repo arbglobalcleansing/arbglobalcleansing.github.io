@@ -3701,10 +3701,9 @@
             }
 
             /**
-             * Enhanced OCR parser for ARB Global Validation Forms.
+             * ENHANCED OCR parser for ARB Global Validation Forms.
              * Handles variable column order, missing headers, and OCR noise.
-             * Returns an array of row objects with: arbId, name, survey, lot, area, title,
-             * arboMember, action, actualName, mobile.
+             * Uses multiple strategies to extract all ARB rows.
              */
             function parseOcrArbRows(ocrText) {
                 const rows = [];
@@ -3729,29 +3728,33 @@
                     'mobile': ['CELLPHONE', 'MOBILE', 'PHONE', 'CONTACT']
                 };
 
-                // Try to find a line that contains at least 3 known keywords (header)
-                let headerLineIndex = -1;
-                for (let i = 0; i < Math.min(lines.length, 15); i++) {
+                // Weighted scoring to find the best header line
+                let bestHeaderScore = -1;
+                let bestHeaderIndex = -1;
+                for (let i = 0; i < Math.min(lines.length, 20); i++) {
                     const line = lines[i].toUpperCase();
-                    let matchCount = 0;
+                    let score = 0;
                     for (const [key, words] of Object.entries(headerKeywords)) {
-                        if (words.some(w => line.includes(w))) matchCount++;
+                        if (words.some(w => line.includes(w))) {
+                            score += 1;
+                            // Give extra weight to critical columns
+                            if (key === 'name' || key === 'survey' || key === 'lot' || key === 'area' || key === 'title') {
+                                score += 2;
+                            }
+                        }
                     }
-                    if (matchCount >= 4) {
-                        headerLineIndex = i;
-                        break;
+                    if (score > bestHeaderScore) {
+                        bestHeaderScore = score;
+                        bestHeaderIndex = i;
                     }
                 }
 
-                if (headerLineIndex !== -1) {
-                    const headerLine = lines[headerLineIndex];
-                    // Split by 2+ spaces or pipe
+                if (bestHeaderIndex !== -1 && bestHeaderScore >= 6) {
+                    const headerLine = lines[bestHeaderIndex];
                     let parts = headerLine.split(/\s{2,}|\|/).map(p => p.trim()).filter(p => p.length > 0);
-                    // If still too few, split by single spaces and re-join tokens
                     if (parts.length < 8) {
                         parts = headerLine.split(/\s+/).filter(p => p.length > 0);
                     }
-                    // Build map: for each known keyword, find the first index
                     const map = {};
                     for (const [key, words] of Object.entries(headerKeywords)) {
                         let idx = -1;
@@ -3764,7 +3767,6 @@
                         }
                         map[key] = idx;
                     }
-                    // Validate we have at least name, survey, lot, area, title
                     if (map.name !== -1 && map.survey !== -1 && map.lot !== -1 && map.area !== -1 && map.title !== -1) {
                         headerMap = map;
                     }
@@ -3772,14 +3774,12 @@
 
                 // ---- 2. Parse each line for ARB entries ----
                 const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
-                let match;
 
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i];
                     let arbMatch;
                     while ((arbMatch = arbRegex.exec(line)) !== null) {
                         const arbId = arbMatch[1].trim();
-                        // Extract the name: everything before the ARB pattern
                         const namePart = line.substring(0, line.indexOf(arbMatch[0])).trim();
                         const name = namePart.replace(/^[|\s]+/, '').trim();
 
@@ -3790,13 +3790,11 @@
                         let mobile = null;
 
                         if (headerMap) {
-                            // We have a header map. Split the line into columns.
                             let cols = line.split(/\s{2,}|\|/).map(c => c.trim()).filter(c => c.length > 0);
                             if (cols.length < 6) {
                                 cols = line.split(/\s+/).filter(c => c.length > 0);
                             }
 
-                            // Find where the ARB ID appears in cols
                             let arbIndex = -1;
                             for (let j = 0; j < cols.length; j++) {
                                 if (cols[j].includes(arbId)) {
@@ -3806,14 +3804,12 @@
                             }
                             if (arbIndex === -1) continue;
 
-                            // We'll use the header map to get column positions
                             const colIndices = {};
                             const orderedKeys = ['name', 'arbo', 'survey', 'lot', 'area', 'title', 'gurang', 'naghali', 'binenta', 'nagadan', 'mayo', 'igwa', 'mobile'];
                             for (const key of orderedKeys) {
                                 colIndices[key] = headerMap[key] !== undefined ? headerMap[key] : -1;
                             }
 
-                            // The ARB entry starts at the name column
                             let dataIdx = arbIndex;
                             dataIdx++; // skip name
 
@@ -3892,7 +3888,6 @@
                             }
 
                             // Actual name (PANGARAN KANG AKTUAL...)
-                            // It usually appears after the action columns. We'll scan for a token that looks like a name.
                             for (let j = dataIdx + 4; j < cols.length; j++) {
                                 const token = cols[j];
                                 if (token.match(/^[A-Z][A-Z\s,.]+$/i) && token.length > 2 && !token.match(/^[0-9.]+$/)) {
@@ -3909,45 +3904,34 @@
                                 }
                             }
 
-                            // If we still don't have an action, try the fallback keyword detection
-                            if (!actionFound) {
-                                const lineUpper = line.toUpperCase();
-                                const actionKeywords = {
-                                    'GURANG': 'VALIDATED',
-                                    'NAGHALI': 'DISQUALIFICATION',
-                                    'BINENTA': 'AO8',
-                                    'NAGADAN': 'TRANSFER ACTION'
-                                };
-                                for (const [keyword, act] of Object.entries(actionKeywords)) {
-                                    if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
-                                        actionFound = { key: keyword.toLowerCase(), value: act };
-                                        break;
-                                    }
-                                }
-                            }
-
                             action = actionFound ? actionFound.value : null;
 
                         } else {
                             // ---- No header found: fallback regex approach ----
-                            // Try to parse using a more flexible regex that captures survey, lot, area, title
                             const afterArb = line.substring(line.indexOf(arbMatch[0]) + arbMatch[0].length).trim();
                             const tokens = afterArb.split(/\s+/).filter(t => t.length > 0);
-                            if (tokens.length >= 4) {
-                                survey = tokens[0] || '';
-                                lot = tokens[1] || '';
-                                area = tokens[2] || '';
-                                title = tokens[3] || '';
-                            } else if (tokens.length >= 3) {
-                                survey = tokens[0] || '';
-                                lot = tokens[1] || '';
-                                area = tokens[2] || '';
-                            } else if (tokens.length >= 2) {
-                                survey = tokens[0] || '';
-                                lot = tokens[1] || '';
-                            } else if (tokens.length >= 1) {
-                                survey = tokens[0] || '';
+                            // Try to identify survey, lot, area, title by pattern
+                            let idx = 0;
+                            // Survey: often alphanumeric with dash
+                            if (tokens.length > idx && tokens[idx].match(/^[A-Z0-9\-]+$/)) {
+                                survey = tokens[idx++];
                             }
+                            // Lot: often alphanumeric with dash or letters
+                            if (tokens.length > idx && tokens[idx].match(/^[A-Z0-9\-]+$/)) {
+                                lot = tokens[idx++];
+                            }
+                            // Area: decimal number
+                            if (tokens.length > idx && tokens[idx].match(/^[0-9.]+$/)) {
+                                area = tokens[idx++];
+                            }
+                            // Title: often starts with TCT, OCT, or similar
+                            if (tokens.length > idx && tokens[idx].match(/^(TCT|OCT|PSD|CSD|BSD|CAD)/i)) {
+                                title = tokens[idx++];
+                            } else if (tokens.length > idx) {
+                                // fallback: take next token as title
+                                title = tokens[idx++];
+                            }
+
                             // Try to find action keywords in the line
                             const lineUpper = line.toUpperCase();
                             const actionKeywords = {
@@ -3962,7 +3946,7 @@
                                     break;
                                 }
                             }
-                            // Try to extract actual name and mobile from the line (simplified)
+                            // Try to extract actual name and mobile
                             const nameMatch = line.match(/([A-Z][A-Z\s,.]+)(?=\s*\[ARB:)/i);
                             if (nameMatch) actualName = nameMatch[1].trim();
                             const mobileMatch = line.match(/(09|0)[0-9]{9,10}/);
