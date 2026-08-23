@@ -3698,88 +3698,121 @@ function parseOcrArbRows(ocrText) {
                 const rows = [];
                 const allArbIds = new Set();
                 
-                // OCR MUST BE SENSITIVE: Match formats like [ARB:12345], (ARB:12345), or ARB 12345
+                // 1. Highly sensitive regex to find ARB IDs even if brackets are misread by OCR (e.g., (ARB: 123), ARB 123], [ARB:123])
                 const arbRegex = /(?:\[|\(|\{)?ARB[\s:;-]*(\d+)(?:\]|\)|\})?/gi;
+                const matches = [];
                 let match;
+                
+                // Clean text to standard newlines
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 
                 while ((match = arbRegex.exec(clean)) !== null) {
-                    const arbId = match[1].trim();
+                    matches.push({
+                        fullMatch: match[0],
+                        arbId: match[1].trim(),
+                        index: match.index
+                    });
+                }
+                
+                for (let i = 0; i < matches.length; i++) {
+                    const currentMatch = matches[i];
+                    const arbId = currentMatch.arbId;
+                    
                     if (allArbIds.has(arbId)) continue;
                     allArbIds.add(arbId);
 
-                    // Name is usually the non-empty line right before the [ARB: id]
-                    const beforeMatch = clean.substring(0, match.index);
-                    const beforeLines = beforeMatch.split('\n');
-                    let name = "Unknown Name";
+                    // 2. Establish strict boundaries for this specific ARB's data (From this ARB to the next ARB)
+                    const startIdx = i === 0 ? 0 : matches[i - 1].index + matches[i - 1].fullMatch.length;
+                    const endIdx = i === matches.length - 1 ? clean.length : matches[i + 1].index;
                     
-                    for (let i = beforeLines.length - 1; i >= 0; i--) {
-                        const line = beforeLines[i].trim();
-                        if (line.length > 0 && !line.match(/^[|\s]+$/)) {
-                            name = line.replace(/^[|\s]+/, '').trim();
-                            break;
-                        }
+                    const beforeArb = clean.substring(startIdx, currentMatch.index);
+                    const afterArb = clean.substring(currentMatch.index + currentMatch.fullMatch.length, endIdx);
+                    
+                    // --- Extract ARB Name ---
+                    const beforeLines = beforeArb.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    let name = beforeLines.length > 0 ? beforeLines[beforeLines.length - 1] : "Unknown Name";
+                    name = name.replace(/^[|X\s]+/, '').trim(); // Clean up noise
+
+                    // --- Extract Row Data ---
+                    let dataLines = afterArb.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+                    // The last line of dataLines usually belongs to the NEXT ARB's name, so we safely pop it off
+                    if (i < matches.length - 1 && dataLines.length > 0) {
+                        dataLines.pop(); 
                     }
                     
-                    const nextMatchIndex = clean.indexOf('[ARB:', match.index + 1);
-                    const chunkEnd = nextMatchIndex !== -1 ? nextMatchIndex : clean.length;
-                    const chunk = clean.substring(match.index + match[0].length, chunkEnd);
+                    let rowDataStr = dataLines.join(' ').toUpperCase(); // Uppercase for easier matching
                     
                     let survey = '', lot = '', area = '', title = '';
                     let arboMember = 'NO';
-                    let action = null;
+                    
+                    // DEFAULT REQUIREMENT: Blank / No Data = VALIDATED (Data should not be changed)
+                    let action = 'VALIDATED'; 
                     let actualName = null;
                     let mobile = null;
 
-                    // 1. Detect ARBO Member
-                    const checkIdx = chunk.indexOf('☑');
-                    const uncheckIdx = chunk.indexOf('☐');
-                    if (checkIdx !== -1 && uncheckIdx !== -1 && checkIdx < uncheckIdx) {
-                        arboMember = 'YES';
-                    } else if (chunk.match(/\bYES\b/i) && !chunk.match(/\bNO\b/i)) {
+                    // --- Detect Landholding Details to anchor data ---
+                    const surveyMatch = rowDataStr.match(/(?:PLS|CSD|PCS|PSD)[A-Z0-9-]{4,}/);
+                    if (surveyMatch) survey = surveyMatch[0];
+
+                    const titleMatch = rowDataStr.match(/(?:OCT|TCT|EP|CLOA|KATIBAYAN)[A-Z0-9-]{2,}/);
+                    if (titleMatch) title = titleMatch[0];
+
+                    const areaMatch = rowDataStr.match(/\b\d+\.\d{3,4}\b/);
+                    if (areaMatch) area = areaMatch[0];
+
+                    // --- Detect ARBO Membership ---
+                    // If there's an 'X', 'V', or 'YES' physically located before the survey number, ARBO = YES
+                    const textBeforeSurvey = surveyMatch ? rowDataStr.substring(0, rowDataStr.indexOf(surveyMatch[0])) : rowDataStr;
+                    if (/\b(?:YES|X|✓|V)\b/.test(textBeforeSurvey)) {
                         arboMember = 'YES';
                     }
 
-                    // 2. Detect Action based on the specific required statuses
-                    const chunkUpper = chunk.toUpperCase();
-                    if (chunkUpper.includes('NAGHALI') || chunkUpper.includes('DISQUALIFICATION')) {
+                    // --- Detect Action Tags (Highly Sensitive) ---
+                    // We check for fragments of the words in case OCR misses a letter. 
+                    // If NONE of these are found, the variable remains 'VALIDATED'.
+                    if (/(NAGHAL|DISQUAL|HALI)/.test(rowDataStr)) {
                         action = 'DISQUALIFICATION';
-                    } else if (chunkUpper.includes('BINENTA') || chunkUpper.includes('AO8') || chunkUpper.includes('AO 8')) {
+                    } else if (/(BINENTA|BENTA|AO8|AO\s*8)/.test(rowDataStr)) {
                         action = 'AO8';
-                    } else if (chunkUpper.includes('NAGADAN') || chunkUpper.includes('TRANSFER ACTION')) {
+                    } else if (/(NAGADAN|GADAN|DAGAN|TRANSFER)/.test(rowDataStr)) {
                         action = 'TRANSFER ACTION';
-                    } else {
-                        // 1. GURANG NA or NO DATA (blank/no specific action detected) = VALIDATED. Data should not be changed.
+                    } else if (/(GURANG|VALIDATED)/.test(rowDataStr)) {
                         action = 'VALIDATED';
                     }
 
-                    // 3. Detect mobile number
-                    const mobileMatch = chunk.match(/(09|0)[0-9]{9,10}/);
+                    // --- Detect Mobile Number ---
+                    const mobileMatch = rowDataStr.match(/(?:09|\+639)\d{9}/);
                     if (mobileMatch) mobile = mobileMatch[0];
 
-                    // 4. Detect Actual Name (PANGARAN KANG...)
-                    const pangaranMatch = chunk.match(/PANGARAN\s*KANG[^A-Z]*([A-Z\s,.-]{4,})/i);
-                    if (pangaranMatch) {
-                        actualName = pangaranMatch[1].trim();
-                    } else {
-                        const nameMatch = chunk.match(/([A-Z][a-zA-Z\s,.]+)/);
-                        if (nameMatch && nameMatch[1].trim().length > 4) {
-                            const n = nameMatch[1].trim();
-                            if (!['YES', 'NO', 'MAYO', 'IGWA', 'OCT', 'TCT', 'CSD', 'PLS', 'AREA', 'LOT'].some(w => n.toUpperCase().includes(w))) {
-                                actualName = n;
+                    // --- Detect Actual Name (PANGARAN KANG...) ---
+                    // We remove known boilerplate data to isolate the handwritten name
+                    let sanitizedStr = rowDataStr
+                        .replace(survey, '')
+                        .replace(title, '')
+                        .replace(area, '')
+                        .replace(mobile || '', '');
+                    
+                    // Look for a sequence of uppercase letters/names
+                    const nameExtractMatch = sanitizedStr.match(/\b([A-ZÑ\s,-]{6,})\b/);
+                    if (nameExtractMatch) {
+                        let potentialName = nameExtractMatch[1].trim();
+                        // Filter out common form words
+                        if (!/(NAGHALI|GURANG|BINENTA|NAGADAN|YES|NO|MAYO|IGWA|AREA|LOT|SURVEY)/.test(potentialName)) {
+                            if (potentialName.length > 5 && potentialName.includes(' ')) {
+                                actualName = potentialName;
                             }
                         }
                     }
 
                     rows.push({
                         arbId, name, survey, lot, area, title,
-                        arboMember, action, actualName, mobile, raw: chunk
+                        arboMember, action, actualName, mobile, raw: rowDataStr
                     });
                 }
                 
                 return rows;
             }
-
+            
             
             /**
              * Enhanced review UI that shows action selection, ARBO dropdown, and capture fields.
@@ -3800,7 +3833,7 @@ function parseOcrArbRows(ocrText) {
 
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
-              let content = '';
+            let content = '';
                 if (!rows || rows.length === 0) {
                     content = `
                         <p class="empty-card">No machine-readable ARB identifiers were detected.</p>
