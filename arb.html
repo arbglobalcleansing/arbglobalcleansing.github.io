@@ -3577,12 +3577,10 @@
             // ========================================================================
             // ENHANCED: Capture Validation Form with Action Detection & ARBO dropdown
             // ========================================================================
-            async function openValidationCapture() {
+          async function openValidationCapture() {
                 if (!canValidateOrAssign()) { popToast('Your role cannot capture validation forms.', 'err'); return; }
 
-                // Pre-fetch ARBO list for dropdown
                 if (arboList.length === 0) await loadArboList();
-                const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
                 showSubModal('Capture Completed Validation Form', `
                         <form id="ocrCaptureForm">
@@ -3592,11 +3590,11 @@
                             <div id="ocrActionHelp" style="padding:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;margin:10px 0;font-size:0.85rem;">
                                 <strong>📋 Actions detected from form:</strong>
                                 <ul style="margin:6px 0 0 18px;padding:0;color:#475569;">
-                                    <li><strong>GURANG NA</strong> → VALIDATED (sets ARB status to Validated)</li>
-                                    <li><strong>NAGHALI NA</strong> → DISQUALIFICATION (tags ARB as Disqualified)</li>
-                                    <li><strong>BINENTA NA</strong> → AO8 (tags ARB with AO8, captures new owner name & mobile)</li>
-                                    <li><strong>NAGADAN NA</strong> → TRANSFER ACTION (tags ARB for Transfer Action, captures heir info)</li>
-                                    <li><strong>ARBO MEMBER = YES</strong> → shows dropdown to assign to an ARBO</li>
+                                    <li><strong>GURANG NA</strong> = VALIDATED</li>
+                                    <li><strong>NAGHALI NA</strong> = DISQUALIFICATION</li>
+                                    <li><strong>BINENTA NA</strong> = AO 8 (tagging) + capture actual name and mobile</li>
+                                    <li><strong>NAGADAN NA</strong> = Transfer Action (tagging) + capture actual name and mobile</li>
+                                    <li><strong>ARBO MEMBER = YES</strong> = ARBO assignment dropdown</li>
                                 </ul>
                             </div>
                             <div class="modal-actions">
@@ -3621,8 +3619,7 @@
                     submit.disabled = true;
                     let storagePath = null;
                     try {
-                        storagePath =
-                            `${currentUser.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+                        storagePath = `${currentUser.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
                         progress.textContent = 'Uploading scanned form...';
                         const upload = await secureDbClient.storage.from('validation-form-captures').upload(
                             storagePath, file, { contentType: file.type, upsert: false });
@@ -3634,15 +3631,13 @@
                             progress.textContent = `Reading page ${i+1} of ${pages.length}...`;
                             const result = await Tesseract.recognize(pages[i], 'eng', {
                                 logger: m => {
-                                    if (m.status === 'recognizing text') progress.textContent =
-                                        `Page ${i+1}: ${Math.round((m.progress||0)*100)}%`;
+                                    if (m.status === 'recognizing text') progress.textContent = `Page ${i+1}: ${Math.round((m.progress||0)*100)}%`;
                                 }
                             });
                             fullText += `\n--- PAGE ${i+1} ---\n${result.data.text}`;
                         }
                         const reportRef = (fullText.match(/ARB-GC-[A-Z0-9-]+/i) || [null])[0];
 
-                        // --- ENHANCED: Parse ARB rows with action detection ---
                         const arbRows = parseOcrArbRows(fullText);
                         const arbIds = arbRows.map(r => r.arbId).filter(Boolean);
 
@@ -3660,16 +3655,13 @@
                         if (batch.error) throw batch.error;
 
                         if (arbRows.length) {
-                            // Build row payload with action metadata
                             const rowPayload = arbRows.map(r => ({
                                 batch_id: batch.data.id,
                                 arb_id: Number(r.arbId),
                                 extracted_identifier: `ARB:${r.arbId}`,
                                 source_report_ref: reportRef,
                                 proposed_validation_status: 'Validated',
-                                raw_ocr_text: fullText,
                                 verification_status: 'PENDING',
-                                // Store action metadata as JSON in the raw_ocr_text field
                                 raw_ocr_text: JSON.stringify({
                                     action: r.action,
                                     arboMember: r.arboMember === 'YES' ? true : false,
@@ -3681,138 +3673,126 @@
                                     title: r.title || null
                                 })
                             }));
-                            const rowInsert = await secureDbClient.from('validation_capture_rows').insert(
-                                rowPayload);
+                            const rowInsert = await secureDbClient.from('validation_capture_rows').insert(rowPayload);
                             if (rowInsert.error) throw rowInsert.error;
                         }
 
                         const detectedCount = arbRows.length;
-                        popToast(`OCR completed. ${detectedCount} ARB record(s) require human verification.`,
-                            detectedCount ? 'ok' : 'warn');
+                        popToast(`OCR completed. ${detectedCount} ARB record(s) require human verification.`, detectedCount ? 'ok' : 'warn');
                         await reviewValidationCaptureEnhanced(batch.data.id, arbRows);
                     } catch (err) {
-                        if (storagePath) await secureDbClient.storage.from('validation-form-captures').remove([
-                            storagePath
-                        ]);
+                        if (storagePath) await secureDbClient.storage.from('validation-form-captures').remove([storagePath]);
                         popToast(err.message, 'err');
                         submit.disabled = false;
                     }
                 });
             }
-
+            
             /**
              * AGGRESSIVE OCR parser – captures EVERY ARB ID found in the text.
              * Scans globally for [ARB:ID], extracts name and any following tokens.
              * Also detects action keywords, actual name, and mobile number.
              */
-            function parseOcrArbRows(ocrText) {
-                const rows = [];
-                const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-                // Step 1: Find all ARB IDs using a global regex
+function parseOcrArbRows(ocrText) {
+                const rows = [];
+                const allArbIds = new Set();
+                
+                // Match every ARB ID in the document: format [ARB:12345]
                 const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
                 let match;
-                const seenIds = new Set();
-
-                // We'll scan the entire text, but we need the context around each match.
-                // We'll extract the substring before and after each match.
+                const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+                
                 while ((match = arbRegex.exec(clean)) !== null) {
                     const arbId = match[1].trim();
-                    if (seenIds.has(arbId)) continue;
-                    seenIds.add(arbId);
+                    if (allArbIds.has(arbId)) continue;
+                    allArbIds.add(arbId);
 
-                    // Get the substring before the match to extract the name
-                    const before = clean.substring(0, match.index);
-                    const nameMatch = before.match(/([A-Z][A-Z\s,.]+)\s*$/i);
-                    let name = nameMatch ? nameMatch[1].trim() : '';
+                    // Name is usually the non-empty line right before the [ARB: id]
+                    const beforeMatch = clean.substring(0, match.index);
+                    const beforeLines = beforeMatch.split('\n');
+                    let name = "Unknown Name";
+                    
+                    for (let i = beforeLines.length - 1; i >= 0; i--) {
+                        const line = beforeLines[i].trim();
+                        if (line.length > 0 && !line.match(/^[|\s]+$/)) {
+                            name = line.replace(/^[|\s]+/, '').trim();
+                            break;
+                        }
+                    }
+                    
+                    const nextMatchIndex = clean.indexOf('[ARB:', match.index + 1);
+                    const chunkEnd = nextMatchIndex !== -1 ? nextMatchIndex : clean.length;
+                    const chunk = clean.substring(match.index + match[0].length, chunkEnd);
+                    
+                    let survey = '', lot = '', area = '', title = '';
+                    let arboMember = 'NO';
+                    let action = null;
+                    let actualName = null;
+                    let mobile = null;
 
-                    // Get the substring after the match to extract tokens
-                    const after = clean.substring(match.index + match[0].length);
-                    // Take up to 6 tokens (survey, lot, area, title, maybe extra)
-                    const tokenMatch = after.match(/^\s*([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)?\s+([^\s]+)?/);
-                    let survey = '',
-                        lot = '',
-                        area = '',
-                        title = '';
-                    if (tokenMatch) {
-                        survey = tokenMatch[1] || '';
-                        lot = tokenMatch[2] || '';
-                        area = tokenMatch[3] || '';
-                        title = tokenMatch[4] || '';
-                    } else {
-                        // Fallback: just take the first 4 tokens after the ARB
-                        const tokens = after.trim().split(/\s+/);
-                        if (tokens.length > 0) survey = tokens[0];
-                        if (tokens.length > 1) lot = tokens[1];
-                        if (tokens.length > 2) area = tokens[2];
-                        if (tokens.length > 3) title = tokens[3];
+                    // 1. Detect ARBO Member
+                    const checkIdx = chunk.indexOf('☑');
+                    const uncheckIdx = chunk.indexOf('☐');
+                    if (checkIdx !== -1 && uncheckIdx !== -1 && checkIdx < uncheckIdx) {
+                        arboMember = 'YES';
+                    } else if (chunk.match(/\bYES\b/i) && !chunk.match(/\bNO\b/i)) {
+                        arboMember = 'YES';
                     }
 
-                    // Detect action from the surrounding text (within 200 chars)
-                    const context = clean.substring(Math.max(0, match.index - 100), Math.min(clean.length, match.index +
-                        200));
-                    const contextUpper = context.toUpperCase();
-                    let action = null;
-                    if (contextUpper.includes('GURANG') && !contextUpper.includes('NO')) action = 'VALIDATED';
-                    else if (contextUpper.includes('NAGHALI') && !contextUpper.includes('NO')) action = 'DISQUALIFICATION';
-                    else if (contextUpper.includes('BINENTA') && !contextUpper.includes('NO')) action = 'AO8';
-                    else if (contextUpper.includes('NAGADAN') && !contextUpper.includes('NO')) action = 'TRANSFER ACTION';
+                    // 2. Detect Action based on the specific required statuses
+                    const chunkUpper = chunk.toUpperCase();
+                    if (chunkUpper.includes('GURANG') || chunkUpper.includes('VALIDATED')) action = 'VALIDATED';
+                    else if (chunkUpper.includes('NAGHALI') || chunkUpper.includes('DISQUALIFICATION')) action = 'DISQUALIFICATION';
+                    else if (chunkUpper.includes('BINENTA') || chunkUpper.includes('AO8') || chunkUpper.includes('AO 8')) action = 'AO8';
+                    else if (chunkUpper.includes('NAGADAN') || chunkUpper.includes('TRANSFER ACTION')) action = 'TRANSFER ACTION';
 
-                    // Extract actual name (like "PANGARAN KANG AKTUAL ...")
-                    const actualNameMatch = context.match(/(?:AKTUAL|actual)[\s\S]{0,30}([A-Z][A-Z\s,.]+)/i);
-                    let actualName = actualNameMatch ? actualNameMatch[1].trim() : null;
+                    // 3. Detect mobile number
+                    const mobileMatch = chunk.match(/(09|0)[0-9]{9,10}/);
+                    if (mobileMatch) mobile = mobileMatch[0];
 
-                    // Extract mobile number (09...)
-                    const mobileMatch = context.match(/(09|0)[0-9]{9,10}/);
-                    let mobile = mobileMatch ? mobileMatch[0] : null;
-
-                    // Determine if ARBO MEMBER = YES (search in context)
-                    const arboMember = (contextUpper.includes('ARBO') && contextUpper.includes('YES')) ? 'YES' : 'NO';
+                    // 4. Detect Actual Name (PANGARAN KANG...)
+                    const nameMatch = chunk.match(/([A-Z][a-zA-Z\s,.]+)/);
+                    if (nameMatch && nameMatch[1].trim().length > 4) {
+                        const n = nameMatch[1].trim();
+                        if (!['YES', 'NO', 'MAYO', 'IGWA', 'OCT', 'TCT', 'CSD', 'PLS', 'AREA', 'LOT'].some(w => n.toUpperCase().includes(w))) {
+                            actualName = n;
+                        }
+                    }
 
                     rows.push({
-                        arbId,
-                        name: name || '',
-                        survey: survey || '',
-                        lot: lot || '',
-                        area: area || '',
-                        title: title || '',
-                        arboMember,
-                        action,
-                        actualName,
-                        mobile,
-                        raw: match[0]
+                        arbId, name, survey, lot, area, title,
+                        arboMember, action, actualName, mobile, raw: chunk
                     });
                 }
-
+                
                 return rows;
             }
+            
 
+            
             /**
              * Enhanced review UI that shows action selection, ARBO dropdown, and capture fields.
              * Now only attaches event listeners if there are rows.
              */
-            async function reviewValidationCaptureEnhanced(batchId, parsedRows) {
+          async function reviewValidationCaptureEnhanced(batchId, parsedRows) {
                 const { data: rows, error } = await secureDbClient.from('validation_capture_rows').select('*')
                     .eq('batch_id', batchId).order('created_at');
                 if (error) throw error;
 
-                // Fetch ARB names
                 const arbIds = (rows || []).map(r => String(r.arb_id)).filter(Boolean);
                 const arbs = arbIds.length ? await fetchInChunks('arb',
                     'id,first_name,middle_name,last_name,validation_status', 'id', arbIds) : [];
                 const amap = Object.fromEntries(arbs.map(a => [String(a.id), a]));
 
-                // Build a map from parsed rows for quick lookup
                 const parsedMap = {};
                 parsedRows.forEach(r => { parsedMap[r.arbId] = r; });
 
-                // ARBO options for dropdown
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
                 let content = '';
                 if (!rows || rows.length === 0) {
                     content = '<p class="empty-card">No machine-readable ARB identifiers were detected.</p>';
-                    // No rows – show message and skip adding event listeners later
                 } else {
                     content = `
                             <p style="color:#475569;margin-bottom:16px;">
@@ -3829,40 +3809,41 @@
                                     const mobile = parsed.mobile || '';
 
                                     return `
-                                        <div class="ocr-review-row" data-review-row="${r.id}" data-arb-id="${r.arb_id}" data-arbo-member="${arboMember}">
+                                        <div class="ocr-review-row" data-review-row="${r.id}" data-arb-id="${r.arb_id}">
                                             <div class="ocr-arb-info">
                                                 <span>${safe(fullName(arb) || 'Unknown ARB')}</span>
                                                 <small>ARB ${safe(r.arb_id)}</small>
                                             </div>
 
-                                            <!-- Action Selection -->
                                             <select class="ocr-action-select" data-row-id="${r.id}">
                                                 <option value="">— Select Action —</option>
                                                 <option value="VALIDATED" ${defaultAction === 'VALIDATED' ? 'selected' : ''}>✅ GURANG NA → Validated</option>
                                                 <option value="DISQUALIFICATION" ${defaultAction === 'DISQUALIFICATION' ? 'selected' : ''}>🚫 NAGHALI NA → Disqualification</option>
-                                                <option value="AO8" ${defaultAction === 'AO8' ? 'selected' : ''}>📄 BINENTA NA → AO8</option>
+                                                <option value="AO8" ${defaultAction === 'AO8' ? 'selected' : ''}>📄 BINENTA NA → AO 8</option>
                                                 <option value="TRANSFER ACTION" ${defaultAction === 'TRANSFER ACTION' ? 'selected' : ''}>🔄 NAGADAN NA → Transfer Action</option>
                                             </select>
 
-                                            <!-- Conditional fields for AO8 and Transfer Action -->
-                                            <div class="ocr-action-fields" id="actionFields_${r.id}" style="${(defaultAction === 'AO8' || defaultAction === 'TRANSFER ACTION') ? '' : 'display:none;'}">
-                                                <input class="ocr-actual-name" placeholder="Actual name from form" value="${safe(actualName)}" style="min-width:120px;">
-                                                <input class="ocr-mobile" placeholder="Mobile #" value="${safe(mobile)}" style="min-width:100px;">
+                                            <div class="ocr-action-fields" id="actionFields_${r.id}" style="${(defaultAction === 'AO8' || defaultAction === 'TRANSFER ACTION') ? 'display:flex;' : 'display:none;'}">
+                                                <input class="ocr-actual-name" placeholder="Name from PANGARAN KANG..." value="${safe(actualName)}" style="min-width:120px;" title="Input name from PANGARAN KANG AKTUAL NA NAG-UUMA KAN DAGA SA NGUYAN">
+                                                <input class="ocr-mobile" placeholder="Mobile # (if available)" value="${safe(mobile)}" style="min-width:100px;">
                                             </div>
 
-                                            <!-- ARBO dropdown (only if ARBO MEMBER = YES) -->
-                                            <div class="ocr-arbo-group" style="${arboMember === 'YES' && canAssignArbo() ? '' : 'display:none;'}">
-                                                <select class="ocr-arbo-select" data-row-id="${r.id}">
-                                                    <option value="">— Select ARBO —</option>
-                                                    ${arboOptions}
+                                            <div class="ocr-arbo-group" style="display:flex; flex-direction:column; gap:4px; margin-top:4px;">
+                                                <select class="ocr-arbo-toggle" data-row-id="${r.id}" style="padding: 6px 8px; border-radius: 4px; border: 1px solid #cbd5e1; font-size: 0.75rem; background: white;">
+                                                    <option value="NO" ${arboMember !== 'YES' ? 'selected' : ''}>ARBO MEMBER: NO</option>
+                                                    <option value="YES" ${arboMember === 'YES' ? 'selected' : ''}>ARBO MEMBER: YES</option>
                                                 </select>
-                                                <span style="font-size:0.6rem;color:#475569;margin-left:4px;">ARBO MEMBER = YES</span>
+                                                
+                                                <div id="arboDropdownGroup_${r.id}" style="${arboMember === 'YES' && canAssignArbo() ? 'display:block;' : 'display:none;'}">
+                                                    <select class="ocr-arbo-select" data-row-id="${r.id}" style="width: 100%; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.75rem; background: white;">
+                                                        <option value="">— Select ARBO —</option>
+                                                        ${arboOptions}
+                                                    </select>
+                                                </div>
                                             </div>
 
-                                            <!-- Status badge -->
                                             <span class="ocr-status-badge pending" id="statusBadge_${r.id}">⏳ Pending</span>
 
-                                            <!-- Post button -->
                                             <button class="ocr-post-btn" data-row-id="${r.id}" data-arb-id="${r.arb_id}">📌 Verify & Post</button>
                                         </div>
                                     `;
@@ -3877,130 +3858,127 @@
 
                 showSubModal('Human Verification - OCR Validation Capture', content);
 
-                // Only attach event listeners if there are rows
-                if (rows && rows.length > 0) {
-                    // --- Event: Show/hide action fields based on selection ---
-                    document.querySelectorAll('.ocr-action-select').forEach(sel => {
-                        sel.addEventListener('change', function() {
-                            const rowId = this.dataset.rowId;
-                            const fields = document.getElementById('actionFields_' + rowId);
-                            const val = this.value;
-                            if (val === 'AO8' || val === 'TRANSFER ACTION') {
-                                fields.style.display = 'flex';
-                            } else {
-                                fields.style.display = 'none';
-                            }
-                        });
+                document.querySelectorAll('.ocr-action-select').forEach(sel => {
+                    sel.addEventListener('change', function() {
+                        const rowId = this.dataset.rowId;
+                        const fields = document.getElementById('actionFields_' + rowId);
+                        if (this.value === 'AO8' || this.value === 'TRANSFER ACTION') {
+                            fields.style.display = 'flex';
+                        } else {
+                            fields.style.display = 'none';
+                        }
                     });
+                });
 
-                    // --- Event: Post a single row ---
-                    document.querySelectorAll('.ocr-post-btn').forEach(btn => {
-                        btn.addEventListener('click', async function() {
-                            const rowId = this.dataset.rowId;
-                            const arbId = this.dataset.arbId;
-                            const row = this.closest('.ocr-review-row');
-                            const actionSelect = row.querySelector('.ocr-action-select');
-                            const action = actionSelect.value;
-                            const actualName = row.querySelector('.ocr-actual-name')?.value || null;
-                            const mobile = row.querySelector('.ocr-mobile')?.value || null;
-                            const arboSelect = row.querySelector('.ocr-arbo-select');
-                            const arboId = arboSelect ? arboSelect.value : null;
-                            const badge = document.getElementById('statusBadge_' + rowId);
-
-                            if (!action) {
-                                popToast('Please select an action for this ARB.', 'warn');
-                                return;
-                            }
-
-                            this.disabled = true;
-                            this.textContent = 'Posting...';
-
-                            try {
-                                // First, update the validation capture row
-                                const { error: updateErr } = await secureDbClient.from(
-                                    'validation_capture_rows')
-                                    .update({
-                                        verification_status: 'VERIFIED',
-                                        proposed_validation_status: action,
-                                        updated_at: new Date().toISOString()
-                                    }).eq('id', rowId);
-                                if (updateErr) throw updateErr;
-
-                                // Then perform the action on the ARB
-                                await performActionOnArb(arbId, action, actualName, mobile, arboId);
-
-                                // Update UI
-                                badge.className = 'ocr-status-badge posted';
-                                badge.textContent = '✅ Posted';
-                                this.textContent = 'Posted';
-                                this.disabled = true;
-                                row.querySelectorAll('input,select,button').forEach(el => {
-                                    if (el !== this) el.disabled = true;
-                                });
-                                popToast(`ARB ${arbId}: ${action} applied.`, 'ok');
-
-                            } catch (err) {
-                                popToast(err.message, 'err');
-                                this.disabled = false;
-                                this.textContent = '📌 Verify & Post';
-                            }
-                        });
+                document.querySelectorAll('.ocr-arbo-toggle').forEach(sel => {
+                    sel.addEventListener('change', function() {
+                        const rowId = this.dataset.rowId;
+                        const dropGroup = document.getElementById('arboDropdownGroup_' + rowId);
+                        if (this.value === 'YES' && canAssignArbo()) {
+                            dropGroup.style.display = 'block';
+                        } else {
+                            dropGroup.style.display = 'none';
+                        }
                     });
+                });
 
-                    // --- Event: Post All ---
-                    document.getElementById('postAllOcrBtn')?.addEventListener('click', async function() {
-                        const btns = document.querySelectorAll('.ocr-post-btn:not(:disabled)');
-                        if (btns.length === 0) {
-                            popToast('All rows have already been posted.', 'info');
+                document.querySelectorAll('.ocr-post-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const rowId = this.dataset.rowId;
+                        const arbId = this.dataset.arbId;
+                        const row = this.closest('.ocr-review-row');
+                        
+                        const actionSelect = row.querySelector('.ocr-action-select');
+                        const action = actionSelect.value;
+                        const actualName = row.querySelector('.ocr-actual-name')?.value || null;
+                        const mobile = row.querySelector('.ocr-mobile')?.value || null;
+                        
+                        const arboToggle = row.querySelector('.ocr-arbo-toggle');
+                        const arboSelect = row.querySelector('.ocr-arbo-select');
+                        const arboId = (arboToggle && arboToggle.value === 'YES' && arboSelect) ? arboSelect.value : null;
+                        
+                        const badge = document.getElementById('statusBadge_' + rowId);
+
+                        if (!action) {
+                            popToast('Please select an action for this ARB.', 'warn');
                             return;
                         }
+
                         this.disabled = true;
-                        this.textContent = 'Posting All...';
+                        this.textContent = 'Posting...';
 
-                        let success = 0,
-                            failed = 0;
-                        for (const btn of btns) {
-                            try {
-                                await btn.click();
-                                success++;
-                            } catch (e) {
-                                failed++;
-                                console.warn('Failed to post row:', e);
-                            }
+                        try {
+                            const { error: updateErr } = await secureDbClient.from('validation_capture_rows')
+                                .update({
+                                    verification_status: 'VERIFIED',
+                                    proposed_validation_status: action,
+                                    updated_at: new Date().toISOString()
+                                }).eq('id', rowId);
+                            if (updateErr) throw updateErr;
+
+                            await performActionOnArb(arbId, action, actualName, mobile, arboId);
+
+                            badge.className = 'ocr-status-badge posted';
+                            badge.textContent = '✅ Posted';
+                            this.textContent = 'Posted';
+                            this.disabled = true;
+                            row.querySelectorAll('input,select,button').forEach(el => {
+                                if (el !== this) el.disabled = true;
+                            });
+                            popToast(`ARB ${arbId}: ${action} applied.`, 'ok');
+
+                        } catch (err) {
+                            popToast(err.message, 'err');
+                            this.disabled = false;
+                            this.textContent = '📌 Verify & Post';
                         }
-                        this.textContent = 'Done';
-                        popToast(`Posted ${success} row(s). ${failed} failed.`, failed ? 'warn' : 'ok');
                     });
+                });
 
-                    document.getElementById('closeOcrReviewBtn').addEventListener('click', hideSubModal);
-                } else {
-                    // If no rows, the close button is not present, so we add a simple close handler
-                    // but the modal already has a close button in the header.
-                }
+                document.getElementById('postAllOcrBtn')?.addEventListener('click', async function() {
+                    const btns = document.querySelectorAll('.ocr-post-btn:not(:disabled)');
+                    if (btns.length === 0) {
+                        popToast('All rows have already been posted.', 'info');
+                        return;
+                    }
+                    this.disabled = true;
+                    this.textContent = 'Posting All...';
+
+                    let success = 0, failed = 0;
+                    for (const btn of btns) {
+                        try {
+                            await btn.click();
+                            success++;
+                        } catch (e) {
+                            failed++;
+                            console.warn('Failed to post row:', e);
+                        }
+                    }
+                    this.textContent = 'Done';
+                    popToast(`Posted ${success} row(s). ${failed} failed.`, failed ? 'warn' : 'ok');
+                });
+
+                document.getElementById('closeOcrReviewBtn').addEventListener('click', hideSubModal);
             }
-
+            
             /**
              * Perform the appropriate action on an ARB based on the selected action.
              */
-            async function performActionOnArb(arbId, action, actualName, mobile, arboId) {
+          async function performActionOnArb(arbId, action, actualName, mobile, arboId) {
                 const today = new Date().toISOString().substring(0, 10);
                 const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
                 const userId = currentUser?.id || null;
 
-                // Get profile ID
-                const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId))
-                    .single();
+                const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId)).single();
                 if (profRes.error) throw new Error('Profile not found for ARB ' + arbId);
                 const profileId = profRes.data.id;
 
                 switch (action) {
                     case 'VALIDATED':
-                        // Update validation status to Validated
                         const { error: valErr } = await secureDbClient.from('arb')
                             .update({ validation_status: 'Validated', updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (valErr) throw valErr;
-                        // Add a validation record
                         const valPayload = {
                             arb_id: Number(arbId),
                             arb_landholding_id: null,
@@ -4019,7 +3997,6 @@
                         break;
 
                     case 'DISQUALIFICATION':
-                        // Create a DISQUALIFICATION tag
                         const tagPayload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
@@ -4035,23 +4012,20 @@
                         };
                         const { error: tagErr } = await secureDbClient.from('arb_tags').insert(tagPayload);
                         if (tagErr) throw tagErr;
-                        // Update ARB flag
                         const { error: arbErr } = await secureDbClient.from('arb')
-                            .update({ for_disqualification: true, validation_status: 'Rejected',
-                                updated_at: new Date().toISOString() })
+                            .update({ for_disqualification: true, validation_status: 'Rejected', updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arbErr) throw arbErr;
                         break;
 
                     case 'AO8':
-                        // Create an AO8 tag with the captured name
                         const ao8Payload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
                             arb_landholding_id: null,
                             tag_type: 'AO8',
                             status: 'WITH ORDER OF FINALITY',
-                            case_details: `BINENTA NA — AO8 transfer. New owner: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}`,
+                            case_details: `BINENTA NA — AO 8 transfer. New owner: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}`,
                             tagged_by: userName,
                             tagged_by_user_id: userId,
                             created_at: new Date().toISOString(),
@@ -4060,7 +4034,7 @@
                         };
                         const { error: ao8TagErr } = await secureDbClient.from('arb_tags').insert(ao8Payload);
                         if (ao8TagErr) throw ao8TagErr;
-                        // Also create a legal monitoring record
+                        
                         const ao8MonPayload = {
                             arb_id: arbId,
                             arb_profile_id: profileId,
@@ -4072,22 +4046,19 @@
                             new_owner_name: actualName || null,
                             new_owner_contact: mobile || null,
                             new_owner_is_arb: false,
-                            remarks: `BINENTA NA — AO8 transfer from OCR capture. New owner: ${actualName || 'Unknown'}`,
+                            remarks: `BINENTA NA — AO 8 transfer from OCR capture. New owner: ${actualName || 'Unknown'}`,
                             created_by: userId,
                             updated_by: userId
                         };
-                        const { error: monErr } = await secureDbClient.from('arb_legal_monitoring')
-                            .insert(ao8MonPayload);
+                        const { error: monErr } = await secureDbClient.from('arb_legal_monitoring').insert(ao8MonPayload);
                         if (monErr) throw monErr;
-                        // Update ARB flag
+                        
                         const { error: ao8ArbErr } = await secureDbClient.from('arb')
-                            .update({ ao8: true, updated_at: new Date().toISOString() })
-                            .eq('id', arbId);
+                            .update({ ao8: true, updated_at: new Date().toISOString() }).eq('id', arbId);
                         if (ao8ArbErr) throw ao8ArbErr;
                         break;
 
                     case 'TRANSFER ACTION':
-                        // Create a TRANSFER ACTION tag with the captured name
                         const taPayload = {
                             arb_profile_id: profileId,
                             arb_id: Number(arbId),
@@ -4103,7 +4074,7 @@
                         };
                         const { error: taTagErr } = await secureDbClient.from('arb_tags').insert(taPayload);
                         if (taTagErr) throw taTagErr;
-                        // Also create a legal monitoring record
+                        
                         const taMonPayload = {
                             arb_id: arbId,
                             arb_profile_id: profileId,
@@ -4119,13 +4090,11 @@
                             created_by: userId,
                             updated_by: userId
                         };
-                        const { error: taMonErr } = await secureDbClient.from('arb_legal_monitoring')
-                            .insert(taMonPayload);
+                        const { error: taMonErr } = await secureDbClient.from('arb_legal_monitoring').insert(taMonPayload);
                         if (taMonErr) throw taMonErr;
-                        // Update ARB flag
+                        
                         const { error: taArbErr } = await secureDbClient.from('arb')
-                            .update({ with_ta: true, for_ta: true, updated_at: new Date().toISOString() })
-                            .eq('id', arbId);
+                            .update({ with_ta: true, for_ta: true, updated_at: new Date().toISOString() }).eq('id', arbId);
                         if (taArbErr) throw taArbErr;
                         break;
 
@@ -4133,16 +4102,14 @@
                         throw new Error('Unknown action: ' + action);
                 }
 
-                // If ARBO MEMBER = YES and an ARBO was selected, assign the ARB to that ARBO
                 if (arboId) {
                     const arboNum = parseInt(arboId);
                     if (!isNaN(arboNum) && arboNum > 0) {
                         const { error: arboAssignErr } = await secureDbClient.from('arb')
-                            .update({ arbo_id: arboNum, validation_status: 'Validated',
-                                updated_at: new Date().toISOString() })
+                            .update({ arbo_id: arboNum, validation_status: 'Validated', updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arboAssignErr) throw arboAssignErr;
-                        // Also create a validation record for the ARBO assignment
+                        
                         const arboValPayload = {
                             arb_id: Number(arbId),
                             arb_landholding_id: null,
@@ -4161,7 +4128,6 @@
                     }
                 }
             }
-
             /**
              * Helper: Convert file to image pages (for PDF)
              */
