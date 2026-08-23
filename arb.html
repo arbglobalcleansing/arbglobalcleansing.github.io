@@ -3698,121 +3698,85 @@ function parseOcrArbRows(ocrText) {
                 const rows = [];
                 const allArbIds = new Set();
                 
-                // 1. Highly sensitive regex to find ARB IDs even if brackets are misread by OCR (e.g., (ARB: 123), ARB 123], [ARB:123])
+                // Sensitive Regex to catch variations of ARB IDs
                 const arbRegex = /(?:\[|\(|\{)?ARB[\s:;-]*(\d+)(?:\]|\)|\})?/gi;
-                const matches = [];
-                let match;
-                
-                // Clean text to standard newlines
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 
+                const matches = [];
+                let match;
                 while ((match = arbRegex.exec(clean)) !== null) {
-                    matches.push({
-                        fullMatch: match[0],
-                        arbId: match[1].trim(),
-                        index: match.index
-                    });
+                    matches.push({ id: match[1].trim(), index: match.index, full: match[0] });
                 }
                 
+                // Process every single detected ARB
                 for (let i = 0; i < matches.length; i++) {
-                    const currentMatch = matches[i];
-                    const arbId = currentMatch.arbId;
-                    
-                    if (allArbIds.has(arbId)) continue;
-                    allArbIds.add(arbId);
+                    const current = matches[i];
+                    if (allArbIds.has(current.id)) continue;
+                    allArbIds.add(current.id);
 
-                    // 2. Establish strict boundaries for this specific ARB's data (From this ARB to the next ARB)
-                    const startIdx = i === 0 ? 0 : matches[i - 1].index + matches[i - 1].fullMatch.length;
-                    const endIdx = i === matches.length - 1 ? clean.length : matches[i + 1].index;
-                    
-                    const beforeArb = clean.substring(startIdx, currentMatch.index);
-                    const afterArb = clean.substring(currentMatch.index + currentMatch.fullMatch.length, endIdx);
-                    
-                    // --- Extract ARB Name ---
-                    const beforeLines = beforeArb.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                    let name = beforeLines.length > 0 ? beforeLines[beforeLines.length - 1] : "Unknown Name";
-                    name = name.replace(/^[|X\s]+/, '').trim(); // Clean up noise
+                    // 1. Extract Row Data (Text from this ARB ID to the next ARB ID)
+                    const endBoundary = i < matches.length - 1 ? matches[i+1].index : clean.length;
+                    const rowDataStr = clean.substring(current.index, endBoundary).toUpperCase();
 
-                    // --- Extract Row Data ---
-                    let dataLines = afterArb.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-                    // The last line of dataLines usually belongs to the NEXT ARB's name, so we safely pop it off
-                    if (i < matches.length - 1 && dataLines.length > 0) {
-                        dataLines.pop(); 
+                    // 2. Extract Name (it is now printed directly below the ARB ID)
+                    let name = "Unknown Name";
+                    const nameMatch = rowDataStr.match(/\]\s*([A-ZÑ\s,-]{5,})/);
+                    if (nameMatch) {
+                        name = nameMatch[1].trim();
                     }
-                    
-                    let rowDataStr = dataLines.join(' ').toUpperCase(); // Uppercase for easier matching
-                    
-                    let survey = '', lot = '', area = '', title = '';
-                    let arboMember = 'NO';
-                    
-                    // DEFAULT REQUIREMENT: Blank / No Data = VALIDATED (Data should not be changed)
+
+                    // 3. SET STRICT DEFAULTS (BLANK / NO DATA = VALIDATED)
                     let action = 'VALIDATED'; 
+                    let arboMember = 'NO';
                     let actualName = null;
                     let mobile = null;
 
-                    // --- Detect Landholding Details to anchor data ---
-                    const surveyMatch = rowDataStr.match(/(?:PLS|CSD|PCS|PSD)[A-Z0-9-]{4,}/);
-                    if (surveyMatch) survey = surveyMatch[0];
-
-                    const titleMatch = rowDataStr.match(/(?:OCT|TCT|EP|CLOA|KATIBAYAN)[A-Z0-9-]{2,}/);
-                    if (titleMatch) title = titleMatch[0];
-
-                    const areaMatch = rowDataStr.match(/\b\d+\.\d{3,4}\b/);
-                    if (areaMatch) area = areaMatch[0];
-
-                    // --- Detect ARBO Membership ---
-                    // If there's an 'X', 'V', or 'YES' physically located before the survey number, ARBO = YES
-                    const textBeforeSurvey = surveyMatch ? rowDataStr.substring(0, rowDataStr.indexOf(surveyMatch[0])) : rowDataStr;
-                    if (/\b(?:YES|X|✓|V)\b/.test(textBeforeSurvey)) {
-                        arboMember = 'YES';
+                    // 4. DETECT GUIDED SYMBOLS (The "OMR" approach)
+                    // The regex looks for Letter[X], Letter[/], Letter[v], etc. 
+                    const isMarked = (letter) => {
+                        const r = new RegExp(`${letter}\\s*[\\[\\(\\{]\\s*([A-Z0-9/\\\\✓]+)\\s*[\\]\\)\\}]`, 'i');
+                        return r.test(rowDataStr);
                     }
 
-                    // --- Detect Action Tags (Highly Sensitive) ---
-                    // We check for fragments of the words in case OCR misses a letter. 
-                    // If NONE of these are found, the variable remains 'VALIDATED'.
-                    if (/(NAGHAL|DISQUAL|HALI)/.test(rowDataStr)) {
-                        action = 'DISQUALIFICATION';
-                    } else if (/(BINENTA|BENTA|AO8|AO\s*8)/.test(rowDataStr)) {
-                        action = 'AO8';
-                    } else if (/(NAGADAN|GADAN|DAGAN|TRANSFER)/.test(rowDataStr)) {
-                        action = 'TRANSFER ACTION';
-                    } else if (/(GURANG|VALIDATED)/.test(rowDataStr)) {
-                        action = 'VALIDATED';
-                    }
+                    // Read ARBO Membership Checkboxes
+                    if (isMarked('Y')) arboMember = 'YES';
+                    
+                    // Read Action Checkboxes. Order matters: default is Validated unless specifically marked otherwise
+                    if (isMarked('H')) action = 'DISQUALIFICATION';
+                    else if (isMarked('B')) action = 'AO8';
+                    else if (isMarked('D')) action = 'TRANSFER ACTION';
+                    else if (isMarked('G')) action = 'VALIDATED'; // Explicitly checked GURANG NA
+                    else action = 'VALIDATED'; // Fallback: Blank means no changes (VALIDATED)
 
-                    // --- Detect Mobile Number ---
+                    // 5. DETECT MOBILE & ACTUAL NAME
                     const mobileMatch = rowDataStr.match(/(?:09|\+639)\d{9}/);
                     if (mobileMatch) mobile = mobileMatch[0];
 
-                    // --- Detect Actual Name (PANGARAN KANG...) ---
-                    // We remove known boilerplate data to isolate the handwritten name
-                    let sanitizedStr = rowDataStr
-                        .replace(survey, '')
-                        .replace(title, '')
-                        .replace(area, '')
-                        .replace(mobile || '', '');
-                    
-                    // Look for a sequence of uppercase letters/names
-                    const nameExtractMatch = sanitizedStr.match(/\b([A-ZÑ\s,-]{6,})\b/);
-                    if (nameExtractMatch) {
-                        let potentialName = nameExtractMatch[1].trim();
-                        // Filter out common form words
-                        if (!/(NAGHALI|GURANG|BINENTA|NAGADAN|YES|NO|MAYO|IGWA|AREA|LOT|SURVEY)/.test(potentialName)) {
-                            if (potentialName.length > 5 && potentialName.includes(' ')) {
-                                actualName = potentialName;
+                    // Look for long words written by hand (ignoring boilerplate and the ARB's own name)
+                    const longWords = rowDataStr.match(/\b([A-ZÑ\s,-]{6,})\b/g);
+                    if (longWords) {
+                        for (const w of longWords) {
+                            const cleanW = w.trim();
+                            if (cleanW !== name && !/PLS|CSD|OCT|TCT|AREA|SURVEY|GURANG/.test(cleanW)) {
+                                actualName = cleanW;
+                                break;
                             }
                         }
                     }
 
                     rows.push({
-                        arbId, name, survey, lot, area, title,
-                        arboMember, action, actualName, mobile, raw: rowDataStr
+                        arbId: current.id,
+                        name: name,
+                        arboMember: arboMember,
+                        action: action,
+                        actualName: actualName,
+                        mobile: mobile,
+                        raw: rowDataStr
                     });
                 }
-                
                 return rows;
             }
-            
+
             
             /**
              * Enhanced review UI that shows action selection, ARBO dropdown, and capture fields.
@@ -3833,11 +3797,11 @@ function parseOcrArbRows(ocrText) {
 
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
-            let content = '';
+       let content = '';
                 if (!rows || rows.length === 0) {
                     content = `
-                        <p class="empty-card">No machine-readable ARB identifiers were detected.</p>
-                        <div class="modal-actions">
+                        <div style="padding: 30px; text-align: center;">
+                            <p class="empty-card" style="margin-bottom: 20px;">No machine-readable ARB identifiers were detected on this page.</p>
                             <button class="btn btn-primary" type="button" id="closeOcrReviewBtn" style="background:#64748b!important;">Close Review</button>
                         </div>
                     `;
@@ -4411,12 +4375,20 @@ function parseOcrArbRows(ocrText) {
                             ]
                         ];
 
-                        const body = grouped[brgy].map(row => [
-                            `${row.name}\n[ARB:${row.arbId}]`, '', '', row.survey, row.lot, row.area,
-                            row.title,
-                            '', '', '', '', '', '', '', ''
+                      const body = grouped[brgy].map(row => [
+                            `[ARB:${row.arbId}]\n${row.name}`, 
+                            'Y[   ]', // YES ARBO
+                            'N[   ]', // NO ARBO
+                            row.survey, row.lot, row.area, row.title,
+                            '',       // Actual Name
+                            'G[   ]', // GURANG NA
+                            'H[   ]', // NAGHALI NA
+                            'B[   ]', // BINENTA NA
+                            'D[   ]', // NAGADAN NA (Transfer)
+                            'M[   ]', // MAYO
+                            'I[   ]', // IGWA
+                            ''        // Mobile
                         ]);
-
                         doc.autoTable({
                             startY: 20,
                             margin: { bottom: 45, left: 10, right: 10 },
