@@ -4400,22 +4400,22 @@ function parseOcrArbRows(ocrText) {
                             overflow: 'linebreak' },
                             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0],
                                 fontStyle: 'bold' },
-                            columnStyles: {
-                                0: { cellWidth: 50 },
-                                1: { cellWidth: 8, halign: 'center' },
-                                2: { cellWidth: 8, halign: 'center' },
+                         columnStyles: {
+                                0: { cellWidth: 48 }, // Slightly adjusted to give space to ARBO
+                                1: { cellWidth: 12, halign: 'center' }, // Expanded to fit Y[   ] on one line
+                                2: { cellWidth: 12, halign: 'center' }, // Expanded to fit N[   ] on one line
                                 3: { cellWidth: 20 },
-                                4: { cellWidth: 15 },
-                                5: { cellWidth: 15 },
+                                4: { cellWidth: 14 }, // Slightly adjusted
+                                5: { cellWidth: 14 }, // Slightly adjusted
                                 6: { cellWidth: 25 },
-                                7: { cellWidth: 55 },
+                                7: { cellWidth: 52 }, // Slightly adjusted
                                 8: { cellWidth: 12 },
                                 9: { cellWidth: 12 },
                                 10: { cellWidth: 12 },
                                 11: { cellWidth: 12 },
                                 12: { cellWidth: 12 },
                                 13: { cellWidth: 12 },
-                                14: { cellWidth: 37 }
+                                14: { cellWidth: 36 } // Mobile
                             },
                             didDrawCell: function(data) {
                                 if (data.section === 'head' && data.row.index === 0 && data
