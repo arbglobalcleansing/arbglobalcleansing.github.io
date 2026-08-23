@@ -3698,8 +3698,8 @@ function parseOcrArbRows(ocrText) {
                 const rows = [];
                 const allArbIds = new Set();
                 
-                // Match every ARB ID in the document: format [ARB:12345]
-                const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
+                // OCR MUST BE SENSITIVE: Match formats like [ARB:12345], (ARB:12345), or ARB 12345
+                const arbRegex = /(?:\[|\(|\{)?ARB[\s:;-]*(\d+)(?:\]|\)|\})?/gi;
                 let match;
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 
@@ -3742,21 +3742,32 @@ function parseOcrArbRows(ocrText) {
 
                     // 2. Detect Action based on the specific required statuses
                     const chunkUpper = chunk.toUpperCase();
-                    if (chunkUpper.includes('GURANG') || chunkUpper.includes('VALIDATED')) action = 'VALIDATED';
-                    else if (chunkUpper.includes('NAGHALI') || chunkUpper.includes('DISQUALIFICATION')) action = 'DISQUALIFICATION';
-                    else if (chunkUpper.includes('BINENTA') || chunkUpper.includes('AO8') || chunkUpper.includes('AO 8')) action = 'AO8';
-                    else if (chunkUpper.includes('NAGADAN') || chunkUpper.includes('TRANSFER ACTION')) action = 'TRANSFER ACTION';
+                    if (chunkUpper.includes('NAGHALI') || chunkUpper.includes('DISQUALIFICATION')) {
+                        action = 'DISQUALIFICATION';
+                    } else if (chunkUpper.includes('BINENTA') || chunkUpper.includes('AO8') || chunkUpper.includes('AO 8')) {
+                        action = 'AO8';
+                    } else if (chunkUpper.includes('NAGADAN') || chunkUpper.includes('TRANSFER ACTION')) {
+                        action = 'TRANSFER ACTION';
+                    } else {
+                        // 1. GURANG NA or NO DATA (blank/no specific action detected) = VALIDATED. Data should not be changed.
+                        action = 'VALIDATED';
+                    }
 
                     // 3. Detect mobile number
                     const mobileMatch = chunk.match(/(09|0)[0-9]{9,10}/);
                     if (mobileMatch) mobile = mobileMatch[0];
 
                     // 4. Detect Actual Name (PANGARAN KANG...)
-                    const nameMatch = chunk.match(/([A-Z][a-zA-Z\s,.]+)/);
-                    if (nameMatch && nameMatch[1].trim().length > 4) {
-                        const n = nameMatch[1].trim();
-                        if (!['YES', 'NO', 'MAYO', 'IGWA', 'OCT', 'TCT', 'CSD', 'PLS', 'AREA', 'LOT'].some(w => n.toUpperCase().includes(w))) {
-                            actualName = n;
+                    const pangaranMatch = chunk.match(/PANGARAN\s*KANG[^A-Z]*([A-Z\s,.-]{4,})/i);
+                    if (pangaranMatch) {
+                        actualName = pangaranMatch[1].trim();
+                    } else {
+                        const nameMatch = chunk.match(/([A-Z][a-zA-Z\s,.]+)/);
+                        if (nameMatch && nameMatch[1].trim().length > 4) {
+                            const n = nameMatch[1].trim();
+                            if (!['YES', 'NO', 'MAYO', 'IGWA', 'OCT', 'TCT', 'CSD', 'PLS', 'AREA', 'LOT'].some(w => n.toUpperCase().includes(w))) {
+                                actualName = n;
+                            }
                         }
                     }
 
@@ -3768,7 +3779,6 @@ function parseOcrArbRows(ocrText) {
                 
                 return rows;
             }
-            
 
             
             /**
@@ -3790,9 +3800,14 @@ function parseOcrArbRows(ocrText) {
 
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
-                let content = '';
+              let content = '';
                 if (!rows || rows.length === 0) {
-                    content = '<p class="empty-card">No machine-readable ARB identifiers were detected.</p>';
+                    content = `
+                        <p class="empty-card">No machine-readable ARB identifiers were detected.</p>
+                        <div class="modal-actions">
+                            <button class="btn btn-primary" type="button" id="closeOcrReviewBtn" style="background:#64748b!important;">Close Review</button>
+                        </div>
+                    `;
                 } else {
                     content = `
                             <p style="color:#475569;margin-bottom:16px;">
