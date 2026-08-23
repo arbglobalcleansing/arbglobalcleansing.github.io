@@ -3701,296 +3701,95 @@
             }
 
             /**
-             * ENHANCED OCR parser for ARB Global Validation Forms.
-             * Uses a two-stage approach:
-             * 1. Attempt structured header-based parsing.
-             * 2. Fallback to per-line aggressive extraction to catch every ARB ID.
-             * This ensures that all ARBs are detected even if the table structure varies.
+             * AGGRESSIVE OCR parser – captures EVERY ARB ID found in the text.
+             * Scans globally for [ARB:ID], extracts name and any following tokens.
+             * Also detects action keywords, actual name, and mobile number.
              */
             function parseOcrArbRows(ocrText) {
                 const rows = [];
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-                const lines = clean.split('\n').filter(l => l.trim().length > 0);
 
-                // ---- Stage 1: Header-based structured parsing ----
-                let headerMap = null;
-                const headerKeywords = {
-                    'name': ['PANGARAN KANG PARA-UMA', 'PARA-UMA', 'ARB'],
-                    'arbo': ['ARBO MEMBER', 'ARBO'],
-                    'survey': ['SURVEY NO', 'SURVEY'],
-                    'lot': ['LOT NO', 'LOT'],
-                    'area': ['AREA'],
-                    'title': ['TITLE NUMBER', 'TITLE NO', 'TITLE'],
-                    'gurang': ['GURANG', 'GURANG G', 'GURANG NA'],
-                    'naghali': ['NAGHALI', 'NAGHALI NA'],
-                    'binenta': ['BINENTA', 'BINENTA NA'],
-                    'nagadan': ['NAGADAN', 'NAGADAN NA'],
-                    'mayo': ['MAYO'],
-                    'igwa': ['IGWA'],
-                    'mobile': ['CELLPHONE', 'MOBILE', 'PHONE', 'CONTACT']
-                };
+                // Step 1: Find all ARB IDs using a global regex
+                const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
+                let match;
+                const seenIds = new Set();
 
-                let bestHeaderScore = -1;
-                let bestHeaderIndex = -1;
-                for (let i = 0; i < Math.min(lines.length, 20); i++) {
-                    const line = lines[i].toUpperCase();
-                    let score = 0;
-                    for (const [key, words] of Object.entries(headerKeywords)) {
-                        if (words.some(w => line.includes(w))) {
-                            score += 1;
-                            if (key === 'name' || key === 'survey' || key === 'lot' || key === 'area' || key === 'title') {
-                                score += 2;
-                            }
-                        }
+                // We'll scan the entire text, but we need the context around each match.
+                // We'll extract the substring before and after each match.
+                while ((match = arbRegex.exec(clean)) !== null) {
+                    const arbId = match[1].trim();
+                    if (seenIds.has(arbId)) continue;
+                    seenIds.add(arbId);
+
+                    // Get the substring before the match to extract the name
+                    const before = clean.substring(0, match.index);
+                    const nameMatch = before.match(/([A-Z][A-Z\s,.]+)\s*$/i);
+                    let name = nameMatch ? nameMatch[1].trim() : '';
+
+                    // Get the substring after the match to extract tokens
+                    const after = clean.substring(match.index + match[0].length);
+                    // Take up to 6 tokens (survey, lot, area, title, maybe extra)
+                    const tokenMatch = after.match(/^\s*([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)\s+([^\s]+)?\s+([^\s]+)?/);
+                    let survey = '',
+                        lot = '',
+                        area = '',
+                        title = '';
+                    if (tokenMatch) {
+                        survey = tokenMatch[1] || '';
+                        lot = tokenMatch[2] || '';
+                        area = tokenMatch[3] || '';
+                        title = tokenMatch[4] || '';
+                    } else {
+                        // Fallback: just take the first 4 tokens after the ARB
+                        const tokens = after.trim().split(/\s+/);
+                        if (tokens.length > 0) survey = tokens[0];
+                        if (tokens.length > 1) lot = tokens[1];
+                        if (tokens.length > 2) area = tokens[2];
+                        if (tokens.length > 3) title = tokens[3];
                     }
-                    if (score > bestHeaderScore) {
-                        bestHeaderScore = score;
-                        bestHeaderIndex = i;
-                    }
+
+                    // Detect action from the surrounding text (within 200 chars)
+                    const context = clean.substring(Math.max(0, match.index - 100), Math.min(clean.length, match.index +
+                        200));
+                    const contextUpper = context.toUpperCase();
+                    let action = null;
+                    if (contextUpper.includes('GURANG') && !contextUpper.includes('NO')) action = 'VALIDATED';
+                    else if (contextUpper.includes('NAGHALI') && !contextUpper.includes('NO')) action = 'DISQUALIFICATION';
+                    else if (contextUpper.includes('BINENTA') && !contextUpper.includes('NO')) action = 'AO8';
+                    else if (contextUpper.includes('NAGADAN') && !contextUpper.includes('NO')) action = 'TRANSFER ACTION';
+
+                    // Extract actual name (like "PANGARAN KANG AKTUAL ...")
+                    const actualNameMatch = context.match(/(?:AKTUAL|actual)[\s\S]{0,30}([A-Z][A-Z\s,.]+)/i);
+                    let actualName = actualNameMatch ? actualNameMatch[1].trim() : null;
+
+                    // Extract mobile number (09...)
+                    const mobileMatch = context.match(/(09|0)[0-9]{9,10}/);
+                    let mobile = mobileMatch ? mobileMatch[0] : null;
+
+                    // Determine if ARBO MEMBER = YES (search in context)
+                    const arboMember = (contextUpper.includes('ARBO') && contextUpper.includes('YES')) ? 'YES' : 'NO';
+
+                    rows.push({
+                        arbId,
+                        name: name || '',
+                        survey: survey || '',
+                        lot: lot || '',
+                        area: area || '',
+                        title: title || '',
+                        arboMember,
+                        action,
+                        actualName,
+                        mobile,
+                        raw: match[0]
+                    });
                 }
 
-                if (bestHeaderIndex !== -1 && bestHeaderScore >= 6) {
-                    const headerLine = lines[bestHeaderIndex];
-                    let parts = headerLine.split(/\s{2,}|\|/).map(p => p.trim()).filter(p => p.length > 0);
-                    if (parts.length < 8) {
-                        parts = headerLine.split(/\s+/).filter(p => p.length > 0);
-                    }
-                    const map = {};
-                    for (const [key, words] of Object.entries(headerKeywords)) {
-                        let idx = -1;
-                        for (let i = 0; i < parts.length; i++) {
-                            const upper = parts[i].toUpperCase();
-                            if (words.some(w => upper.includes(w))) {
-                                idx = i;
-                                break;
-                            }
-                        }
-                        map[key] = idx;
-                    }
-                    if (map.name !== -1 && map.survey !== -1 && map.lot !== -1 && map.area !== -1 && map.title !== -1) {
-                        headerMap = map;
-                    }
-                }
-
-                const allArbIds = new Set(); // to deduplicate later
-
-                // Helper to add row
-                function addRow(arbId, name, survey, lot, area, title, arboMember, action, actualName, mobile) {
-                    const key = String(arbId);
-                    if (!allArbIds.has(key)) {
-                        allArbIds.add(key);
-                        rows.push({
-                            arbId,
-                            name: name || '',
-                            survey: survey || '',
-                            lot: lot || '',
-                            area: area || '',
-                            title: title || '',
-                            arboMember: arboMember || 'NO',
-                            action: action || null,
-                            actualName: actualName || null,
-                            mobile: mobile || null,
-                            raw: ''
-                        });
-                    }
-                }
-
-                // ---- Stage 2: Structured parsing if header found ----
-                if (headerMap) {
-                    const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i];
-                        let arbMatch;
-                        while ((arbMatch = arbRegex.exec(line)) !== null) {
-                            const arbId = arbMatch[1].trim();
-                            const namePart = line.substring(0, line.indexOf(arbMatch[0])).trim();
-                            const name = namePart.replace(/^[|\s]+/, '').trim();
-
-                            let survey = '', lot = '', area = '', title = '';
-                            let arboMember = 'NO';
-                            let action = null;
-                            let actualName = null;
-                            let mobile = null;
-
-                            let cols = line.split(/\s{2,}|\|/).map(c => c.trim()).filter(c => c.length > 0);
-                            if (cols.length < 6) {
-                                cols = line.split(/\s+/).filter(c => c.length > 0);
-                            }
-
-                            let arbIndex = -1;
-                            for (let j = 0; j < cols.length; j++) {
-                                if (cols[j].includes(arbId)) {
-                                    arbIndex = j;
-                                    break;
-                                }
-                            }
-                            if (arbIndex === -1) continue;
-
-                            const colIndices = {};
-                            const orderedKeys = ['name', 'arbo', 'survey', 'lot', 'area', 'title', 'gurang', 'naghali', 'binenta', 'nagadan', 'mayo', 'igwa', 'mobile'];
-                            for (const key of orderedKeys) {
-                                colIndices[key] = headerMap[key] !== undefined ? headerMap[key] : -1;
-                            }
-
-                            let dataIdx = arbIndex;
-                            dataIdx++; // skip name
-
-                            // ARBO member
-                            if (colIndices.arbo !== -1) {
-                                const offset = colIndices.arbo - colIndices.name;
-                                const targetIdx = dataIdx - 1 + offset;
-                                if (targetIdx < cols.length) {
-                                    const val = cols[targetIdx].toUpperCase();
-                                    if (val === 'YES' || val === 'NO') {
-                                        arboMember = val;
-                                    }
-                                }
-                            }
-
-                            // Survey, Lot, Area, Title
-                            const fieldMap = {
-                                survey: 'survey',
-                                lot: 'lot',
-                                area: 'area',
-                                title: 'title'
-                            };
-                            for (const [key, colKey] of Object.entries(fieldMap)) {
-                                if (colIndices[colKey] !== -1) {
-                                    const offset = colIndices[colKey] - colIndices.name;
-                                    const targetIdx = dataIdx - 1 + offset;
-                                    if (targetIdx < cols.length) {
-                                        const val = cols[targetIdx];
-                                        if (key === 'survey') survey = val;
-                                        else if (key === 'lot') lot = val;
-                                        else if (key === 'area') area = val;
-                                        else if (key === 'title') title = val;
-                                    }
-                                }
-                            }
-
-                            // Action columns
-                            const actionCols = ['gurang', 'naghali', 'binenta', 'nagadan'];
-                            const actionMap = {
-                                'gurang': 'VALIDATED',
-                                'naghali': 'DISQUALIFICATION',
-                                'binenta': 'AO8',
-                                'nagadan': 'TRANSFER ACTION'
-                            };
-                            let actionFound = null;
-                            for (const ac of actionCols) {
-                                if (colIndices[ac] !== -1) {
-                                    const offset = colIndices[ac] - colIndices.name;
-                                    const targetIdx = dataIdx - 1 + offset;
-                                    if (targetIdx < cols.length) {
-                                        const val = cols[targetIdx].toUpperCase().trim();
-                                        if (val && val !== 'NO' && val !== 'MAYO') {
-                                            actionFound = { key: ac, value: actionMap[ac] || ac.toUpperCase() };
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if (!actionFound) {
-                                const lineUpper = line.toUpperCase();
-                                const actionKeywords = {
-                                    'GURANG': 'VALIDATED',
-                                    'NAGHALI': 'DISQUALIFICATION',
-                                    'BINENTA': 'AO8',
-                                    'NAGADAN': 'TRANSFER ACTION'
-                                };
-                                for (const [keyword, act] of Object.entries(actionKeywords)) {
-                                    if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
-                                        actionFound = { key: keyword.toLowerCase(), value: act };
-                                        break;
-                                    }
-                                }
-                            }
-
-                            // Actual name
-                            for (let j = dataIdx + 4; j < cols.length; j++) {
-                                const token = cols[j];
-                                if (token.match(/^[A-Z][A-Z\s,.]+$/i) && token.length > 2 && !token.match(/^[0-9.]+$/)) {
-                                    actualName = token;
-                                    break;
-                                }
-                            }
-
-                            // Mobile
-                            for (let j = 0; j < cols.length; j++) {
-                                if (cols[j].match(/^(09|0)[0-9]{9,10}$/)) {
-                                    mobile = cols[j];
-                                    break;
-                                }
-                            }
-
-                            action = actionFound ? actionFound.value : null;
-                            addRow(arbId, name, survey, lot, area, title, arboMember, action, actualName, mobile);
-                        }
-                    }
-                }
-
-                // ---- Stage 3: Fallback - aggressive per-line extraction ----
-                // This ensures we catch any ARB that might have been missed in the structured pass.
-                const arbRegexFallback = /\[ARB\s*:\s*(\d+)\s*\]/gi;
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    let match;
-                    while ((match = arbRegexFallback.exec(line)) !== null) {
-                        const arbId = match[1].trim();
-                        // If we already have this ARB from structured parsing, skip
-                        if (allArbIds.has(arbId)) continue;
-
-                        // Extract name: everything before the ARB
-                        const namePart = line.substring(0, line.indexOf(match[0])).trim();
-                        const name = namePart.replace(/^[|\s]+/, '').trim();
-
-                        // Extract the tokens after the ARB
-                        const after = line.substring(line.indexOf(match[0]) + match[0].length).trim();
-                        const tokens = after.split(/\s+/).filter(t => t.length > 0);
-
-                        let survey = '', lot = '', area = '', title = '';
-                        // Try to assign the next 4 tokens as survey, lot, area, title
-                        let idx = 0;
-                        if (tokens.length > idx) survey = tokens[idx++];
-                        if (tokens.length > idx) lot = tokens[idx++];
-                        if (tokens.length > idx) area = tokens[idx++];
-                        if (tokens.length > idx) title = tokens[idx++];
-
-                        // Try to detect action from line
-                        let action = null;
-                        const lineUpper = line.toUpperCase();
-                        const actionKeywords = {
-                            'GURANG': 'VALIDATED',
-                            'NAGHALI': 'DISQUALIFICATION',
-                            'BINENTA': 'AO8',
-                            'NAGADAN': 'TRANSFER ACTION'
-                        };
-                        for (const [keyword, act] of Object.entries(actionKeywords)) {
-                            if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
-                                action = act;
-                                break;
-                            }
-                        }
-
-                        // Try to extract actual name and mobile
-                        let actualName = null;
-                        let mobile = null;
-                        // Look for a name pattern in the line after the action column area (roughly)
-                        const nameMatch = line.match(/([A-Z][A-Z\s,.]+)(?=\s*\[ARB:)/i);
-                        if (nameMatch) actualName = nameMatch[1].trim();
-                        const mobileMatch = line.match(/(09|0)[0-9]{9,10}/);
-                        if (mobileMatch) mobile = mobileMatch[0];
-
-                        addRow(arbId, name, survey, lot, area, title, 'NO', action, actualName, mobile);
-                    }
-                }
-
-                // Return rows (already deduplicated by addRow)
                 return rows;
             }
 
             /**
              * Enhanced review UI that shows action selection, ARBO dropdown, and capture fields.
+             * Now only attaches event listeners if there are rows.
              */
             async function reviewValidationCaptureEnhanced(batchId, parsedRows) {
                 const { data: rows, error } = await secureDbClient.from('validation_capture_rows').select('*')
@@ -4013,6 +3812,7 @@
                 let content = '';
                 if (!rows || rows.length === 0) {
                     content = '<p class="empty-card">No machine-readable ARB identifiers were detected.</p>';
+                    // No rows – show message and skip adding event listeners later
                 } else {
                     content = `
                             <p style="color:#475569;margin-bottom:16px;">
@@ -4077,100 +3877,106 @@
 
                 showSubModal('Human Verification - OCR Validation Capture', content);
 
-                // --- Event: Show/hide action fields based on selection ---
-                document.querySelectorAll('.ocr-action-select').forEach(sel => {
-                    sel.addEventListener('change', function() {
-                        const rowId = this.dataset.rowId;
-                        const fields = document.getElementById('actionFields_' + rowId);
-                        const val = this.value;
-                        if (val === 'AO8' || val === 'TRANSFER ACTION') {
-                            fields.style.display = 'flex';
-                        } else {
-                            fields.style.display = 'none';
-                        }
+                // Only attach event listeners if there are rows
+                if (rows && rows.length > 0) {
+                    // --- Event: Show/hide action fields based on selection ---
+                    document.querySelectorAll('.ocr-action-select').forEach(sel => {
+                        sel.addEventListener('change', function() {
+                            const rowId = this.dataset.rowId;
+                            const fields = document.getElementById('actionFields_' + rowId);
+                            const val = this.value;
+                            if (val === 'AO8' || val === 'TRANSFER ACTION') {
+                                fields.style.display = 'flex';
+                            } else {
+                                fields.style.display = 'none';
+                            }
+                        });
                     });
-                });
 
-                // --- Event: Post a single row ---
-                document.querySelectorAll('.ocr-post-btn').forEach(btn => {
-                    btn.addEventListener('click', async function() {
-                        const rowId = this.dataset.rowId;
-                        const arbId = this.dataset.arbId;
-                        const row = this.closest('.ocr-review-row');
-                        const actionSelect = row.querySelector('.ocr-action-select');
-                        const action = actionSelect.value;
-                        const actualName = row.querySelector('.ocr-actual-name')?.value || null;
-                        const mobile = row.querySelector('.ocr-mobile')?.value || null;
-                        const arboSelect = row.querySelector('.ocr-arbo-select');
-                        const arboId = arboSelect ? arboSelect.value : null;
-                        const badge = document.getElementById('statusBadge_' + rowId);
+                    // --- Event: Post a single row ---
+                    document.querySelectorAll('.ocr-post-btn').forEach(btn => {
+                        btn.addEventListener('click', async function() {
+                            const rowId = this.dataset.rowId;
+                            const arbId = this.dataset.arbId;
+                            const row = this.closest('.ocr-review-row');
+                            const actionSelect = row.querySelector('.ocr-action-select');
+                            const action = actionSelect.value;
+                            const actualName = row.querySelector('.ocr-actual-name')?.value || null;
+                            const mobile = row.querySelector('.ocr-mobile')?.value || null;
+                            const arboSelect = row.querySelector('.ocr-arbo-select');
+                            const arboId = arboSelect ? arboSelect.value : null;
+                            const badge = document.getElementById('statusBadge_' + rowId);
 
-                        if (!action) {
-                            popToast('Please select an action for this ARB.', 'warn');
+                            if (!action) {
+                                popToast('Please select an action for this ARB.', 'warn');
+                                return;
+                            }
+
+                            this.disabled = true;
+                            this.textContent = 'Posting...';
+
+                            try {
+                                // First, update the validation capture row
+                                const { error: updateErr } = await secureDbClient.from(
+                                    'validation_capture_rows')
+                                    .update({
+                                        verification_status: 'VERIFIED',
+                                        proposed_validation_status: action,
+                                        updated_at: new Date().toISOString()
+                                    }).eq('id', rowId);
+                                if (updateErr) throw updateErr;
+
+                                // Then perform the action on the ARB
+                                await performActionOnArb(arbId, action, actualName, mobile, arboId);
+
+                                // Update UI
+                                badge.className = 'ocr-status-badge posted';
+                                badge.textContent = '✅ Posted';
+                                this.textContent = 'Posted';
+                                this.disabled = true;
+                                row.querySelectorAll('input,select,button').forEach(el => {
+                                    if (el !== this) el.disabled = true;
+                                });
+                                popToast(`ARB ${arbId}: ${action} applied.`, 'ok');
+
+                            } catch (err) {
+                                popToast(err.message, 'err');
+                                this.disabled = false;
+                                this.textContent = '📌 Verify & Post';
+                            }
+                        });
+                    });
+
+                    // --- Event: Post All ---
+                    document.getElementById('postAllOcrBtn')?.addEventListener('click', async function() {
+                        const btns = document.querySelectorAll('.ocr-post-btn:not(:disabled)');
+                        if (btns.length === 0) {
+                            popToast('All rows have already been posted.', 'info');
                             return;
                         }
-
                         this.disabled = true;
-                        this.textContent = 'Posting...';
+                        this.textContent = 'Posting All...';
 
-                        try {
-                            // First, update the validation capture row
-                            const { error: updateErr } = await secureDbClient.from(
-                                'validation_capture_rows')
-                                .update({
-                                    verification_status: 'VERIFIED',
-                                    proposed_validation_status: action,
-                                    updated_at: new Date().toISOString()
-                                }).eq('id', rowId);
-                            if (updateErr) throw updateErr;
-
-                            // Then perform the action on the ARB
-                            await performActionOnArb(arbId, action, actualName, mobile, arboId);
-
-                            // Update UI
-                            badge.className = 'ocr-status-badge posted';
-                            badge.textContent = '✅ Posted';
-                            this.textContent = 'Posted';
-                            this.disabled = true;
-                            row.querySelectorAll('input,select,button').forEach(el => {
-                                if (el !== this) el.disabled = true;
-                            });
-                            popToast(`ARB ${arbId}: ${action} applied.`, 'ok');
-
-                        } catch (err) {
-                            popToast(err.message, 'err');
-                            this.disabled = false;
-                            this.textContent = '📌 Verify & Post';
+                        let success = 0,
+                            failed = 0;
+                        for (const btn of btns) {
+                            try {
+                                await btn.click();
+                                success++;
+                            } catch (e) {
+                                failed++;
+                                console.warn('Failed to post row:', e);
+                            }
                         }
+                        this.textContent = 'Done';
+                        popToast(`Posted ${success} row(s). ${failed} failed.`, failed ? 'warn' : 'ok');
                     });
-                });
 
-                // --- Event: Post All ---
-                document.getElementById('postAllOcrBtn')?.addEventListener('click', async function() {
-                    const btns = document.querySelectorAll('.ocr-post-btn:not(:disabled)');
-                    if (btns.length === 0) {
-                        popToast('All rows have already been posted.', 'info');
-                        return;
-                    }
-                    this.disabled = true;
-                    this.textContent = 'Posting All...';
-
-                    let success = 0,
-                        failed = 0;
-                    for (const btn of btns) {
-                        try {
-                            await btn.click();
-                            success++;
-                        } catch (e) {
-                            failed++;
-                            console.warn('Failed to post row:', e);
-                        }
-                    }
-                    this.textContent = 'Done';
-                    popToast(`Posted ${success} row(s). ${failed} failed.`, failed ? 'warn' : 'ok');
-                });
-
-                document.getElementById('closeOcrReviewBtn').addEventListener('click', hideSubModal);
+                    document.getElementById('closeOcrReviewBtn').addEventListener('click', hideSubModal);
+                } else {
+                    // If no rows, the close button is not present, so we add a simple close handler
+                    // but the modal already has a close button in the header.
+                }
             }
 
             /**
