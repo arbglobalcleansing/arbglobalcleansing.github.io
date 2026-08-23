@@ -3702,15 +3702,17 @@
 
             /**
              * ENHANCED OCR parser for ARB Global Validation Forms.
-             * Handles variable column order, missing headers, and OCR noise.
-             * Uses multiple strategies to extract all ARB rows.
+             * Uses a two-stage approach:
+             * 1. Attempt structured header-based parsing.
+             * 2. Fallback to per-line aggressive extraction to catch every ARB ID.
+             * This ensures that all ARBs are detected even if the table structure varies.
              */
             function parseOcrArbRows(ocrText) {
                 const rows = [];
                 const clean = ocrText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
                 const lines = clean.split('\n').filter(l => l.trim().length > 0);
 
-                // ---- 1. Try to locate a header row and map column indices ----
+                // ---- Stage 1: Header-based structured parsing ----
                 let headerMap = null;
                 const headerKeywords = {
                     'name': ['PANGARAN KANG PARA-UMA', 'PARA-UMA', 'ARB'],
@@ -3728,7 +3730,6 @@
                     'mobile': ['CELLPHONE', 'MOBILE', 'PHONE', 'CONTACT']
                 };
 
-                // Weighted scoring to find the best header line
                 let bestHeaderScore = -1;
                 let bestHeaderIndex = -1;
                 for (let i = 0; i < Math.min(lines.length, 20); i++) {
@@ -3737,7 +3738,6 @@
                     for (const [key, words] of Object.entries(headerKeywords)) {
                         if (words.some(w => line.includes(w))) {
                             score += 1;
-                            // Give extra weight to critical columns
                             if (key === 'name' || key === 'survey' || key === 'lot' || key === 'area' || key === 'title') {
                                 score += 2;
                             }
@@ -3772,24 +3772,46 @@
                     }
                 }
 
-                // ---- 2. Parse each line for ARB entries ----
-                const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
+                const allArbIds = new Set(); // to deduplicate later
 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i];
-                    let arbMatch;
-                    while ((arbMatch = arbRegex.exec(line)) !== null) {
-                        const arbId = arbMatch[1].trim();
-                        const namePart = line.substring(0, line.indexOf(arbMatch[0])).trim();
-                        const name = namePart.replace(/^[|\s]+/, '').trim();
+                // Helper to add row
+                function addRow(arbId, name, survey, lot, area, title, arboMember, action, actualName, mobile) {
+                    const key = String(arbId);
+                    if (!allArbIds.has(key)) {
+                        allArbIds.add(key);
+                        rows.push({
+                            arbId,
+                            name: name || '',
+                            survey: survey || '',
+                            lot: lot || '',
+                            area: area || '',
+                            title: title || '',
+                            arboMember: arboMember || 'NO',
+                            action: action || null,
+                            actualName: actualName || null,
+                            mobile: mobile || null,
+                            raw: ''
+                        });
+                    }
+                }
 
-                        let survey = '', lot = '', area = '', title = '';
-                        let arboMember = 'NO';
-                        let action = null;
-                        let actualName = null;
-                        let mobile = null;
+                // ---- Stage 2: Structured parsing if header found ----
+                if (headerMap) {
+                    const arbRegex = /\[ARB\s*:\s*(\d+)\s*\]/gi;
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i];
+                        let arbMatch;
+                        while ((arbMatch = arbRegex.exec(line)) !== null) {
+                            const arbId = arbMatch[1].trim();
+                            const namePart = line.substring(0, line.indexOf(arbMatch[0])).trim();
+                            const name = namePart.replace(/^[|\s]+/, '').trim();
 
-                        if (headerMap) {
+                            let survey = '', lot = '', area = '', title = '';
+                            let arboMember = 'NO';
+                            let action = null;
+                            let actualName = null;
+                            let mobile = null;
+
                             let cols = line.split(/\s{2,}|\|/).map(c => c.trim()).filter(c => c.length > 0);
                             if (cols.length < 6) {
                                 cols = line.split(/\s+/).filter(c => c.length > 0);
@@ -3861,7 +3883,6 @@
                                     const targetIdx = dataIdx - 1 + offset;
                                     if (targetIdx < cols.length) {
                                         const val = cols[targetIdx].toUpperCase().trim();
-                                        // If the cell is not empty and not 'NO' or 'MAYO', it's a mark
                                         if (val && val !== 'NO' && val !== 'MAYO') {
                                             actionFound = { key: ac, value: actionMap[ac] || ac.toUpperCase() };
                                             break;
@@ -3869,8 +3890,6 @@
                                     }
                                 }
                             }
-
-                            // If action not found from columns, try keyword search in the line
                             if (!actionFound) {
                                 const lineUpper = line.toUpperCase();
                                 const actionKeywords = {
@@ -3887,7 +3906,7 @@
                                 }
                             }
 
-                            // Actual name (PANGARAN KANG AKTUAL...)
+                            // Actual name
                             for (let j = dataIdx + 4; j < cols.length; j++) {
                                 const token = cols[j];
                                 if (token.match(/^[A-Z][A-Z\s,.]+$/i) && token.length > 2 && !token.match(/^[0-9.]+$/)) {
@@ -3896,7 +3915,7 @@
                                 }
                             }
 
-                            // Mobile number
+                            // Mobile
                             for (let j = 0; j < cols.length; j++) {
                                 if (cols[j].match(/^(09|0)[0-9]{9,10}$/)) {
                                     mobile = cols[j];
@@ -3905,80 +3924,69 @@
                             }
 
                             action = actionFound ? actionFound.value : null;
+                            addRow(arbId, name, survey, lot, area, title, arboMember, action, actualName, mobile);
+                        }
+                    }
+                }
 
-                        } else {
-                            // ---- No header found: fallback regex approach ----
-                            const afterArb = line.substring(line.indexOf(arbMatch[0]) + arbMatch[0].length).trim();
-                            const tokens = afterArb.split(/\s+/).filter(t => t.length > 0);
-                            // Try to identify survey, lot, area, title by pattern
-                            let idx = 0;
-                            // Survey: often alphanumeric with dash
-                            if (tokens.length > idx && tokens[idx].match(/^[A-Z0-9\-]+$/)) {
-                                survey = tokens[idx++];
-                            }
-                            // Lot: often alphanumeric with dash or letters
-                            if (tokens.length > idx && tokens[idx].match(/^[A-Z0-9\-]+$/)) {
-                                lot = tokens[idx++];
-                            }
-                            // Area: decimal number
-                            if (tokens.length > idx && tokens[idx].match(/^[0-9.]+$/)) {
-                                area = tokens[idx++];
-                            }
-                            // Title: often starts with TCT, OCT, or similar
-                            if (tokens.length > idx && tokens[idx].match(/^(TCT|OCT|PSD|CSD|BSD|CAD)/i)) {
-                                title = tokens[idx++];
-                            } else if (tokens.length > idx) {
-                                // fallback: take next token as title
-                                title = tokens[idx++];
-                            }
+                // ---- Stage 3: Fallback - aggressive per-line extraction ----
+                // This ensures we catch any ARB that might have been missed in the structured pass.
+                const arbRegexFallback = /\[ARB\s*:\s*(\d+)\s*\]/gi;
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    let match;
+                    while ((match = arbRegexFallback.exec(line)) !== null) {
+                        const arbId = match[1].trim();
+                        // If we already have this ARB from structured parsing, skip
+                        if (allArbIds.has(arbId)) continue;
 
-                            // Try to find action keywords in the line
-                            const lineUpper = line.toUpperCase();
-                            const actionKeywords = {
-                                'GURANG': 'VALIDATED',
-                                'NAGHALI': 'DISQUALIFICATION',
-                                'BINENTA': 'AO8',
-                                'NAGADAN': 'TRANSFER ACTION'
-                            };
-                            for (const [keyword, act] of Object.entries(actionKeywords)) {
-                                if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
-                                    action = act;
-                                    break;
-                                }
+                        // Extract name: everything before the ARB
+                        const namePart = line.substring(0, line.indexOf(match[0])).trim();
+                        const name = namePart.replace(/^[|\s]+/, '').trim();
+
+                        // Extract the tokens after the ARB
+                        const after = line.substring(line.indexOf(match[0]) + match[0].length).trim();
+                        const tokens = after.split(/\s+/).filter(t => t.length > 0);
+
+                        let survey = '', lot = '', area = '', title = '';
+                        // Try to assign the next 4 tokens as survey, lot, area, title
+                        let idx = 0;
+                        if (tokens.length > idx) survey = tokens[idx++];
+                        if (tokens.length > idx) lot = tokens[idx++];
+                        if (tokens.length > idx) area = tokens[idx++];
+                        if (tokens.length > idx) title = tokens[idx++];
+
+                        // Try to detect action from line
+                        let action = null;
+                        const lineUpper = line.toUpperCase();
+                        const actionKeywords = {
+                            'GURANG': 'VALIDATED',
+                            'NAGHALI': 'DISQUALIFICATION',
+                            'BINENTA': 'AO8',
+                            'NAGADAN': 'TRANSFER ACTION'
+                        };
+                        for (const [keyword, act] of Object.entries(actionKeywords)) {
+                            if (lineUpper.includes(keyword) && !lineUpper.includes('NO') && !lineUpper.includes('MAYO')) {
+                                action = act;
+                                break;
                             }
-                            // Try to extract actual name and mobile
-                            const nameMatch = line.match(/([A-Z][A-Z\s,.]+)(?=\s*\[ARB:)/i);
-                            if (nameMatch) actualName = nameMatch[1].trim();
-                            const mobileMatch = line.match(/(09|0)[0-9]{9,10}/);
-                            if (mobileMatch) mobile = mobileMatch[0];
                         }
 
-                        rows.push({
-                            arbId,
-                            name,
-                            survey: survey || '',
-                            lot: lot || '',
-                            area: area || '',
-                            title: title || '',
-                            arboMember: arboMember || 'NO',
-                            action: action,
-                            actualName: actualName || null,
-                            mobile: mobile || null,
-                            raw: line
-                        });
+                        // Try to extract actual name and mobile
+                        let actualName = null;
+                        let mobile = null;
+                        // Look for a name pattern in the line after the action column area (roughly)
+                        const nameMatch = line.match(/([A-Z][A-Z\s,.]+)(?=\s*\[ARB:)/i);
+                        if (nameMatch) actualName = nameMatch[1].trim();
+                        const mobileMatch = line.match(/(09|0)[0-9]{9,10}/);
+                        if (mobileMatch) mobile = mobileMatch[0];
+
+                        addRow(arbId, name, survey, lot, area, title, 'NO', action, actualName, mobile);
                     }
                 }
 
-                // Deduplicate by ARB ID (keep first)
-                const seen = new Set();
-                const uniqueRows = [];
-                for (const row of rows) {
-                    if (!seen.has(row.arbId)) {
-                        seen.add(row.arbId);
-                        uniqueRows.push(row);
-                    }
-                }
-                return uniqueRows;
+                // Return rows (already deduplicated by addRow)
+                return rows;
             }
 
             /**
