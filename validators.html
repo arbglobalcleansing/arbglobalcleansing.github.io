@@ -33,6 +33,19 @@
   <section class="card" id="accessDenied" style="display:none"><h2>Access denied</h2><p>Only an active administrator can manage validator access.</p></section>
   <div id="adminArea" style="display:none">
     <section class="card">
+      <h2 style="margin-top:0">Register New User</h2>
+      <form id="registerUserForm">
+        <div class="grid">
+          <div class="field"><label>Email Address</label><input id="regEmail" type="email" required placeholder="user@example.com"></div>
+          <div class="field"><label>Full Name</label><input id="regFullName" required placeholder="Complete Name"></div>
+          <div class="field"><label>System Role</label><select id="regRole" required><option value="">Select Role</option><option>DARMO PERSONNEL</option><option>PBDD STAFF</option><option>CARPO-PBDD</option><option>LEGAL PERSONNEL</option><option>LTSP PERSONNEL</option><option>ADMIN</option></select></div>
+          <div class="field"><label>Position</label><input id="regPosition" placeholder="Job Title / Position"></div>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Register User (Default PW: 111111)</button></div>
+      </form>
+    </section>
+
+    <section class="card">
       <h2 style="margin-top:0">New Access Assignment</h2>
       <form id="scopeForm">
         <div class="grid">
@@ -87,6 +100,43 @@
   async function toggleScope(id){const row=scopes.find(x=>x.id===id);const {error}=await db.from('validator_access_scopes').update({is_active:!row.is_active,updated_at:new Date().toISOString(),updated_by:currentUser.id}).eq('id',id);if(error)return toast(error.message,true);toast('Assignment updated.');loadScopes()}
   async function deleteScope(id){if(!confirm('Delete this access assignment?'))return;const {error}=await db.from('validator_access_scopes').delete().eq('id',id);if(error)return toast(error.message,true);toast('Assignment deleted.');loadScopes()}
   $('scopeForm').addEventListener('submit',async e=>{e.preventDefault();const userId=$('userId').value,town=$('municipality').value,wide=$('municipalityWide').checked,brgys=[...$('barangays').selectedOptions].map(o=>o.value);if(!wide&&!brgys.length)return toast('Select at least one barangay or allow all barangays.',true);const role=$('role').value;const {error:roleError}=await db.rpc('admin_set_user_role',{p_user_id:userId,p_role:role});if(roleError)return toast(roleError.message,true);const common={validator_user_id:userId,office_name:$('officeName').value.trim(),office_no:$('officeNo').value.trim()||null,municipality:town,assigned_from:$('assignedFrom').value,assigned_until:$('assignedUntil').value||null,is_active:$('isActive').value==='true',remarks:$('remarks').value.trim()||null,created_by:currentUser.id,updated_by:currentUser.id};const payload=(wide?[null]:brgys).map(barangay=>({...common,barangay}));const {error}=await db.from('validator_access_scopes').upsert(payload,{onConflict:'validator_user_id,office_name,municipality,barangay_key'});if(error)return toast(error.message,true);toast(`${payload.length} assignment(s) saved.`);e.target.reset();$('assignedFrom').value=new Date().toISOString().slice(0,10);loadProfiles();loadScopes()});
+  $('registerUserForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const email = $('regEmail').value.trim();
+    const fullName = $('regFullName').value.trim();
+    const role = $('regRole').value;
+    const position = $('regPosition').value.trim();
+
+    try {
+      const { data, error } = await db.auth.signUp({
+        email: email,
+        password: '111111',
+        options: {
+          data: { full_name: fullName, role: role, position: position }
+        }
+      });
+      if (error) throw error;
+      if (data?.user?.id) {
+        await db.from('profiles').upsert({
+          id: data.user.id,
+          full_name: fullName,
+          role: role,
+          position: position,
+          status: 'Active',
+          updated_at: new Date().toISOString()
+        });
+      }
+      toast('User registered successfully.');
+      e.target.reset();
+      await loadProfiles();
+    } catch (err) {
+      toast(err.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
   $('municipality').addEventListener('change',loadBarangays);$('municipalityWide').addEventListener('change',e=>$('barangayField').classList.toggle('hidden',e.target.checked));$('tableSearch').addEventListener('input',renderScopes);$('userId').addEventListener('change',()=>{const p=profiles.find(x=>x.id===$('userId').value);if(p&&p.role)$('role').value=p.role});
   (async()=>{try{if(!db&&window.supabase?.createClient){const c=window.SUPABASE_CONFIG||window.supabaseConfig||window.APP_CONFIG||{};db=window.supabase.createClient(c.url||c.supabaseUrl||window.SUPABASE_URL||'https://xnwttnpfzcjbszwxsgox.supabase.co',c.publishableKey||c.anonKey||c.supabaseAnonKey||window.SUPABASE_ANON_KEY||'sb_publishable_zEh0y_OAF7nVwLBuTTB74w_gPX0XomI')}if(!db)throw Error('Database connection is unavailable.');await buildNavbar(null);const {data}=await db.auth.getUser();currentUser=data?.user;if(!currentUser)throw Error('Please log in.');const {data:p,error}=await db.from('profiles').select('*').eq('id',currentUser.id).single();if(error)throw error;currentProfile=p;await buildNavbar(p);if(!isAdmin()){$('accessDenied').style.display='block';return}$('adminArea').style.display='block';$('assignedFrom').value=new Date().toISOString().slice(0,10);await loadProfiles();await loadLocations();await loadScopes()}catch(e){$('accessDenied').style.display='block';$('accessDenied').innerHTML=`<h2>Unable to open access control</h2><p>${esc(e.message)}</p>`}})();
 })();
