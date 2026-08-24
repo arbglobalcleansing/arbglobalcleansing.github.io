@@ -133,6 +133,21 @@
                 logDebug(`Setup Exception: ${err.message}`, 'err');
             }
 
+            async function fetchAllRecords(queryBuilderFn) {
+                let allRecords = [];
+                let p = 0;
+                const size = 1000;
+                while (true) {
+                    const { data, error } = await queryBuilderFn().range(p * size, (p + 1) * size - 1);
+                    if (error) { console.error('Fetch error:', error); break; }
+                    if (!data || data.length === 0) break;
+                    allRecords.push(...data);
+                    if (data.length < size) break;
+                    p++;
+                }
+                return allRecords;
+            }
+
             async function fetchInChunks(table, selectStr, column, idArray) {
                 let results = [];
                 const chunkSize = 150; 
@@ -323,7 +338,6 @@
                         .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo(name)')
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE');
 
-                    // Applied your exact scope filter for ARBO members
                     if (isDarmoPersonnel) {
                         if (window.scopeFilterString) {
                             req = req.or(window.scopeFilterString);
@@ -425,35 +439,41 @@
                     let allowedIds = new Set();
                     
                     for (const scope of userScopes) {
-                        // 1. Gather via ARBOs
-                        let qArbo = secureDbClient.from('arbo').select('id').ilike('municipality', scope.municipality);
-                        if (scope.barangay) {
-                            const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
-                            const p1 = parts[1] ? parts[1].trim() : '';
-                            const p2 = parts[2] ? parts[2].trim() : '';
-                            let conds = [`barangay.ilike.%${scope.barangay}%`];
-                            if (p1) conds.push(`barangay.ilike.%${p1}%`);
-                            if (p2) conds.push(`barangay.ilike.%${p2}%`);
-                            qArbo = qArbo.or(conds.join(','));
-                        }
-                        const { data: arboData } = await qArbo.limit(10000);
+                        // 1. Gather via ARBOs using fetchAllRecords
+                        let qArbo = () => {
+                            let q = secureDbClient.from('arbo').select('id').ilike('municipality', scope.municipality);
+                            if (scope.barangay) {
+                                const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                                const p1 = parts[1] ? parts[1].trim() : '';
+                                const p2 = parts[2] ? parts[2].trim() : '';
+                                let conds = [`barangay.ilike.%${scope.barangay}%`];
+                                if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                                if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                                q = q.or(conds.join(','));
+                            }
+                            return q;
+                        };
+                        const arboData = await fetchAllRecords(qArbo);
                         if (arboData && arboData.length > 0) {
                             const arbs = await fetchInChunks('arb', 'id', 'arbo_id', arboData.map(a => a.id));
                             arbs.forEach(a => allowedIds.add(String(a.id)));
                         }
 
-                        // 2. Gather via Landholdings
-                        let qLand = secureDbClient.from('arb_landholdings').select('arb_profile_id').ilike('municipality', scope.municipality);
-                        if (scope.barangay) {
-                            const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
-                            const p1 = parts[1] ? parts[1].trim() : '';
-                            const p2 = parts[2] ? parts[2].trim() : '';
-                            let conds = [`barangay.ilike.%${scope.barangay}%`];
-                            if (p1) conds.push(`barangay.ilike.%${p1}%`);
-                            if (p2) conds.push(`barangay.ilike.%${p2}%`);
-                            qLand = qLand.or(conds.join(','));
-                        }
-                        const { data: landData } = await qLand.limit(10000);
+                        // 2. Gather via Landholdings using fetchAllRecords
+                        let qLand = () => {
+                            let q = secureDbClient.from('arb_landholdings').select('arb_profile_id').ilike('municipality', scope.municipality);
+                            if (scope.barangay) {
+                                const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                                const p1 = parts[1] ? parts[1].trim() : '';
+                                const p2 = parts[2] ? parts[2].trim() : '';
+                                let conds = [`barangay.ilike.%${scope.barangay}%`];
+                                if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                                if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                                q = q.or(conds.join(','));
+                            }
+                            return q;
+                        };
+                        const landData = await fetchAllRecords(qLand);
                         if (landData && landData.length > 0) {
                             const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
                             if (profIds.length > 0) {
