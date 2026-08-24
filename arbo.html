@@ -229,11 +229,10 @@
     const statusKind=value=>{const v=String(value||'').toUpperCase();if(['COMPLETED','VERIFIED','CURRENT','ACTIVE','ON TRACK','FULLY PAID'].includes(v))return'green';if(['ONGOING','APPROVED','SUBMITTED','PROFILED'].includes(v))return'blue';if(['ON HOLD','FOR VALIDATION','PROPOSED','DRAFT','DELAYED'].includes(v))return'amber';if(['CANCELLED','RETURNED','OVERDUE','DEFAULTED'].includes(v))return'red';return'gray'};
     const badge=value=>`<span class="status status-${statusKind(value)}">${show(value)}</span>`;
     const role=()=>String(state.profile?.role||'').toUpperCase();
-    const isFullEditor=()=>['ADMIN','STAFF','LTSP','LTSP PERSONNEL','CARPO-PBDD'].includes(role());
-    const isPbDDProjectUser=()=>['ADMIN','PBDD PERSONNEL','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD'].includes(role());
-    const canPrintAllArbos=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD'].includes(role());
-    const isArboAdmin=()=>role()==='ARBO ADMIN';
-    const isVerifier=()=>['ADMIN','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD'].includes(role());
+    const isFullEditor=()=>['ADMIN','STAFF','LTSP','LTSP PERSONNEL','CARPO-PBDD','PBDD-CARPO'].includes(role());
+    const isPbDDProjectUser=()=>['ADMIN','PBDD PERSONNEL','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
+    const canPrintAllArbos=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
+    const isVerifier=()=>['ADMIN','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const currentId=()=>state.current?.id;
     const projectsFor=id=>state.projects.filter(p=>String(p.arbo_id)===String(id));
     const updatesFor=id=>state.updates.filter(u=>String(u.arbo_id)===String(id));
@@ -255,7 +254,7 @@
     const assignmentFor=id=>state.assignments.find(a=>String(a.arbo_id)===String(id)&&String(a.validator_user_id)===String(state.user?.id)&&String(a.assignment_role||'').toUpperCase()==='ARBO ADMIN'&&a.is_active&&dateOnly(a.assigned_from)<=today()&&(!a.assigned_until||dateOnly(a.assigned_until)>=today()));
     const canEditProject=()=>isPbDDProjectUser();
     const canEditProfile=id=>isPbDDProjectUser()||isFullEditor()||(isArboAdmin()&&Boolean(assignmentFor(id)));
-    const canDeleteMember=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD'].includes(role());
+    const canDeleteMember=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const formData=()=>new FormData($('monitorForm'));
     const defaultUnit=preferred=>{const profileUnit=String(state.profile?.pbdd_unit||'').toUpperCase();if(['PBDD PERSONNEL','PBDD UNIT HEAD'].includes(role())&&PBDD_UNITS.includes(profileUnit))return profileUnit;return PBDD_UNITS.includes(String(preferred||'').toUpperCase())?String(preferred).toUpperCase():(PBDD_UNITS.includes(profileUnit)?profileUnit:'SIB')};
     const personnelOptions=(unit,value='')=>{const rows=state.personnel.filter(p=>!unit||p.pbdd_unit===unit),options=[['','Unassigned / Unit-managed'],...rows.map(p=>[p.id,`${upper(p.full_name||p.email)}${p.pbdd_unit?` (${p.pbdd_unit})`:''}`])];if(value&&!options.some(o=>String(o[0])===String(value)))options.push([value,'CURRENT ASSIGNED PERSONNEL']);return options};
@@ -501,7 +500,7 @@
     }
 
     function renderMembers(){
-        const canDeleteMember = () => ['ADMIN', 'PBDD ADMIN', 'PBDD-ADMIN', 'CARPO-PBDD'].includes(role());
+        const canDeleteMember = () => ['ADMIN', 'PBDD ADMIN', 'PBDD-ADMIN', 'CARPO-PBDD', 'PBDD-CARPO'].includes(role());
         const members=membersFor(currentId());
         const activeMembersList = members.filter(m => m.membership_status === 'ACTIVE' || (!m.date_to && !['WITHDRAWN','TERMINATED','DECEASED'].includes(m.membership_status)));
         const inactiveMembersList = members.filter(m => m.membership_status !== 'ACTIVE' || (m.date_to && ['WITHDRAWN','TERMINATED','DECEASED'].includes(m.membership_status)));
