@@ -1938,14 +1938,14 @@ try {
                 }
             }
 
-  async function populateFilterOptions() {
+ async function populateFilterOptions() {
                 const townSelect = document.getElementById('filterTown');
                 let towns = Object.keys(locData).sort();
 
                 // --- LIMIT MUNICIPALITY DROPDOWN FOR DARMO ---
                 if (isDarmo()) {
-                    const allowedTowns = new Set(userScopes.map(s => s.municipality));
-                    towns = towns.filter(t => allowedTowns.has(t));
+                    const allowedTowns = new Set(userScopes.map(s => String(s.municipality).toUpperCase()));
+                    towns = towns.filter(t => allowedTowns.has(String(t).toUpperCase()));
                 }
 
                 townSelect.innerHTML = '<option value="">All</option>' + towns.map(t =>
@@ -1962,11 +1962,11 @@ try {
 
                     // --- LIMIT BARANGAY DROPDOWN FOR DARMO ---
                     if (isDarmo()) {
-                        const townScopes = userScopes.filter(s => s.municipality === selectedTown);
+                        const townScopes = userScopes.filter(s => String(s.municipality).toUpperCase() === String(selectedTown).toUpperCase());
                         const hasAll = townScopes.some(s => !s.barangay);
                         if (!hasAll) {
-                            const allowedBrgys = new Set(townScopes.map(s => s.barangay));
-                            barangays = barangays.filter(b => allowedBrgys.has(b));
+                            const allowedBrgys = new Set(townScopes.map(s => String(s.barangay).toUpperCase()));
+                            barangays = barangays.filter(b => allowedBrgys.has(String(b).toUpperCase()));
                         }
                     }
 
@@ -1974,6 +1974,7 @@ try {
                         `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 });
             }
+
             
             async function loadArboList() {
                 try {
@@ -3462,22 +3463,26 @@ try {
                 });
             }
 
-            async function openBatchValidation() {
+ async function openBatchValidation() {
                 if (!canValidateOrAssign()) { popToast('Insufficient permissions.', 'err'); return; }
 
                 const currentName = currentUserProfile?.full_name || currentUser?.email || '';
 
-                let allowedScopes = [];
+                let munSet = Object.keys(locData).sort();
+
                 if (isDarmo()) {
+                    const today = new Date().toISOString().slice(0, 10);
                     const { data, error } = await secureDbClient.from('validator_access_scopes').select(
                         'municipality,barangay').eq('validator_user_id', currentUser.id).eq('is_active', true)
-                        .lte('assigned_from', new Date().toISOString().slice(0, 10));
+                        .lte('assigned_from', today);
                     if (error) { popToast(error.message, 'err'); return; }
-                    allowedScopes = (data || []).filter(s => !s.assigned_until || s.assigned_until >= new Date()
-                        .toISOString().slice(0, 10));
+                    
+                    userScopes = (data || []).filter(s => !s.assigned_until || s.assigned_until >= today);
+                    
+                    const allowedTowns = new Set(userScopes.map(s => String(s.municipality).toUpperCase()));
+                    munSet = munSet.filter(t => allowedTowns.has(String(t).toUpperCase()));
                 }
-                const munSet = (isDarmo() ? [...new Set(allowedScopes.map(s => s.municipality))] : Object.keys(
-                    locData)).sort();
+
                 const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
                 const formHtml = `
@@ -3545,17 +3550,23 @@ try {
                         barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
                         return;
                     }
-                    const municipalityWide = allowedScopes.some(s => s.municipality === mun && !s.barangay);
-                    const barangays = (isDarmo() && !municipalityWide ? allowedScopes.filter(s => s
-                        .municipality === mun).map(s => s.barangay) : (locData[mun] || [])).filter(Boolean)
-                        .sort();
-                    const options = barangays.map(b =>
-                        `<option value="${safe(b)}">${safe(b)}</option>`).join('');
-                    barangaySelect.innerHTML =
-                        `<option value="">Select Barangay</option>${options}`;
-                });
+                    
+                    let brgys = locData[mun] ? [...locData[mun]].sort() : [];
+                    
+                    if (isDarmo()) {
+                        const townScopes = userScopes.filter(s => String(s.municipality).toUpperCase() === String(mun).toUpperCase());
+                        const municipalityWide = townScopes.some(s => !s.barangay);
+                        if (!municipalityWide) {
+                            const allowedBrgys = new Set(townScopes.map(s => String(s.barangay).toUpperCase()));
+                            brgys = brgys.filter(b => allowedBrgys.has(String(b).toUpperCase()));
+                        }
+                    }
 
-                document.getElementById('batchValForm').addEventListener('submit', async function(e) {
+                    const options = brgys.map(b => `<option value="${safe(b)}">${safe(b)}</option>`).join('');
+                    barangaySelect.innerHTML = `<option value="">Select Barangay</option>${options}`;
+                });
+     
+     document.getElementById('batchValForm').addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const submitBtn = e.target.querySelector('button[type="submit"]');
                     submitBtn.disabled = true;
@@ -4244,21 +4255,21 @@ function parseOcrArbRows(ocrText) {
 
             // ---------- Other existing functions ----------
 
-        async function openGenerateReport() {
+async function openGenerateReport() {
                 if (!canValidateOrAssign()) { popToast('Insufficient permissions.', 'err'); return; }
 
                 let munSet = Object.keys(locData).sort();
                 
                 // --- LIMIT MUNICIPALITY DROPDOWN FOR DARMO ---
                 if (isDarmo()) {
-                    const allowedTowns = new Set(userScopes.map(s => s.municipality));
-                    munSet = munSet.filter(t => allowedTowns.has(t));
+                    const allowedTowns = new Set(userScopes.map(s => String(s.municipality).toUpperCase()));
+                    munSet = munSet.filter(t => allowedTowns.has(String(t).toUpperCase()));
                 }
 
                 const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
                 const formHtml = `
-                <form id="reportForm">
+                        <form id="reportForm">
                             <p style="margin-bottom:20px;color:var(--text-muted);">Generate ARB Global Validation Form (grouped per Barangay).</p>
                             <div class="form-group">
                                 <label>Select Municipality</label>
@@ -4297,18 +4308,18 @@ function parseOcrArbRows(ocrText) {
 
                     // --- LIMIT BARANGAY DROPDOWN FOR DARMO ---
                     if (isDarmo()) {
-                        const townScopes = userScopes.filter(s => s.municipality === mun);
+                        const townScopes = userScopes.filter(s => String(s.municipality).toUpperCase() === String(mun).toUpperCase());
                         const hasAll = townScopes.some(s => !s.barangay);
                         if (!hasAll) {
-                            const allowedBrgys = new Set(townScopes.map(s => s.barangay));
-                            brgys = brgys.filter(b => allowedBrgys.has(b));
+                            const allowedBrgys = new Set(townScopes.map(s => String(s.barangay).toUpperCase()));
+                            brgys = brgys.filter(b => allowedBrgys.has(String(b).toUpperCase()));
                         }
                     }
 
                     bSelect.innerHTML = '<option value="">All Barangays</option>' + brgys.map(b =>
                         `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 });
-            
+                
                 document.getElementById('cancelReportBtn').addEventListener('click', hideSubModal);
 
                 document.getElementById('reportForm').addEventListener('submit', async (e) => {
@@ -4330,7 +4341,7 @@ function parseOcrArbRows(ocrText) {
                     }
                 });
             }
-
+            
             async function generateBarangayReport(municipality, targetBrgy, valStatus) {
                 popToast(`Gathering data for ${municipality}, please wait...`, 'info');
                 try {
