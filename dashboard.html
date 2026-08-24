@@ -424,7 +424,12 @@
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                 ]);
 
-                if (qrs[0].error) throw new Error(qrs[0].error.message);
+                // TARGETED FIX: Checks for any failure across all 7 database queries instead of just the first one.
+                const failedQuery = qrs.find(r => r && r.error);
+                if (failedQuery) {
+                    const errorDetails = failedQuery.error.message || JSON.stringify(failedQuery.error);
+                    throw new Error(`Database Query Failed: ${errorDetails}`);
+                }
 
                 const c = qrs.map(r => r.count || 0);
                 const totalArbs = c[0] || 0;
@@ -468,8 +473,19 @@
                 popToast('Dashboard Sync Complete', 'ok');
 
             } catch (fatalObj) {
+                // TARGETED FIX: Fallback string conversions to ensure empty error objects are rendered visually to the DOM.
+                console.error("Dashboard Error:", fatalObj); 
+                const errorText = fatalObj?.message || (typeof fatalObj === 'object' ? JSON.stringify(fatalObj) : String(fatalObj));
+                
                 const gEl = document.getElementById('statsGrid');
-                if (gEl) gEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">❌</div><div class="label" style="color:#b91c1c;">Execution Failed</div><p>${fatalObj.message}</p></div>`;
+                if (gEl) {
+                    gEl.innerHTML = `
+                    <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
+                        <div class="number">❌</div>
+                        <div class="label" style="color:#b91c1c;">Execution Failed</div>
+                        <p style="word-break: break-word; font-weight: 500; color: #7f1d1d; margin-top: 5px;">${safe(errorText)}</p>
+                    </div>`;
+                }
             }
 
         })();
