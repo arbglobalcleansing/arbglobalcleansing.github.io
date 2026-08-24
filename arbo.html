@@ -230,13 +230,14 @@
     const badge=value=>`<span class="status status-${statusKind(value)}">${show(value)}</span>`;
     const role=()=>String(state.profile?.role||'').toUpperCase();
     
-    // Updated Role Checks to include CARPO-PBDD and PBDD-CARPO
-    const isFullEditor=()=>['ADMIN','STAFF','LTSP','LTSP PERSONNEL','CARPO-PBDD','PBDD-CARPO'].includes(role());
+  // Updated Role Checks to ensure PBDD-ADMIN, CARPO-PBDD, and PBDD-CARPO act exactly like ADMIN
+    const isFullEditor=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO','STAFF','LTSP','LTSP PERSONNEL'].includes(role());
     const isPbDDProjectUser=()=>['ADMIN','PBDD PERSONNEL','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const canPrintAllArbos=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const isArboAdmin=()=>role()==='ARBO ADMIN';
     const isVerifier=()=>['ADMIN','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const canDeleteMember=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
+
     
     const currentId=()=>state.current?.id;
     const projectsFor=id=>state.projects.filter(p=>String(p.arbo_id)===String(id));
