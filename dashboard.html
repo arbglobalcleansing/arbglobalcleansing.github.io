@@ -116,6 +116,9 @@
             function safe(value) { return String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;'); }
 
             let secureDbClient = null;
+            let isDarmoPersonnel = false;
+            let allowedTowns = [];
+
             try {
                 if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
                     secureDbClient = window.supabase.createClient(
@@ -214,10 +217,19 @@
                 }
 
                 try {
-                    // Added arbo_id to check if they belong to an ARBO
                     let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)');
                     if (filterField) req = req.eq(filterField, filterValue);
                     
+                    // JURISDICTION FILTER FOR MODAL
+                    if (isDarmoPersonnel) {
+                        if (allowedTowns.length > 0) {
+                            req = req.in('municipality', allowedTowns);
+                        } else {
+                            // Prevent any data from loading if DARMO has no assigned jurisdiction
+                            req = req.is('id', null); 
+                        }
+                    }
+
                     const { data, error } = await req.order('last_name', { ascending: true }).limit(1500);
                     if (error) throw new Error(error.message);
                     
@@ -226,7 +238,6 @@
                         return;
                     }
 
-                    // Extract all current IDs to find former ARBO members and membership numbers
                     const arbIds = data.map(r => String(r.id));
                     const profs = await fetchInChunks('arb_profiles', 'id, arb_id', 'arb_id', arbIds);
                     const profMap = {};
@@ -257,7 +268,6 @@
                         const pId = profMap[String(r.id)];
                         const isMember = pId ? memMap[pId] : null;
 
-                        // Check ARBO membership override (Active or Former)
                         if (r.arbo_id || isMember) {
                             valType = 'PBDD / ARBO MEMBERSHIP';
                             if (isMember && isMember.membership_no) {
@@ -332,10 +342,7 @@
 
             // --- Helper: Donut Chart Generator ---
             function createDonutHTML(value, total, color, label) {
-                // Calculate percentage for the SVG stroke (max 100)
                 const percentage = total === 0 ? 0 : Math.min(100, Math.round((value / total) * 100));
-                
-                // SVG logic: Circumference of r=15.9155 is exactly 100
                 return `
                     <div class="chart-item">
                         <svg viewBox="0 0 36 36">
@@ -371,23 +378,48 @@
 
                 const { data: profile } = await secureDbClient.from('profiles').select('*').eq('id', authData.user.id).single();
 
-                // ARBO ADMIN accounts have a deliberately single-page workspace.
-                // Send them to their assigned cooperative instead of exposing
-                // dashboard modules or their aggregate counts.
                 if (String(profile?.role || '').toUpperCase() === 'ARBO ADMIN') {
                     window.location.replace('arbo.html');
                     return;
                 }
 
+                isDarmoPersonnel = String(profile?.role || '').toUpperCase() === 'DARMO PERSONNEL';
+
+                // FETCH JURISDICTION SCOPES IF DARMO PERSONNEL
+                if (isDarmoPersonnel) {
+                    const { data: scopes } = await secureDbClient
+                        .from('validator_access_scopes')
+                        .select('municipality')
+                        .eq('validator_user_id', profile.id)
+                        .eq('is_active', true);
+                    
+                    if (scopes && scopes.length > 0) {
+                        allowedTowns = [...new Set(scopes.map(s => s.municipality).filter(Boolean))];
+                    }
+                }
+
                 await buildNavbar(profile);
 
+                // HELPER TO GENERATE FILTERED BASE QUERIES
+                function buildArbQuery() {
+                    let q = secureDbClient.from('arb').select('*', { count: 'exact', head: true });
+                    if (isDarmoPersonnel) {
+                        if (allowedTowns.length > 0) {
+                            q = q.in('municipality', allowedTowns);
+                        } else {
+                            q = q.is('id', null); // Force 0 results if no jurisdiction is assigned
+                        }
+                    }
+                    return q;
+                }
+
                 const qrs = await Promise.all([
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }),
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('validation_status', 'Validated'),
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('ao8', true),
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_ta', true),
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('with_ta', true),
-                    secureDbClient.from('arb').select('*', { count: 'exact', head: true }).eq('for_removal', true),
+                    buildArbQuery(),
+                    buildArbQuery().eq('validation_status', 'Validated'),
+                    buildArbQuery().eq('ao8', true),
+                    buildArbQuery().eq('for_ta', true),
+                    buildArbQuery().eq('with_ta', true),
+                    buildArbQuery().eq('for_removal', true),
                     secureDbClient.from('arbo_members').select('*', { count: 'exact', head: true })
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                 ]);
@@ -398,7 +430,7 @@
                 const totalArbs = c[0] || 0;
                 
                 const stats = [
-                    { label: 'GLOBAL ARBs', count: c[0], color: '#0a3d62', fField: null, fVal: null },
+                    { label: isDarmoPersonnel ? 'YOUR ARBs' : 'GLOBAL ARBs', count: c[0], color: '#0a3d62', fField: null, fVal: null },
                     { label: 'VALIDATED', count: c[1], color: '#2e7d32', fField: 'validation_status', fVal: 'Validated' },
                     { label: 'AO 8', count: c[2], color: '#e8a317', fField: 'ao8', fVal: true },
                     { label: 'For TA', count: c[3], color: '#f59e0b', fField: 'for_ta', fVal: true },
@@ -414,7 +446,7 @@
                         chartsHTML += createDonutHTML(st.count, totalArbs, st.color, st.label);
                     });
                     chartsEl.innerHTML = chartsHTML;
-                    chartsEl.style.display = 'flex'; // reveal container
+                    chartsEl.style.display = 'flex'; 
                 }
 
                 // 2. Build Interactive Detail Cards
