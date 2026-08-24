@@ -1011,8 +1011,11 @@
             let currentPage = 0;
             const pageSize = 50;
             let totalRecords = 0;
+    
             let arboList = [];
             let lastFilteredArbIds = null;
+            let userScopes = []; // NEW: Store assigned scopes
+            let darmoAllowedArbIds = null; // NEW: Cached allowed ARB IDs
 
             const locData = {
                 "Cabusao": ["Barcelonita", "Biong", "Camagong", "Castillo", "New Poblacion", "Pandan", "San Pedro",
@@ -1474,11 +1477,70 @@
                 const cocromTo = document.getElementById('filterCocromTo').value;
                 const searchTerm = document.getElementById('globalSearchInput').value.trim();
 
-                try {
+try {
                     let filterSets = [];
+
+                    // --- ENFORCE STRICT DARMO SCOPE LIMITATION ---
+                    if (isDarmo()) {
+                        if (darmoAllowedArbIds === null) {
+                            let allowedIds = new Set();
+                            for (const scope of userScopes) {
+                                let arboQ = () => {
+                                    let q = secureDbClient.from('arbo').select('id').ilike('municipality', scope.municipality);
+                                    if (scope.barangay) {
+                                        const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                                        const p1 = parts[1] ? parts[1].trim() : '';
+                                        const p2 = parts[2] ? parts[2].trim() : '';
+                                        let conds = [`barangay.ilike.%${scope.barangay}%`];
+                                        if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                                        if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                                        q = q.or(conds.join(','));
+                                    }
+                                    return q;
+                                };
+                                const arboData = await fetchAllRecords(arboQ);
+                                if (arboData.length > 0) {
+                                    const arbs = await fetchInChunks('arb', 'id', 'arbo_id', arboData.map(a => a.id));
+                                    arbs.forEach(a => allowedIds.add(String(a.id)));
+                                }
+
+                                let landQ = () => {
+                                    let q = secureDbClient.from('arb_landholdings').select('arb_profile_id').ilike('municipality', scope.municipality);
+                                    if (scope.barangay) {
+                                        const parts = scope.barangay.match(/^(.*?)(?:\((.*?)\))?$/);
+                                        const p1 = parts[1] ? parts[1].trim() : '';
+                                        const p2 = parts[2] ? parts[2].trim() : '';
+                                        let conds = [`barangay.ilike.%${scope.barangay}%`];
+                                        if (p1) conds.push(`barangay.ilike.%${p1}%`);
+                                        if (p2) conds.push(`barangay.ilike.%${p2}%`);
+                                        q = q.or(conds.join(','));
+                                    }
+                                    return q;
+                                };
+                                const landData = await fetchAllRecords(landQ);
+                                const profIds = [...new Set(landData.map(l => l.arb_profile_id).filter(Boolean))];
+                                if (profIds.length > 0) {
+                                    const profs = await fetchInChunks('arb_profiles', 'arb_id', 'id', profIds);
+                                    profs.forEach(p => { if (p.arb_id) allowedIds.add(String(p.arb_id)); });
+                                }
+                            }
+                            darmoAllowedArbIds = [...allowedIds];
+                        }
+                        
+                        if (darmoAllowedArbIds.length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="14" class="empty-card" style="color:#991b1b;">Access Denied: You have no assigned municipality/barangay scopes. Contact Admin.</td></tr>`;
+                            document.getElementById('pageInfo').textContent = `Page 1 of 1`;
+                            document.getElementById('prevPageBtn').disabled = true;
+                            document.getElementById('nextPageBtn').disabled = true;
+                            return;
+                        }
+                        filterSets.push(darmoAllowedArbIds);
+                    }
+                    // ---------------------------------------------
 
                     let locationFilterActive = Boolean(town || barangay || motherTitle || landowner || releaseFrom ||
                         releaseTo);
+    
                     let profileFilterActive = Boolean(split || titleDist !== '' || eTitleFrom || eTitleTo ||
                     cocromFrom || cocromTo);
                     let baseArbFilterActive = Boolean(validation || ali !== '' || ta !== '');
@@ -1876,9 +1938,16 @@
                 }
             }
 
-            async function populateFilterOptions() {
+  async function populateFilterOptions() {
                 const townSelect = document.getElementById('filterTown');
-                const towns = Object.keys(locData).sort();
+                let towns = Object.keys(locData).sort();
+
+                // --- LIMIT MUNICIPALITY DROPDOWN FOR DARMO ---
+                if (isDarmo()) {
+                    const allowedTowns = new Set(userScopes.map(s => s.municipality));
+                    towns = towns.filter(t => allowedTowns.has(t));
+                }
+
                 townSelect.innerHTML = '<option value="">All</option>' + towns.map(t =>
                     `<option value="${safe(t)}">${safe(t)}</option>`).join('');
 
@@ -1889,12 +1958,23 @@
                         barangaySelect.innerHTML = '<option value="">All</option>';
                         return;
                     }
-                    const barangays = locData[selectedTown].sort();
+                    let barangays = locData[selectedTown].sort();
+
+                    // --- LIMIT BARANGAY DROPDOWN FOR DARMO ---
+                    if (isDarmo()) {
+                        const townScopes = userScopes.filter(s => s.municipality === selectedTown);
+                        const hasAll = townScopes.some(s => !s.barangay);
+                        if (!hasAll) {
+                            const allowedBrgys = new Set(townScopes.map(s => s.barangay));
+                            barangays = barangays.filter(b => allowedBrgys.has(b));
+                        }
+                    }
+
                     barangaySelect.innerHTML = '<option value="">All</option>' + barangays.map(b =>
                         `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 });
             }
-
+            
             async function loadArboList() {
                 try {
                     const { data } = await secureDbClient.from('arbo').select('id, name').order('name');
@@ -4164,14 +4244,21 @@ function parseOcrArbRows(ocrText) {
 
             // ---------- Other existing functions ----------
 
-            async function openGenerateReport() {
+        async function openGenerateReport() {
                 if (!canValidateOrAssign()) { popToast('Insufficient permissions.', 'err'); return; }
 
-                const munSet = Object.keys(locData).sort();
+                let munSet = Object.keys(locData).sort();
+                
+                // --- LIMIT MUNICIPALITY DROPDOWN FOR DARMO ---
+                if (isDarmo()) {
+                    const allowedTowns = new Set(userScopes.map(s => s.municipality));
+                    munSet = munSet.filter(t => allowedTowns.has(t));
+                }
+
                 const munSelect = munSet.map(m => `<option value="${safe(m)}">${safe(m)}</option>`).join('');
 
                 const formHtml = `
-                        <form id="reportForm">
+                <form id="reportForm">
                             <p style="margin-bottom:20px;color:var(--text-muted);">Generate ARB Global Validation Form (grouped per Barangay).</p>
                             <div class="form-group">
                                 <label>Select Municipality</label>
@@ -4206,11 +4293,22 @@ function parseOcrArbRows(ocrText) {
                     const mun = this.value;
                     const bSelect = document.getElementById('reportBrgy');
                     if (!mun) { bSelect.innerHTML = '<option value="">All Barangays</option>'; return; }
-                    const brgys = locData[mun].sort();
+                    let brgys = locData[mun].sort();
+
+                    // --- LIMIT BARANGAY DROPDOWN FOR DARMO ---
+                    if (isDarmo()) {
+                        const townScopes = userScopes.filter(s => s.municipality === mun);
+                        const hasAll = townScopes.some(s => !s.barangay);
+                        if (!hasAll) {
+                            const allowedBrgys = new Set(townScopes.map(s => s.barangay));
+                            brgys = brgys.filter(b => allowedBrgys.has(b));
+                        }
+                    }
+
                     bSelect.innerHTML = '<option value="">All Barangays</option>' + brgys.map(b =>
                         `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 });
-
+            
                 document.getElementById('cancelReportBtn').addEventListener('click', hideSubModal);
 
                 document.getElementById('reportForm').addEventListener('submit', async (e) => {
@@ -4767,7 +4865,20 @@ function parseOcrArbRows(ocrText) {
                     const { data: profile, error: profErr } = await secureDbClient.from('profiles').select('*')
                         .eq('id', currentUser.id).single();
                     if (profErr && profErr.code !== 'PGRST116') throw profErr;
-                    currentUserProfile = profile;
+currentUserProfile = profile;
+
+                    // --- LOAD DARMO SCOPES GLOBALLY ---
+                    if (isDarmo()) {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const { data } = await secureDbClient.from('validator_access_scopes')
+                            .select('municipality,barangay')
+                            .eq('validator_user_id', currentUser.id)
+                            .eq('is_active', true)
+                            .lte('assigned_from', today);
+                        userScopes = (data || []).filter(s => !s.assigned_until || s.assigned_until >= today);
+                    }
+                    // ----------------------------------
+
                     if (!canValidateOrAssign()) document.getElementById('captureValidationBtn')?.remove();
                     if (!isFullAdmin()) document.getElementById('duplicateReviewBtn')?.remove();
 
