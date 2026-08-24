@@ -4482,14 +4482,33 @@ function parseOcrArbRows(ocrText) {
                         });
                     }
 
-                    doc.save(`Validation_Form_${municipality}.pdf`);
+                  doc.save(`Validation_Form_${municipality}.pdf`);
                     hideSubModal();
                     popToast('Report downloaded successfully.', 'ok');
+                    
+                    // --- NEW: Log the print action to the monitoring table ---
+                    if (secureDbClient) {
+                        try {
+                            const activeUser = currentUserProfile?.full_name || currentUser?.email || 'Unknown User';
+                            await secureDbClient.from('monitoring').insert({
+                                action: 'Printed Validation Form',
+                                report_reference: reportRef,
+                                municipality: municipality,
+                                barangay: targetBrgy || 'ALL',
+                                current_online_user: activeUser,
+                                created_at: new Date().toISOString()
+                            });
+                        } catch (logErr) {
+                            console.warn('Monitoring log failed:', logErr);
+                        }
+                    }
+                    // ---------------------------------------------------------
+                    
                 } catch (err) {
                     popToast(err.message, 'err');
                 }
             }
-
+            
             async function openDuplicateReview() {
                 if (!isFullAdmin()) { popToast('Only Admin or LTSP personnel can decide duplicate records.',
                     'err'); return; }
