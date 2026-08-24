@@ -95,7 +95,7 @@
 
     <script>
         (async function() {
-            
+
             function logDebug(msg, type = 'info') {
                 console.log(`[DBG] ${msg}`);
             }
@@ -146,10 +146,10 @@
             async function buildNavbar(userProfile) {
                 const navEl = document.getElementById('mainNav');
                 if (!navEl) return;
-                
+
                 const curPath = window.location.pathname;
                 const { data: navItems } = await secureDbClient.from('system_navigation').select('*').order('id', { ascending: true });
-                
+
                 let links = navItems && navItems.length > 0 ? navItems : [
                     { label: 'Dashboard', url: '/dashboard.html', icon: '📊' },
                     { label: 'ARBO Management', url: '/arbo.html', icon: '🏢' },
@@ -179,14 +179,14 @@
                     const displayName = (userProfile.full_name && userProfile.full_name.trim() !== '') 
                         ? userProfile.full_name 
                         : 'System Admin'; // Absolute fallback just in case
-                        
+
                     html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${displayName} (${userProfile.role})</span>`;
                     html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
                 } else {
                     html += `<span class="user-badge" style="margin-left: auto; color:#b91c1c;">⚠️ Not Logged In</span>`;
                     html += `<span class="logout-link" style="color:#0a3d62; margin-left: 10px; cursor: pointer;" onclick="window.location.href='login.html'">🔑 Login</span>`;
                 }
-                
+
                 navEl.innerHTML = html;
 
                 document.getElementById('navLogoutBtn')?.addEventListener('click', async () => {
@@ -199,14 +199,14 @@
             const modalEl = document.getElementById('modal');
             const modalTitleEl = document.getElementById('modalTitle');
             const modalBodyEl = document.getElementById('modalBody');
-            
+
             function hideModal() { if (modalEl) modalEl.classList.remove('active'); }
             document.getElementById('closeModalBtn')?.addEventListener('click', hideModal);
             modalEl?.addEventListener('click', (e) => { if (e.target === modalEl) hideModal(); });
 
             async function displayModal(title, filterField, filterValue) {
                 if (!modalEl || !modalTitleEl || !modalBodyEl) return;
-                
+
                 modalTitleEl.textContent = title + ' – ARB List';
                 modalBodyEl.innerHTML = '<p class="empty-msg">⏳ Fetching Secure Data…</p>';
                 modalEl.classList.add('active');
@@ -219,7 +219,7 @@
                 try {
                     let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)');
                     if (filterField) req = req.eq(filterField, filterValue);
-                    
+
                     // JURISDICTION FILTER FOR MODAL
                     if (isDarmoPersonnel) {
                         if (allowedTowns.length > 0) {
@@ -232,7 +232,7 @@
 
                     const { data, error } = await req.order('last_name', { ascending: true }).limit(1500);
                     if (error) throw new Error(error.message);
-                    
+
                     if (!data || data.length === 0) {
                         modalBodyEl.innerHTML = '<p class="empty-msg">📭 No records found for this category.</p>';
                         return;
@@ -256,7 +256,7 @@
                     let tHtml = `<table class="modal-table"><thead><tr><th>ID</th><th>Name</th><th>Validation</th><th>Val. Type</th><th>Ref. No.</th><th>AO8</th><th>For TA</th><th>With TA</th><th>For Removal</th></tr></thead><tbody>`;
                     data.forEach(r => {
                         const sColor = r.validation_status === 'Validated' ? 'badge-success' : r.validation_status === 'Pending' ? 'badge-warning' : 'badge-danger';
-                        
+
                         let valType = '—';
                         let valRef = '—';
                         if (r.arb_validations && r.arb_validations.length > 0) {
@@ -306,15 +306,27 @@
                 }
 
                 try {
-                    const { data, error } = await secureDbClient
+                    // Added !inner(name, municipality) to strictly enforce the jurisdiction join
+                    let req = secureDbClient
                         .from('arbo_members')
-                        .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo(name)')
+                        .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo!inner(name, municipality)')
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                         .order('arb_name', { ascending: true });
 
-                    if (error) throw new Error(error.message);
+                    // STRICT JURISDICTION FILTER FOR ARBO MODAL
+                    if (isDarmoPersonnel) {
+                        if (allowedTowns.length > 0) {
+                            req = req.in('arbo.municipality', allowedTowns);
+                        } else {
+                            req = req.is('id', null); // Force empty if no jurisdiction
+                        }
+                    }
+
+                    const { data, error } = await req;
+                    if (error) throw new Error(error.message || JSON.stringify(error));
+                    
                     if (!data || data.length === 0) {
-                        modalBodyEl.innerHTML = '<p class="empty-msg">📭 No ARBO membership records found.</p>';
+                        modalBodyEl.innerHTML = '<p class="empty-msg">📭 No ARBO membership records found in your jurisdiction.</p>';
                         return;
                     }
 
@@ -362,7 +374,7 @@
             try {
                 const gridEl = document.getElementById('statsGrid');
                 const chartsEl = document.getElementById('chartsContainer');
-                
+
                 if (!secureDbClient) {
                     await buildNavbar(null);
                     if (gridEl) gridEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">🔌</div><div class="label" style="color:#b91c1c;">System Offline</div></div>`;
@@ -392,7 +404,7 @@
                         .select('municipality')
                         .eq('validator_user_id', profile.id)
                         .eq('is_active', true);
-                    
+
                     if (scopes && scopes.length > 0) {
                         allowedTowns = [...new Set(scopes.map(s => s.municipality).filter(Boolean))];
                     }
@@ -400,7 +412,7 @@
 
                 await buildNavbar(profile);
 
-                // HELPER TO GENERATE FILTERED BASE QUERIES
+                // HELPER TO GENERATE FILTERED BASE QUERIES FOR ARB
                 function buildArbQuery() {
                     let q = secureDbClient.from('arb').select('*', { count: 'exact', head: true });
                     if (isDarmoPersonnel) {
@@ -413,6 +425,22 @@
                     return q;
                 }
 
+                // HELPER TO GENERATE FILTERED QUERIES FOR ARBO MEMBERS
+                function buildArboMembersQuery() {
+                    let q = secureDbClient.from('arbo_members')
+                        .select('id, arbo!inner(municipality)', { count: 'exact', head: true })
+                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE');
+                        
+                    if (isDarmoPersonnel) {
+                        if (allowedTowns.length > 0) {
+                            q = q.in('arbo.municipality', allowedTowns);
+                        } else {
+                            q = q.is('id', null);
+                        }
+                    }
+                    return q;
+                }
+
                 const qrs = await Promise.all([
                     buildArbQuery(),
                     buildArbQuery().eq('validation_status', 'Validated'),
@@ -420,20 +448,20 @@
                     buildArbQuery().eq('for_ta', true),
                     buildArbQuery().eq('with_ta', true),
                     buildArbQuery().eq('for_removal', true),
-                    secureDbClient.from('arbo_members').select('*', { count: 'exact', head: true })
-                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
+                    buildArboMembersQuery() // Uses the new strictly filtered function
                 ]);
 
-                // TARGETED FIX: Checks for any failure across all 7 database queries instead of just the first one.
-                const failedQuery = qrs.find(r => r && r.error);
+                // ROBUST ERROR CHECKING (Fixes the blank {"message":""} error screen)
+                const failedQuery = qrs.find(r => r.error != null);
                 if (failedQuery) {
-                    const errorDetails = failedQuery.error.message || JSON.stringify(failedQuery.error);
-                    throw new Error(`Database Query Failed: ${errorDetails}`);
+                    const errObj = failedQuery.error;
+                    const errorMsg = errObj.message || errObj.details || JSON.stringify(errObj);
+                    throw new Error(`Database Query Failed: ${errorMsg}`); 
                 }
 
                 const c = qrs.map(r => r.count || 0);
                 const totalArbs = c[0] || 0;
-                
+
                 const stats = [
                     { label: isDarmoPersonnel ? 'YOUR ARBs' : 'GLOBAL ARBs', count: c[0], color: '#0a3d62', fField: null, fVal: null },
                     { label: 'VALIDATED', count: c[1], color: '#2e7d32', fField: 'validation_status', fVal: 'Validated' },
@@ -469,23 +497,12 @@
                         gridEl.appendChild(div);
                     });
                 }
-                
+
                 popToast('Dashboard Sync Complete', 'ok');
 
             } catch (fatalObj) {
-                // TARGETED FIX: Fallback string conversions to ensure empty error objects are rendered visually to the DOM.
-                console.error("Dashboard Error:", fatalObj); 
-                const errorText = fatalObj?.message || (typeof fatalObj === 'object' ? JSON.stringify(fatalObj) : String(fatalObj));
-                
                 const gEl = document.getElementById('statsGrid');
-                if (gEl) {
-                    gEl.innerHTML = `
-                    <div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;">
-                        <div class="number">❌</div>
-                        <div class="label" style="color:#b91c1c;">Execution Failed</div>
-                        <p style="word-break: break-word; font-weight: 500; color: #7f1d1d; margin-top: 5px;">${safe(errorText)}</p>
-                    </div>`;
-                }
+                if (gEl) gEl.innerHTML = `<div class="stat-card" style="border-left-color:#b91c1c; grid-column: 1 / -1; cursor: default;"><div class="number">❌</div><div class="label" style="color:#b91c1c;">Execution Failed</div><p>${fatalObj.message}</p></div>`;
             }
 
         })();
