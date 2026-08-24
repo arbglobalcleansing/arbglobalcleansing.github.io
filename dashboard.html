@@ -117,7 +117,7 @@
 
             let secureDbClient = null;
             let isDarmoPersonnel = false;
-            let allowedTowns = [];
+            let scopeFilterString = null; // Replaced allowedTowns with a strict string filter
 
             try {
                 if (typeof window.supabase !== 'undefined' && window.supabase !== null) {
@@ -158,7 +158,6 @@
                     { label: 'Reports', url: '/reports.html', icon: '📈' }
                 ];
 
-                // STRICT MENU DEDUPLICATION
                 const uniqueLinks = [];
                 const seenLabels = new Set();
                 for (const item of links) {
@@ -174,11 +173,10 @@
                     return `<a href="${l.url}" class="${isActive}">${l.icon || ''} ${l.label}</a>`;
                 }).join('');
 
-                // STRICT NAME DISPLAY - Guaranteed to use Profile Name
                 if (userProfile) {
                     const displayName = (userProfile.full_name && userProfile.full_name.trim() !== '') 
                         ? userProfile.full_name 
-                        : 'System Admin'; // Absolute fallback just in case
+                        : 'System Admin';
 
                     html += `<span class="user-badge" style="margin-left: auto; color: #0a3d62; font-weight: 600;">👤 ${displayName} (${userProfile.role})</span>`;
                     html += `<span class="logout-link" id="navLogoutBtn" style="color: #b91c1c; font-weight: 600; margin-left: 10px; cursor: pointer;">🚪 Logout</span>`;
@@ -220,12 +218,11 @@
                     let req = secureDbClient.from('arb').select('id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)');
                     if (filterField) req = req.eq(filterField, filterValue);
 
-                    // JURISDICTION FILTER FOR MODAL
+                    // STRICT MUNICIPALITY & BARANGAY FILTER FOR ARB MODAL
                     if (isDarmoPersonnel) {
-                        if (allowedTowns.length > 0) {
-                            req = req.in('municipality', allowedTowns);
+                        if (scopeFilterString) {
+                            req = req.or(scopeFilterString);
                         } else {
-                            // Prevent any data from loading if DARMO has no assigned jurisdiction
                             req = req.is('id', null); 
                         }
                     }
@@ -306,19 +303,19 @@
                 }
 
                 try {
-                    // Added !inner(name, municipality) to strictly enforce the jurisdiction join
+                    // Added barangay to the !inner block so we can filter against it
                     let req = secureDbClient
                         .from('arbo_members')
-                        .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo!inner(name, municipality)')
+                        .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo!inner(name, municipality, barangay)')
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
                         .order('arb_name', { ascending: true });
 
-                    // STRICT JURISDICTION FILTER FOR ARBO MODAL
+                    // STRICT MUNICIPALITY & BARANGAY FILTER FOR ARBO MODAL
                     if (isDarmoPersonnel) {
-                        if (allowedTowns.length > 0) {
-                            req = req.in('arbo.municipality', allowedTowns);
+                        if (scopeFilterString) {
+                            req = req.or(scopeFilterString, { foreignTable: 'arbo' });
                         } else {
-                            req = req.is('id', null); // Force empty if no jurisdiction
+                            req = req.is('id', null); 
                         }
                     }
 
@@ -397,16 +394,36 @@
 
                 isDarmoPersonnel = String(profile?.role || '').toUpperCase() === 'DARMO PERSONNEL';
 
-                // FETCH JURISDICTION SCOPES IF DARMO PERSONNEL
+                // -------------------------------------------------------------
+                // FETCH JURISDICTION SCOPES: MUNICIPALITY AND BARANGAY
+                // -------------------------------------------------------------
                 if (isDarmoPersonnel) {
                     const { data: scopes } = await secureDbClient
                         .from('validator_access_scopes')
-                        .select('municipality')
+                        .select('municipality, barangay') // Fetching BOTH columns now
                         .eq('validator_user_id', profile.id)
                         .eq('is_active', true);
 
                     if (scopes && scopes.length > 0) {
-                        allowedTowns = [...new Set(scopes.map(s => s.municipality).filter(Boolean))];
+                        // Create a complex PostgREST 'or' syntax string mapping exactly to specific combinations
+                        const filterParts = scopes.map(s => {
+                            const m = s.municipality ? s.municipality.replace(/"/g, '""') : '';
+                            const b = s.barangay ? s.barangay.replace(/"/g, '""') : '';
+                            
+                            // If they are assigned to a specific barangay inside a municipality
+                            if (m && b) {
+                                return `and(municipality.eq."${m}",barangay.eq."${b}")`;
+                            } 
+                            // If they are assigned to the entire municipality (barangay is null)
+                            else if (m) {
+                                return `municipality.eq."${m}"`;
+                            }
+                            return null;
+                        }).filter(Boolean);
+
+                        if (filterParts.length > 0) {
+                            scopeFilterString = filterParts.join(',');
+                        }
                     }
                 }
 
@@ -416,10 +433,10 @@
                 function buildArbQuery() {
                     let q = secureDbClient.from('arb').select('*', { count: 'exact', head: true });
                     if (isDarmoPersonnel) {
-                        if (allowedTowns.length > 0) {
-                            q = q.in('municipality', allowedTowns);
+                        if (scopeFilterString) {
+                            q = q.or(scopeFilterString);
                         } else {
-                            q = q.is('id', null); // Force 0 results if no jurisdiction is assigned
+                            q = q.is('id', null); 
                         }
                     }
                     return q;
@@ -428,12 +445,13 @@
                 // HELPER TO GENERATE FILTERED QUERIES FOR ARBO MEMBERS
                 function buildArboMembersQuery() {
                     let q = secureDbClient.from('arbo_members')
-                        .select('id, arbo!inner(municipality)', { count: 'exact', head: true })
+                        // Make sure we select barangay here too so it can be filtered
+                        .select('id, arbo!inner(municipality, barangay)', { count: 'exact', head: true }) 
                         .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE');
                         
                     if (isDarmoPersonnel) {
-                        if (allowedTowns.length > 0) {
-                            q = q.in('arbo.municipality', allowedTowns);
+                        if (scopeFilterString) {
+                            q = q.or(scopeFilterString, { foreignTable: 'arbo' });
                         } else {
                             q = q.is('id', null);
                         }
@@ -448,10 +466,10 @@
                     buildArbQuery().eq('for_ta', true),
                     buildArbQuery().eq('with_ta', true),
                     buildArbQuery().eq('for_removal', true),
-                    buildArboMembersQuery() // Uses the new strictly filtered function
+                    buildArboMembersQuery() 
                 ]);
 
-                // ROBUST ERROR CHECKING (Fixes the blank {"message":""} error screen)
+                // ROBUST ERROR CHECKING 
                 const failedQuery = qrs.find(r => r.error != null);
                 if (failedQuery) {
                     const errObj = failedQuery.error;
