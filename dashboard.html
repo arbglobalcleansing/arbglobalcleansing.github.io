@@ -60,6 +60,90 @@
         @keyframes fillAnimation {
             from { stroke-dasharray: 0, 100; }
         }
+
+        /* Municipality validation progress */
+        .municipality-progress-card {
+            background: #fff;
+            padding: 24px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        .municipality-progress-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .municipality-progress-header h2 {
+            margin: 0;
+            color: #0a3d62;
+            font-size: 1.15rem;
+        }
+        .municipality-progress-header p {
+            margin: 4px 0 0;
+            color: #64748b;
+            font-size: 0.82rem;
+        }
+        .municipality-bar-chart {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px 28px;
+        }
+        .municipality-bar-row {
+            min-width: 0;
+        }
+        .municipality-bar-meta {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .municipality-name {
+            color: #334155;
+            font-size: 0.86rem;
+            font-weight: 700;
+        }
+        .municipality-result {
+            color: #475569;
+            font-size: 0.76rem;
+            white-space: nowrap;
+        }
+        .municipality-track {
+            height: 13px;
+            overflow: hidden;
+            background: #e2e8f0;
+            border-radius: 999px;
+        }
+        .municipality-fill {
+            height: 100%;
+            min-width: 0;
+            background: linear-gradient(90deg, #0a3d62, #2e7d32);
+            border-radius: inherit;
+            animation: municipalityBarFill 0.8s ease-out both;
+        }
+        .municipality-percent {
+            color: #0a3d62;
+            font-weight: 800;
+        }
+        .municipality-progress-empty {
+            grid-column: 1 / -1;
+            margin: 0;
+            padding: 18px;
+            color: #64748b;
+            text-align: center;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        @keyframes municipalityBarFill {
+            from { width: 0; }
+        }
+        @media (max-width: 820px) {
+            .municipality-bar-chart { grid-template-columns: 1fr; }
+            .municipality-progress-card { padding: 18px; }
+        }
     </style>
 </head>
 <body>
@@ -71,6 +155,17 @@
 
         <!-- Graphical Presentation (Donut Charts) -->
         <div id="chartsContainer" class="charts-container" style="display: none;"></div>
+
+        <!-- Progress per Municipality (Bar Graph) -->
+        <section id="municipalityProgressCard" class="municipality-progress-card" style="display: none;">
+            <div class="municipality-progress-header">
+                <div>
+                    <h2>Progress per Municipality</h2>
+                    <p>Validated ARBs compared with the total ARBs recorded in each municipality</p>
+                </div>
+            </div>
+            <div id="municipalityBarChart" class="municipality-bar-chart"></div>
+        </section>
 
         <!-- Stats Cards -->
         <div class="stats-grid" id="statsGrid">
@@ -117,6 +212,13 @@
 
             let secureDbClient = null;
             let isDarmoPersonnel = false;
+
+            // Municipality names copied from the ARB Management location list.
+            const MUNICIPALITIES = [
+                'Cabusao', 'Del Gallego', 'Lupi', 'Ragay', 'Sipocot', 'Gainza', 'Libmanan',
+                'Milaor', 'Minalabac', 'Pamplona', 'Pasacao', 'San Fernando', 'Baao',
+                'Balatan', 'Bato', 'Buhi', 'Bula', 'Nabua', 'Iriga City'
+            ];
             
             // Globally cache the exact filters parsed from your working arb.html logic
             window.darmoAllowedArbIds = []; 
@@ -393,6 +495,108 @@
                 `;
             }
 
+            function normalizedMunicipality(value) {
+                return String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
+            }
+
+            function municipalityFilter(municipalities) {
+                return municipalities.map(name =>
+                    `municipality.ilike."${String(name).replace(/"/g, '""')}"`
+                ).join(',');
+            }
+
+            async function renderMunicipalityProgress(municipalities, allowedArbIds = null) {
+                const cardEl = document.getElementById('municipalityProgressCard');
+                const chartEl = document.getElementById('municipalityBarChart');
+                if (!cardEl || !chartEl || !secureDbClient) return;
+
+                cardEl.style.display = 'block';
+                chartEl.innerHTML = '<p class="municipality-progress-empty">Loading municipality progress…</p>';
+
+                if (!municipalities.length) {
+                    chartEl.innerHTML = '<p class="municipality-progress-empty">No assigned municipality was found.</p>';
+                    return;
+                }
+
+                const canonicalByName = new Map(municipalities.map(name => [normalizedMunicipality(name), name]));
+                const allowedSet = Array.isArray(allowedArbIds) ? new Set(allowedArbIds.map(String)) : null;
+                const filter = municipalityFilter(municipalities);
+
+                const [landholdingRows, arboRows] = await Promise.all([
+                    fetchAllRecords(() => secureDbClient.from('arb_landholdings')
+                        .select('arb_profile_id, municipality').or(filter)),
+                    fetchAllRecords(() => secureDbClient.from('arbo')
+                        .select('id, municipality').or(filter))
+                ]);
+
+                const profileIds = [...new Set((landholdingRows || [])
+                    .map(row => row.arb_profile_id).filter(Boolean).map(String))];
+                const profileRows = profileIds.length
+                    ? await fetchInChunks('arb_profiles', 'id, arb_id', 'id', profileIds)
+                    : [];
+                const arbIdByProfile = new Map(profileRows.map(row => [String(row.id), String(row.arb_id)]));
+                const municipalitiesByArb = new Map();
+
+                (landholdingRows || []).forEach(row => {
+                    const municipality = canonicalByName.get(normalizedMunicipality(row.municipality));
+                    const arbId = arbIdByProfile.get(String(row.arb_profile_id));
+                    if (!municipality || !arbId || (allowedSet && !allowedSet.has(arbId))) return;
+                    if (!municipalitiesByArb.has(arbId)) municipalitiesByArb.set(arbId, new Set());
+                    municipalitiesByArb.get(arbId).add(municipality);
+                });
+
+                const arboMunicipalityById = new Map();
+                (arboRows || []).forEach(row => {
+                    const municipality = canonicalByName.get(normalizedMunicipality(row.municipality));
+                    if (municipality) arboMunicipalityById.set(String(row.id), municipality);
+                });
+
+                const arboIds = [...arboMunicipalityById.keys()];
+                const arboLinkedArbs = arboIds.length
+                    ? await fetchInChunks('arb', 'id, validation_status, arbo_id', 'arbo_id', arboIds)
+                    : [];
+
+                arboLinkedArbs.forEach(row => {
+                    const arbId = String(row.id);
+                    if ((allowedSet && !allowedSet.has(arbId)) || municipalitiesByArb.has(arbId)) return;
+                    const municipality = arboMunicipalityById.get(String(row.arbo_id));
+                    if (municipality) municipalitiesByArb.set(arbId, new Set([municipality]));
+                });
+
+                const municipalityArbIds = [...municipalitiesByArb.keys()];
+                const landholdingLinkedArbs = municipalityArbIds.length
+                    ? await fetchInChunks('arb', 'id, validation_status', 'id', municipalityArbIds)
+                    : [];
+                const arbRowsById = new Map();
+                [...arboLinkedArbs, ...landholdingLinkedArbs].forEach(row => arbRowsById.set(String(row.id), row));
+
+                const progress = new Map(municipalities.map(name => [name, { total: 0, validated: 0 }]));
+                municipalitiesByArb.forEach((municipalitySet, arbId) => {
+                    const arb = arbRowsById.get(String(arbId));
+                    if (!arb) return;
+                    municipalitySet.forEach(municipality => {
+                        const item = progress.get(municipality);
+                        if (!item) return;
+                        item.total += 1;
+                        if (String(arb.validation_status || '').toUpperCase() === 'VALIDATED') item.validated += 1;
+                    });
+                });
+
+                chartEl.innerHTML = municipalities.map(name => {
+                    const item = progress.get(name) || { total: 0, validated: 0 };
+                    const percentage = item.total ? Math.round((item.validated / item.total) * 100) : 0;
+                    return `<div class="municipality-bar-row">
+                        <div class="municipality-bar-meta">
+                            <span class="municipality-name">${safe(name)}</span>
+                            <span class="municipality-result">${item.validated.toLocaleString()} / ${item.total.toLocaleString()} &nbsp; <span class="municipality-percent">${percentage}%</span></span>
+                        </div>
+                        <div class="municipality-track" role="progressbar" aria-label="${safe(name)} validation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percentage}">
+                            <div class="municipality-fill" style="width:${percentage}%"></div>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+
             // --- MAIN EXECUTION PIPELINE ---
             try {
                 const gridEl = document.getElementById('statsGrid');
@@ -423,6 +627,7 @@
 
                 let counts = [0, 0, 0, 0, 0, 0, 0];
                 let totalArbs = 0;
+                let visibleMunicipalities = [...MUNICIPALITIES];
 
                 // -------------------------------------------------------------
                 // EXACT COPY OF YOUR ARB.HTML JURISDICTION GENERATOR 
@@ -436,6 +641,8 @@
                         .lte('assigned_from', today);
                         
                     const userScopes = (scopes || []).filter(s => !s.assigned_until || s.assigned_until >= today);
+                    const assignedMunicipalities = new Set(userScopes.map(scope => normalizedMunicipality(scope.municipality)));
+                    visibleMunicipalities = MUNICIPALITIES.filter(name => assignedMunicipalities.has(normalizedMunicipality(name)));
                     let allowedIds = new Set();
                     
                     for (const scope of userScopes) {
@@ -578,6 +785,17 @@
                         gridEl.appendChild(div);
                     });
                 }
+
+                renderMunicipalityProgress(
+                    visibleMunicipalities,
+                    isDarmoPersonnel ? window.darmoAllowedArbIds : null
+                ).catch(err => {
+                    console.error('Municipality progress error:', err);
+                    const cardEl = document.getElementById('municipalityProgressCard');
+                    const chartEl = document.getElementById('municipalityBarChart');
+                    if (cardEl) cardEl.style.display = 'block';
+                    if (chartEl) chartEl.innerHTML = `<p class="municipality-progress-empty" style="color:#b91c1c;">Unable to load municipality progress: ${safe(err.message)}</p>`;
+                });
 
                 popToast('Dashboard Sync Complete', 'ok');
 
