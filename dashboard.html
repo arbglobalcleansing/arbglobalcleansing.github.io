@@ -241,7 +241,7 @@
                 const size = 1000;
                 while (true) {
                     const { data, error } = await queryBuilderFn().range(p * size, (p + 1) * size - 1);
-                    if (error) { console.error('Fetch error:', error); break; }
+                    if (error) throw error;
                     if (!data || data.length === 0) break;
                     allRecords.push(...data);
                     if (data.length < size) break;
@@ -255,10 +255,38 @@
                 const chunkSize = 150; 
                 for(let i=0; i<idArray.length; i+=chunkSize) {
                     const chunk = idArray.slice(i, i+chunkSize);
-                    const {data} = await secureDbClient.from(table).select(selectStr).in(column, chunk);
-                    if(data) results.push(...data);
+                    const data = await fetchAllRecords(() => secureDbClient.from(table).select(selectStr).in(column, chunk).order('id'));
+                    results.push(...data);
                 }
                 return results;
+            }
+
+            let dashboardArbs = [];
+            let uniqueDashboardArbs = [];
+            let uniqueMemberArbs = [];
+            const dashboardColumns = 'id, first_name, middle_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)';
+            function completeArbName(row) {
+                return [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(' ').trim().replace(/\s+/g, ' ');
+            }
+            function uniqueNameKey(row) {
+                const name = completeArbName(row).normalize('NFKC').toUpperCase();
+                return name ? `name:${name}` : `id:${row.id}`;
+            }
+            function groupUniqueArbs(rows) {
+                const groups = new Map();
+                rows.forEach(row => {
+                    const key = uniqueNameKey(row);
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(row);
+                });
+                return [...groups.values()].map(records => {
+                    const result = { ...records[0], records, nameKey: uniqueNameKey(records[0]) };
+                    result.validation_status = records.some(r => r.validation_status === 'Validated') ? 'Validated'
+                        : records.some(r => r.validation_status === 'Pending') ? 'Pending' : records[0].validation_status;
+                    ['ao8', 'for_ta', 'with_ta', 'for_removal'].forEach(field => result[field] = records.some(r => r[field] === true));
+                    result.arb_validations = records.flatMap(r => r.arb_validations || []);
+                    return result;
+                }).sort((a, b) => completeArbName(a).localeCompare(completeArbName(b)));
             }
 
             async function buildNavbar(userProfile) {
@@ -332,42 +360,17 @@
                 }
 
                 try {
-                    let data = [];
-                    const selectStr = 'id, first_name, last_name, validation_status, ao8, for_ta, with_ta, for_removal, arbo_id, arb_validations(validator_type, date_validated, supporting_document_reference)';
-
-                    // Use explicit JavaScript chunking for DARMO so we bypass HTTP query limits
-                    if (isDarmoPersonnel) {
-                        if (window.darmoAllowedArbIds.length === 0) {
-                            modalBodyEl.innerHTML = '<p class="empty-msg">📭 No records found for this category.</p>';
-                            return;
-                        }
-
-                        let chunkData = await fetchInChunks('arb', selectStr, 'id', window.darmoAllowedArbIds);
-                        
-                        // Filter out non-matching rows in JavaScript
-                        if (filterField) {
-                            chunkData = chunkData.filter(r => r[filterField] === filterValue);
-                        }
-
-                        // Emulate database sort and limit
-                        data = chunkData.sort((a, b) => (a.last_name || '').localeCompare(b.last_name || '')).slice(0, 1500);
-
-                    } else {
-                        // Regular Global Admin query
-                        let req = secureDbClient.from('arb').select(selectStr);
-                        if (filterField) req = req.eq(filterField, filterValue);
-
-                        const res = await req.order('last_name', { ascending: true }).limit(1500);
-                        if (res.error) throw new Error(res.error.message);
-                        data = res.data || [];
-                    }
+                    const data = filterField
+                        ? uniqueDashboardArbs.filter(r => r[filterField] === filterValue)
+                        : uniqueDashboardArbs;
+                    modalTitleEl.textContent = `${title} – ${data.length} unique ARBs`;
 
                     if (!data || data.length === 0) {
                         modalBodyEl.innerHTML = '<p class="empty-msg">📭 No records found for this category.</p>';
                         return;
                     }
 
-                    const arbIds = data.map(r => String(r.id));
+                    const arbIds = data.flatMap(r => r.records.map(a => String(a.id)));
                     const profs = await fetchInChunks('arb_profiles', 'id, arb_id', 'arb_id', arbIds);
                     const profMap = {};
                     const profIds = [];
@@ -394,10 +397,9 @@
                             valRef = sortedVals[0].supporting_document_reference || '—';
                         }
 
-                        const pId = profMap[String(r.id)];
-                        const isMember = pId ? memMap[pId] : null;
+                        const isMember = r.records.map(a => memMap[profMap[String(a.id)]]).find(Boolean);
 
-                        if (r.arbo_id || isMember) {
+                        if (r.records.some(a => a.arbo_id) || isMember) {
                             valType = 'PBDD / ARBO MEMBERSHIP';
                             if (isMember && isMember.membership_no) {
                                 valRef = isMember.membership_no;
@@ -407,10 +409,10 @@
                         }
 
                         tHtml += `<tr>
-                            <td style="font-family: monospace; color:#64748b">${(r.id || '-').toString().substring(0,6)}</td>
-                            <td style="font-weight:600; color:#0a3d62">${(r.last_name || '') + ', ' + (r.first_name || '')}</td>
-                            <td><span class="badge ${sColor}">${r.validation_status || 'Pending'}</span></td>
-                            <td style="font-size:0.75rem; font-weight:700; color:#475569;">${valType}</td>
+                            <td style="font-family: monospace; color:#64748b">${safe(r.records.map(a => a.id).join(', '))}</td>
+                            <td style="font-weight:600; color:#0a3d62">${safe(completeArbName(r))}</td>
+                            <td><span class="badge ${sColor}">${safe(r.validation_status || 'Pending')}</span></td>
+                            <td style="font-size:0.75rem; font-weight:700; color:#475569;">${safe(valType)}</td>
                             <td style="font-size:0.75rem; color:#475569;">${safe(valRef)}</td>
                             <td>${r.ao8 ? '✅' : '❌'}</td><td>${r.for_ta ? '✅' : '❌'}</td>
                             <td>${r.with_ta ? '✅' : '❌'}</td><td>${r.for_removal ? '✅' : '❌'}</td>
@@ -435,44 +437,12 @@
                 }
 
                 try {
-                    let req = secureDbClient
-                        .from('arbo_members')
-                        .select('id, arbo_id, arb_name, is_arb, membership_no, membership_status, date_from, arbo(name)')
-                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE');
-
-                    if (isDarmoPersonnel) {
-                        if (window.scopeFilterString) {
-                            req = req.or(window.scopeFilterString);
-                        } else {
-                            req = req.is('id', null); 
-                        }
-                    }
-
-                    const { data, error } = await req.order('arb_name', { ascending: true });
-                    if (error) throw new Error(error.message || JSON.stringify(error));
-                    
-                    if (!data || data.length === 0) {
-                        modalBodyEl.innerHTML = '<p class="empty-msg">📭 No ARBO membership records found in your jurisdiction.</p>';
-                        return;
-                    }
-
-                    let tHtml = `<table class="modal-table"><thead><tr><th>ARBO</th><th>Member</th><th>Type</th><th>Membership No.</th><th>Member Since</th><th>Status</th></tr></thead><tbody>`;
-                    data.forEach(r => {
-                        const status = r.membership_status || 'ACTIVE';
-                        const statusClass = status === 'ACTIVE' ? 'badge-success' : 'badge-warning';
-                        const memberType = r.is_arb ? 'ARB' : 'NON-ARB';
-                        const arboName = Array.isArray(r.arbo) ? r.arbo[0]?.name : r.arbo?.name;
-                        const joined = r.date_from ? new Date(r.date_from + 'T00:00:00').toLocaleDateString('en-PH') : '—';
-                        tHtml += `<tr>
-                            <td style="font-weight:600; color:#0a3d62">${arboName || 'ARBO #' + r.arbo_id}</td>
-                            <td style="font-weight:600">${r.arb_name || '—'}</td>
-                            <td><span class="badge ${r.is_arb ? 'badge-success' : 'badge-warning'}">${memberType}</span></td>
-                            <td>${r.membership_no || '—'}</td>
-                            <td>${joined}</td>
-                            <td><span class="badge ${statusClass}">${status}</span></td>
-                        </tr>`;
-                    });
-                    modalBodyEl.innerHTML = tHtml + '</tbody></table>';
+                    modalTitleEl.textContent = `ARBO Membership – ${uniqueMemberArbs.length} unique ARBs`;
+                    modalBodyEl.innerHTML = `<p>Each complete ARB name is listed once. Only ARB memberships linked by profile or matching complete name are included.</p>
+                        <table class="modal-table"><thead><tr><th>ARB Name</th><th>Source ARB IDs</th><th>ARBOs</th><th>Membership Nos.</th></tr></thead><tbody>${uniqueMemberArbs.map(r => `<tr>
+                        <td>${safe(completeArbName(r))}</td><td>${safe(r.records.map(a => a.id).join(', '))}</td>
+                        <td>${safe([...new Set(r.memberships.map(m => (Array.isArray(m.arbo) ? m.arbo[0]?.name : m.arbo?.name) || m.arbo_id || '—'))].join('; '))}</td>
+                        <td>${safe([...new Set(r.memberships.map(m => m.membership_no).filter(Boolean))].join('; ') || '—')}</td></tr>`).join('')}</tbody></table>`;
                 } catch (err) {
                     modalBodyEl.innerHTML = `<p class="empty-msg" style="color:#b91c1c;">❌ Access Denied or Error: ${err.message}</p>`;
                 }
@@ -553,7 +523,7 @@
 
                 const arboIds = [...arboMunicipalityById.keys()];
                 const arboLinkedArbs = arboIds.length
-                    ? await fetchInChunks('arb', 'id, validation_status, arbo_id', 'arbo_id', arboIds)
+                    ? await fetchInChunks('arb', 'id, first_name, middle_name, last_name, validation_status, arbo_id', 'arbo_id', arboIds)
                     : [];
 
                 arboLinkedArbs.forEach(row => {
@@ -565,25 +535,26 @@
 
                 const municipalityArbIds = [...municipalitiesByArb.keys()];
                 const landholdingLinkedArbs = municipalityArbIds.length
-                    ? await fetchInChunks('arb', 'id, validation_status', 'id', municipalityArbIds)
+                    ? await fetchInChunks('arb', 'id, first_name, middle_name, last_name, validation_status', 'id', municipalityArbIds)
                     : [];
                 const arbRowsById = new Map();
                 [...arboLinkedArbs, ...landholdingLinkedArbs].forEach(row => arbRowsById.set(String(row.id), row));
 
-                const progress = new Map(municipalities.map(name => [name, { total: 0, validated: 0 }]));
+                const progress = new Map(municipalities.map(name => [name, { names: new Set(), validatedNames: new Set() }]));
                 municipalitiesByArb.forEach((municipalitySet, arbId) => {
                     const arb = arbRowsById.get(String(arbId));
                     if (!arb) return;
                     municipalitySet.forEach(municipality => {
                         const item = progress.get(municipality);
                         if (!item) return;
-                        item.total += 1;
-                        if (String(arb.validation_status || '').toUpperCase() === 'VALIDATED') item.validated += 1;
+                        item.names.add(uniqueNameKey(arb));
+                        if (arb.validation_status === 'Validated') item.validatedNames.add(uniqueNameKey(arb));
                     });
                 });
 
                 chartEl.innerHTML = municipalities.map(name => {
-                    const item = progress.get(name) || { total: 0, validated: 0 };
+                    const group = progress.get(name);
+                    const item = { total: group?.names.size || 0, validated: group?.validatedNames.size || 0 };
                     const percentage = item.total ? Math.round((item.validated / item.total) * 100) : 0;
                     return `<div class="municipality-bar-row">
                         <div class="municipality-bar-meta">
@@ -635,7 +606,7 @@
                 if (isDarmoPersonnel) {
                     const today = new Date().toISOString().slice(0, 10);
                     const { data: scopes } = await secureDbClient.from('validator_access_scopes')
-                        .select('municipality,barangay')
+                        .select('municipality,barangay,assigned_until')
                         .eq('validator_user_id', profile.id)
                         .eq('is_active', true)
                         .lte('assigned_from', today);
@@ -702,66 +673,56 @@
                     }).filter(Boolean);
                     if (filterParts.length > 0) window.scopeFilterString = filterParts.join(',');
 
-                    // Retrieve statistics in memory to bypass PostgREST limits
-                    const finalArbs = await fetchInChunks('arb', 'id, validation_status, ao8, for_ta, with_ta, for_removal', 'id', window.darmoAllowedArbIds);
-                    
-                    counts[0] = finalArbs.length; 
-                    counts[1] = finalArbs.filter(a => a.validation_status === 'Validated').length;
-                    counts[2] = finalArbs.filter(a => a.ao8 === true).length;
-                    counts[3] = finalArbs.filter(a => a.for_ta === true).length;
-                    counts[4] = finalArbs.filter(a => a.with_ta === true).length;
-                    counts[5] = finalArbs.filter(a => a.for_removal === true).length;
-
-                    let arboMemReq = secureDbClient.from('arbo_members')
-                        .select('id', { count: 'exact', head: true })
-                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE');
-                        
-                    if (window.scopeFilterString) arboMemReq = arboMemReq.or(window.scopeFilterString);
-                    else arboMemReq = arboMemReq.is('id', null);
-                    
-                    const arboMemRes = await arboMemReq;
-                    if (arboMemRes.error) throw new Error(arboMemRes.error.message);
-                    counts[6] = arboMemRes.count || 0;
-                    
-                    totalArbs = counts[0];
-
-                } else {
-                    // -------------------------------------------------------------
-                    // GLOBAL ADMIN LOGIC (No jurisdiction filters needed)
-                    // -------------------------------------------------------------
-                    function buildArbQuery() { return secureDbClient.from('arb').select('id', { count: 'exact', head: true }); }
-                    
-                    const qrs = await Promise.all([
-                        buildArbQuery(),
-                        buildArbQuery().eq('validation_status', 'Validated'),
-                        buildArbQuery().eq('ao8', true),
-                        buildArbQuery().eq('for_ta', true),
-                        buildArbQuery().eq('with_ta', true),
-                        buildArbQuery().eq('for_removal', true),
-                        secureDbClient.from('arbo_members').select('id', { count: 'exact', head: true })
-                            .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE')
-                    ]);
-                    
-                    const failedQuery = qrs.find(r => r.error != null);
-                    if (failedQuery) throw new Error(failedQuery.error.message);
-                    
-                    counts = qrs.map(r => r.count || 0);
-                    totalArbs = counts[0];
                 }
+
+                dashboardArbs = isDarmoPersonnel
+                    ? await fetchInChunks('arb', dashboardColumns, 'id', window.darmoAllowedArbIds)
+                    : await fetchAllRecords(() => secureDbClient.from('arb').select(dashboardColumns).order('id'));
+                uniqueDashboardArbs = groupUniqueArbs(dashboardArbs);
+                const profiles = await fetchInChunks('arb_profiles', 'id, arb_id', 'arb_id', dashboardArbs.map(a => a.id));
+                const arbById = new Map(dashboardArbs.map(a => [String(a.id), a]));
+                const nameByProfile = new Map(profiles.map(p => [String(p.id), arbById.has(String(p.arb_id)) ? uniqueNameKey(arbById.get(String(p.arb_id))) : null]));
+                const membershipRows = await fetchAllRecords(() => {
+                    let q = secureDbClient.from('arbo_members')
+                        .select('id, profile_id, arb_name, is_arb, arbo_id, membership_no, arbo(name)')
+                        .eq('is_arb', true)
+                        .or('membership_status.is.null,membership_status.ilike.ACTIVE,membership_status.ilike.INACTIVE').order('id');
+                    if (isDarmoPersonnel) q = window.scopeFilterString ? q.or(window.scopeFilterString) : q.is('id', null);
+                    return q;
+                });
+                const membershipsByName = new Map();
+                const knownNames = new Set(uniqueDashboardArbs.map(a => a.nameKey));
+                membershipRows.forEach(m => {
+                    const key = nameByProfile.get(String(m.profile_id)) || `name:${String(m.arb_name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toUpperCase()}`;
+                    if (!knownNames.has(key)) return;
+                    if (!membershipsByName.has(key)) membershipsByName.set(key, []);
+                    membershipsByName.get(key).push(m);
+                });
+                uniqueMemberArbs = uniqueDashboardArbs.filter(a => membershipsByName.has(a.nameKey))
+                    .map(a => ({ ...a, memberships: membershipsByName.get(a.nameKey) }));
+                counts = [uniqueDashboardArbs.length,
+                    uniqueDashboardArbs.filter(a => a.validation_status === 'Validated').length,
+                    ...['ao8', 'for_ta', 'with_ta', 'for_removal'].map(field => uniqueDashboardArbs.filter(a => a[field]).length),
+                    uniqueMemberArbs.length];
+                totalArbs = counts[0];
 
                 // -------------------------------------------------------------
                 // UI RENDER
                 // -------------------------------------------------------------
                 const stats = [
-                    { label: isDarmoPersonnel ? 'YOUR ARBs' : 'GLOBAL ARBs', count: counts[0], color: '#0a3d62', fField: null, fVal: null },
+                    { label: isDarmoPersonnel ? 'YOUR UNIQUE ARBs' : 'GLOBAL UNIQUE ARBs', count: counts[0], color: '#0a3d62', fField: null, fVal: null },
                     { label: 'VALIDATED', count: counts[1], color: '#2e7d32', fField: 'validation_status', fVal: 'Validated' },
                     { label: 'AO 8', count: counts[2], color: '#e8a317', fField: 'ao8', fVal: true },
                     { label: 'For TA', count: counts[3], color: '#f59e0b', fField: 'for_ta', fVal: true },
                     { label: 'With TA', count: counts[4], color: '#3b82f6', fField: 'with_ta', fVal: true },
                     { label: 'For Removal', count: counts[5], color: '#b91c1c', fField: 'for_removal', fVal: true },
-                    { label: 'ARBO MEMBERSHIP', count: counts[6], color: '#7c3aed', mode: 'arbo_membership' }
+                    { label: 'UNIQUE ARB MEMBERS', count: counts[6], color: '#7c3aed', mode: 'arbo_membership' }
                 ];
 
+                const countingNote = document.createElement('p');
+                countingNote.style.cssText = 'color:#475569;font-size:0.85rem;line-height:1.5;';
+                countingNote.textContent = 'Counts use unique complete names, ignoring capitalization and extra spaces. A name counts once per status if any matching record has that status. ARBO membership counts only matching ARBs. Municipality totals may overlap when an ARB has land in more than one municipality.';
+                gridEl?.before(countingNote);
                 if (chartsEl) {
                     let chartsHTML = '';
                     stats.forEach(st => {
