@@ -877,6 +877,10 @@
             .arb-person-name { min-width: 140px; }
             #arbTableBody .arb-lot-row td { padding: 10px 8px; }
         }
+        .arb-total-area { margin-top: 10px; padding: 8px 10px; border-left: 3px solid #488367; background: #f0f6f2; border-radius: 0 5px 5px 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; max-width: 320px; }
+        .arb-total-area > span { color: #52655b; font-size: 11px; }
+        .arb-total-area > strong { color: #164a34; font-size: 14px; font-variant-numeric: tabular-nums; }
+        .arb-total-area > small { flex-basis: 100%; font-size: 10px; color: #85612f; }
     </style>
 </head>
 <body>
@@ -1478,6 +1482,33 @@
                 }
             } catch (e) { console.error('Supabase init error:', e); }
 
+            function totalLandArea(holdings) {
+                let total = 0, validCount = 0, missingCount = 0;
+                const seen = new Set();
+                holdings.forEach(h => {
+                    if (h.id != null) {
+                        if (seen.has(String(h.id))) return;
+                        seen.add(String(h.id));
+                    }
+                    const raw = String(h.landholding_area ?? '').trim();
+                    // Accept plain decimals and standard thousands separators only.
+                    const numeric = /^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$|^\.\d+$/.test(raw);
+                    const area = numeric ? Number(raw.replace(/,/g, '')) : NaN;
+                    if (!Number.isFinite(area) || area < 0) { missingCount++; return; }
+                    total += area;
+                    validCount++;
+                });
+                return { total, validCount, missingCount };
+            }
+
+            function renderTotalLandArea(holdings) {
+                if (holdings.length < 2) return '';
+                const { total, validCount, missingCount } = totalLandArea(holdings);
+                const amount = validCount ? total.toLocaleString('en-PH', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) : 'Unavailable';
+                const label = missingCount && validCount ? 'Known land area' : 'Total land area';
+                return `<div class="arb-total-area" title="Sum of landholding area values, using their recorded unit."><span>${label}</span><strong>${amount}</strong>${missingCount ? `<small>${missingCount} lot(s) with missing or invalid area${validCount ? ' — partial total' : ''}</small>` : ''}</div>`;
+            }
+
             function renderUniqueArbLotRows(arb, profile, members, holdings, badges, fallback) {
                 const lots = holdings.length ? holdings : [{}];
                 const span = lots.length;
@@ -1494,6 +1525,7 @@
                     <td rowspan="${span}" class="arb-group-cell">
                         <strong class="arb-person-name">${safe(fullName(arb))}</strong>
                         <div class="arb-person-meta"><span class="arb-lot-count">${holdings.length} ${holdings.length === 1 ? 'lot' : 'lots'}</span><span>ARB ${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</span></div>
+                        ${renderTotalLandArea(holdings)}
                         ${members.length > 1 ? `<details class="arb-source-menu"><summary>${members.length} linked records</summary><div class="source-links">${members.map(a => `<button type="button" class="btn btn-sm view-arb-btn" data-arb-id="${safe(a.id)}">${safe(a.id)}</button>`).join('')}</div></details><small class="arb-record-note">Status and actions: record ${recordId}</small>` : ''}
                     </td>` : ''}
                     <td>${displayValue(lot.title_no || lot.ep_cloa_serial_no || lot.ccloa_title_raw)}</td>
@@ -1928,7 +1960,7 @@ try {
                                             <td>${index === 0 ? `<input type="checkbox" class="arb-select-cb" value="${arb.id}">` : ''}</td>
                                             <td>
                                                 ${index === 0 ? `<strong style="color:var(--text-dark);font-size:0.95rem;">${safe(fullName(arb))}</strong>
-                                                <div style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>` : ''}
+                                                <div style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>${renderTotalLandArea(arbLhs)}` : ''}
                                             </td>
                                             <td>${displayValue(thisTitle)}</td>
                                             <td><strong style="color:var(--primary-green);">${displayValue(thisLot)}</strong></td>
@@ -2218,6 +2250,7 @@ try {
                                         <div class="tab-content active" id="tab-overview">
                                             <div class="empty-card" style="text-align:left;">
                                                 <strong>1 unique ARB · ${landholdings.length} lot record(s)</strong>
+                                                ${renderTotalLandArea(landholdings)}
                                                 <p>All lots associated with this complete name are listed below, within your authorized access.</p>
                                                 ${relatedArbs.length > 1 ? `<label for="profileSourceRecord">Source record for profile details and updates</label>
                                                 <select id="profileSourceRecord">${relatedArbs.map(a => `<option value="${safe(a.id)}" ${String(a.id) === String(arbId) ? 'selected' : ''}>ARB ${safe(a.id)}${profiles.some(p => String(p.arb_id) === String(a.id)) ? '' : ' — profile missing'}</option>`).join('')}</select>
