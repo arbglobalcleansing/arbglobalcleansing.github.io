@@ -854,6 +854,29 @@
                 min-width: auto;
             }
         }
+
+        /* One ARB heading with aligned rows for its lots. */
+        #arbTableBody .arb-group-cell { vertical-align: top; padding-top: 18px; background: #fff; }
+        #arbTableBody .arb-lot-row td { padding: 13px 12px; border-bottom: 1px solid #edf1f4; }
+        #arbTableBody .arb-group-start td { border-top: 2px solid #dbe5e0; }
+        #arbTableBody .arb-lot-row:nth-child(even) { background: #f8faf9; }
+        .arb-person-name { display: block; font-size: 14px; color: #123d30; line-height: 1.5; min-width: 165px; }
+        .arb-person-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; color: #64748b; font-size: 11px; }
+        .arb-lot-count { display: inline-block; border: 1px solid #d5e7dd; background: #eef7f1; color: #236047; border-radius: 5px; padding: 2px 7px; font-weight: 600; }
+        .arb-record-note { display: block; margin-top: 9px; font-size: 10px; color: #64748b; line-height: 1.45; }
+        .arb-lot-number { color: #12533e; font-weight: 700; white-space: nowrap; }
+        .arb-area-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .arb-compact-actions { min-width: 125px; display: grid; gap: 8px; }
+        .arb-compact-actions .btn { width: auto; min-height: 30px; text-transform: none; font-size: 12px; }
+        .arb-more-actions summary, .arb-source-menu summary { cursor: pointer; color: #475569; font-size: 12px; padding: 5px 0; }
+        .arb-action-menu { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 5px; }
+        .arb-source-menu { margin-top: 5px; }
+        .arb-source-menu .source-links { display: flex; flex-wrap: wrap; gap: 4px; margin: 5px 0; }
+        .arb-source-menu .source-links button { background: #fff !important; color: #236047 !important; border: 1px solid #cbded4 !important; padding: 3px 7px; font-size: 11px; width: auto; }
+        @media (max-width: 700px) {
+            .arb-person-name { min-width: 140px; }
+            #arbTableBody .arb-lot-row td { padding: 10px 8px; }
+        }
     </style>
 </head>
 <body>
@@ -1455,6 +1478,35 @@
                 }
             } catch (e) { console.error('Supabase init error:', e); }
 
+            function renderUniqueArbLotRows(arb, profile, members, holdings, badges, fallback) {
+                const lots = holdings.length ? holdings : [{}];
+                const span = lots.length;
+                const recordId = safe(arb.id);
+                const actions = `
+                    ${isFullAdmin() ? `<button class="btn btn-primary btn-sm edit-arb-btn" data-arb-id="${recordId}">Edit profile</button>` : ''}
+                    ${canManageLegal() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${recordId}" data-tag-mode="LEGAL">Tag / Case</button>` : ''}
+                    ${canTagDeceased() ? `<button class="btn btn-primary btn-sm tag-arb-btn" data-arb-id="${recordId}" data-tag-mode="DEAD">Deceased</button>` : ''}
+                    ${canCaptureAndIssueId() ? `<button class="btn btn-primary btn-sm gen-id-btn" data-arb-id="${recordId}" data-name="${safe(fullName(arb))}">Generate ID</button><button class="btn btn-primary btn-sm photo-btn" data-arb-id="${recordId}">Update photo</button>` : ''}
+                    ${canAssignArbo() ? `<button class="btn btn-primary btn-sm arbo-btn" data-arb-id="${recordId}">ARBO</button>` : ''}
+                    ${canValidateOrAssign() ? `<button class="btn btn-primary btn-sm update-validation-btn" data-arb-id="${recordId}" data-current="${safe(arb.validation_status || 'Pending')}">Validate</button>` : ''}`;
+                return lots.map((lot, index) => `<tr class="arb-lot-row ${index === 0 ? 'arb-group-start' : ''}">
+                    ${index === 0 ? `<td rowspan="${span}" class="arb-group-cell"><input type="checkbox" class="arb-select-cb" value="${recordId}" aria-label="Select ${safe(fullName(arb))}"></td>
+                    <td rowspan="${span}" class="arb-group-cell">
+                        <strong class="arb-person-name">${safe(fullName(arb))}</strong>
+                        <div class="arb-person-meta"><span class="arb-lot-count">${holdings.length} ${holdings.length === 1 ? 'lot' : 'lots'}</span><span>ARB ${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</span></div>
+                        ${members.length > 1 ? `<details class="arb-source-menu"><summary>${members.length} linked records</summary><div class="source-links">${members.map(a => `<button type="button" class="btn btn-sm view-arb-btn" data-arb-id="${safe(a.id)}">${safe(a.id)}</button>`).join('')}</div></details><small class="arb-record-note">Status and actions: record ${recordId}</small>` : ''}
+                    </td>` : ''}
+                    <td>${displayValue(lot.title_no || lot.ep_cloa_serial_no || lot.ccloa_title_raw)}</td>
+                    <td><span class="arb-lot-number">${displayValue(lot.lot_no)}</span></td>
+                    <td class="arb-area-number">${displayValue(lot.landholding_area)}</td>
+                    <td>${displayValue(lot.survey_no)}</td>
+                    <td>${displayValue(lot.municipality || fallback.municipality)}</td>
+                    <td>${displayValue(lot.barangay || fallback.barangay)}</td>
+                    ${index === 0 ? `<td rowspan="${span}" class="arb-group-cell">${badges.validation}</td><td rowspan="${span}" class="arb-group-cell">${badges.life}</td><td rowspan="${span}" class="arb-group-cell">${badges.cocrom}</td><td rowspan="${span}" class="arb-group-cell">${badges.ta}</td><td rowspan="${span}" class="arb-group-cell">${badges.ali}</td>
+                    <td rowspan="${span}" class="arb-group-cell"><div class="arb-compact-actions"><button class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${recordId}">View profile</button>${actions.trim() ? `<details class="arb-more-actions"><summary>More actions</summary><div class="arb-action-menu">${actions}</div></details>` : ''}</div></td>` : ''}
+                </tr>`).join('');
+            }
+
             async function loadArbs(page = 0) {
                 const tbody = document.getElementById('arbTableBody');
                 if (!tbody) return;
@@ -1837,15 +1889,6 @@ try {
 
                             pageLotCount += arbLhs.length;
                             if (!arbLhs.length) withoutLots++;
-                            if (uniqueView && arbLhs.length > 1) {
-                                const joined = get => arbLhs.map((h, i) => `${i + 1}. ${get(h) ?? '—'}`).join(' | ');
-                                dispTitle = joined(h => h.title_no || h.ep_cloa_serial_no || h.ccloa_title_raw);
-                                dispLot = joined(h => h.lot_no);
-                                dispArea = joined(h => h.landholding_area);
-                                dispSurvey = joined(h => h.survey_no);
-                                dispMunicipality = joined(h => h.municipality);
-                                dispBarangay = joined(h => h.barangay);
-                            }
                             let aliTag = badge('NO', 'neutral');
                             if (arb.with_ali_case) {
                                 const safeName = safe(fullName(arb)).replace(/'/g, "\\'");
@@ -1867,7 +1910,11 @@ try {
                             const lifeBadge = badge(lStatus, lStatus === 'Active' ? 'success' : lStatus ===
                                 'Dead' ? 'danger' : 'neutral');
 
-                            if (!uniqueView && arbLhs.length > 1) {
+                            if (uniqueView) {
+                                html += renderUniqueArbLotRows(arb, profile, members, arbLhs,
+                                    { validation: validationBadge, life: lifeBadge, cocrom: cocromTag, ta: taTag, ali: aliTag },
+                                    { municipality: arbo.municipality, barangay: arbo.barangay });
+                            } else if (arbLhs.length > 1) {
                                 arbLhs.forEach((lh, index) => {
                                     const thisTitle = lh.title_no || lh.ep_cloa_serial_no || lh
                                         .ccloa_title_raw || '—';
