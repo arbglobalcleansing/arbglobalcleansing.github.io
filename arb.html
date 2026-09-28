@@ -862,6 +862,11 @@
 
         <nav class="nav" id="mainNav"></nav>
 
+        <div class="management-toolbar">
+            <label for="arbCountView">View <select id="arbCountView"><option value="lot">Per lot</option><option value="arb">Unique ARB</option></select></label>
+            <span id="arbViewCounts" aria-live="polite"></span>
+            <small>Unique ARBs are counted by ARB ID. Lots are landholding records; pagination remains by ARB.</small>
+        </div>
         <div class="search-container">
             <div class="search-input-group">
                 <input id="globalSearchInput" class="omni-search-input" placeholder="Search name, ID, Mother CLOA, title, landowner, COCROM, or location..." autocomplete="off" aria-label="Search">
@@ -1453,6 +1458,8 @@
             async function loadArbs(page = 0) {
                 const tbody = document.getElementById('arbTableBody');
                 if (!tbody) return;
+                document.getElementById('arbViewCounts').textContent = '';
+                const uniqueView = document.getElementById('arbCountView').value === 'arb';
                 tbody.innerHTML = `<tr><td colspan="14" class="empty-card">Loading data...</td></tr>`;
 
                 const selectAllCb = document.getElementById('selectAllArbs');
@@ -1772,6 +1779,8 @@ try {
                         });
 
                         let html = '';
+                        let pageLotCount = 0;
+                        let withoutLots = 0;
                         arbs.forEach(arb => {
                             const profile = profileMap[String(arb.id)] || {};
                             const arbo = arb.arbo || {};
@@ -1801,6 +1810,17 @@ try {
                                 dispCocrom = profile.cocrom_no || '—';
                             }
 
+                            pageLotCount += arbLhs.length;
+                            if (!arbLhs.length) withoutLots++;
+                            if (uniqueView && arbLhs.length > 1) {
+                                const joined = get => arbLhs.map((h, i) => `${i + 1}. ${get(h) ?? '—'}`).join(' | ');
+                                dispTitle = joined(h => h.title_no || h.ep_cloa_serial_no || h.ccloa_title_raw);
+                                dispLot = joined(h => h.lot_no);
+                                dispArea = joined(h => h.landholding_area);
+                                dispSurvey = joined(h => h.survey_no);
+                                dispMunicipality = joined(h => h.municipality);
+                                dispBarangay = joined(h => h.barangay);
+                            }
                             let aliTag = badge('NO', 'neutral');
                             if (arb.with_ali_case) {
                                 const safeName = safe(fullName(arb)).replace(/'/g, "\\'");
@@ -1822,7 +1842,7 @@ try {
                             const lifeBadge = badge(lStatus, lStatus === 'Active' ? 'success' : lStatus ===
                                 'Dead' ? 'danger' : 'neutral');
 
-                            if (arbLhs.length > 1) {
+                            if (!uniqueView && arbLhs.length > 1) {
                                 arbLhs.forEach((lh, index) => {
                                     const thisTitle = lh.title_no || lh.ep_cloa_serial_no || lh
                                         .ccloa_title_raw || '—';
@@ -1897,6 +1917,7 @@ try {
                             }
                         });
                         tbody.innerHTML = html;
+                        document.getElementById('arbViewCounts').textContent = `Filtered total: ${totalRecords} unique ARBs. This page: ${arbs.length} ARBs / ${pageLotCount} lot records / ${withoutLots} ARBs without lots.`;
                     }
 
                     const maxPages = Math.ceil(totalRecords / pageSize) || 1;
@@ -3260,8 +3281,9 @@ try {
                 const formHtml = `
                         <form id="photoForm">
                             <div class="form-group"><label>Upload Photo</label><input type="file" id="photoFileInput" accept="image/*"></div>
+                            <div class="form-group"><label for="phoneCameraInput">Take ARB Profile Photo (Phone Camera)</label><input type="file" id="phoneCameraInput" accept="image/*" capture="environment"><small>Take a photo, review it, then tap Save Photo.</small></div>
                             <div class="form-group"><label>Or capture from webcam</label><button type="button" class="btn btn-primary" id="startWebcamBtn">Start Webcam</button>
-                                <video id="webcamVideo" autoplay style="width:100%;max-width:320px;border:1px solid #ccc;border-radius:6px;margin-top:6px;display:none;"></video>
+                                <video id="webcamVideo" autoplay playsinline muted style="width:100%;max-width:320px;border:1px solid #ccc;border-radius:6px;margin-top:6px;display:none;"></video>
                                 <canvas id="webcamCanvas" style="display:none;"></canvas>
                                 <button type="button" class="btn btn-primary" id="captureWebcamBtn" style="display:none;margin-top:10px;">Capture</button>
                             </div>
@@ -3273,13 +3295,52 @@ try {
                 document.getElementById('cancelPhotoBtn').addEventListener('click', hideSubModal);
 
                 let webcamStream = null;
+                let selectedPhoto = null;
+                let previewUrl = null;
+                let photoRequest = 0;
                 const video = document.getElementById('webcamVideo');
                 const canvas = document.getElementById('webcamCanvas');
                 const preview = document.getElementById('photoPreview');
 
+                const stopCamera = () => {
+                    webcamStream?.getTracks().forEach(t => t.stop());
+                    webcamStream = null;
+                    video.srcObject = null;
+                    video.style.display = 'none';
+                };
+                const photoForm = document.getElementById('photoForm');
+                const observer = new MutationObserver(() => {
+                    if (!photoForm.isConnected) {
+                        stopCamera();
+                        if (previewUrl) URL.revokeObjectURL(previewUrl);
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(document.getElementById('subModalContentContainer'), { childList: true });
+                ['photoFileInput', 'phoneCameraInput'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', function() {
+                        const file = this.files?.[0];
+                        if (!file) return;
+                        if (!file.type.startsWith('image/') || file.size > MAX_SOURCE_PHOTO_BYTES) {
+                            this.value = '';
+                            popToast('Choose an image of 12 MB or smaller.', 'warn');
+                            return;
+                        }
+                        selectedPhoto = file;
+                        stopCamera();
+                        if (previewUrl) URL.revokeObjectURL(previewUrl);
+                        previewUrl = URL.createObjectURL(file);
+                        preview.innerHTML = `<img src="${previewUrl}" style="max-width:150px;border-radius:8px;">`;
+                    });
+                });
+
                 document.getElementById('startWebcamBtn').addEventListener('click', async function() {
                     try {
-                        webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                        const request = ++photoRequest;
+                        stopCamera();
+                        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+                        if (!photoForm.isConnected || request !== photoRequest) { stream.getTracks().forEach(t => t.stop()); return; }
+                        webcamStream = stream;
                         video.srcObject = webcamStream;
                         video.style.display = 'block';
                         document.getElementById('captureWebcamBtn').style.display = 'inline-block';
@@ -3289,12 +3350,13 @@ try {
                 });
 
                 document.getElementById('captureWebcamBtn').addEventListener('click', function() {
-                    if (!webcamStream) return;
+                    if (!webcamStream || !video.videoWidth) return;
                     canvas.width = video.videoWidth || 320;
                     canvas.height = video.videoHeight || 320;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const dataUrl = canvas.toDataURL('image/jpeg');
+                    selectedPhoto = dataUrl;
                     preview.innerHTML = `<img src="${dataUrl}" style="max-width:150px;border-radius:8px;">`;
                     let hidden = document.getElementById('photoData');
                     if (!hidden) {
@@ -3320,21 +3382,7 @@ try {
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Processing...';
 
-                    const fileInput = document.getElementById('photoFileInput');
-                    let rawImageData = null;
-
-                    if (fileInput.files && fileInput.files[0]) {
-                        if (fileInput.files[0].size > MAX_SOURCE_PHOTO_BYTES) {
-                            popToast('Photo must be 12 MB or smaller.', 'warn');
-                            submitBtn.disabled = false;
-                            submitBtn.textContent = 'Save Photo';
-                            return;
-                        }
-                        rawImageData = fileInput.files[0];
-                    } else {
-                        const hidden = document.getElementById('photoData');
-                        if (hidden) rawImageData = hidden.value;
-                    }
+                    const rawImageData = selectedPhoto;
 
                     if (!rawImageData) { popToast('No photo selected or captured.', 'warn');
                         submitBtn.disabled = false;
@@ -3344,8 +3392,7 @@ try {
                         const { blob, extension } = await compressImage(rawImageData);
                         const profRes = await secureDbClient.from('arb_profiles').select('id, photo_path')
                             .eq('arb_id', String(arbId)).single();
-                        if (profRes.error) { popToast('Profile not found. Please create profile first.',
-                            'err'); return; }
+                        if (profRes.error) throw new Error('Profile not found. Please create profile first.');
                         const profile = profRes.data;
                         const photoPath = `${profile.id}/${crypto.randomUUID()}.${extension}`;
                         const { error: uploadError } = await secureDbClient.storage
@@ -4279,10 +4326,15 @@ async function openGenerateReport() {
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Select Barangay</label>
-                                <select id="reportBrgy">
-                                    <option value="">All Barangays</option>
-                                </select>
+                                <label for="reportBrgy">Type Barangay</label>
+                                <input id="reportBrgy" list="reportBrgyOptions" disabled placeholder="Select a municipality first" autocomplete="off">
+                                <datalist id="reportBrgyOptions"></datalist>
+                                <small>Type a barangay or choose a suggestion. Leave blank for all authorized barangays.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="reportCountMode">Counting / View</label>
+                                <select id="reportCountMode"><option value="lot">Per lot — one row per landholding record</option><option value="arb">Unique ARB — one row per ARB in each barangay</option></select>
+                                <small>Unique ARBs use ARB ID, not name. All matching lots remain listed. Barangay ARB totals may overlap.</small>
                             </div>
                             <div class="form-group">
                                 <label>Validation Status</label>
@@ -4303,8 +4355,13 @@ async function openGenerateReport() {
                 document.getElementById('reportMun').addEventListener('change', function() {
                     const mun = this.value;
                     const bSelect = document.getElementById('reportBrgy');
-                    if (!mun) { bSelect.innerHTML = '<option value="">All Barangays</option>'; return; }
-                    let brgys = locData[mun].sort();
+                    bSelect.value = '';
+                    bSelect.disabled = !mun;
+                    bSelect.placeholder = mun ? 'Type barangay; blank means all' : 'Select a municipality first';
+                    const suggestions = document.getElementById('reportBrgyOptions');
+                    suggestions.innerHTML = '';
+                    if (!mun) return;
+                    let brgys = [...(locData[mun] || [])].sort();
 
                     // --- LIMIT BARANGAY DROPDOWN FOR DARMO ---
                     if (isDarmo()) {
@@ -4316,7 +4373,7 @@ async function openGenerateReport() {
                         }
                     }
 
-                    bSelect.innerHTML = '<option value="">All Barangays</option>' + brgys.map(b =>
+                    suggestions.innerHTML = brgys.map(b =>
                         `<option value="${safe(b)}">${safe(b)}</option>`).join('');
                 });
                 
@@ -4329,12 +4386,12 @@ async function openGenerateReport() {
                     submitBtn.textContent = 'Generating...';
 
                     const mun = document.getElementById('reportMun').value;
-                    const targetBrgy = document.getElementById('reportBrgy').value;
+                    const targetBrgy = document.getElementById('reportBrgy').value.trim();
                     const valStatus = document.getElementById('reportValStatus').value;
 
                     if (!mun) return;
                     try {
-                        await generateBarangayReport(mun, targetBrgy, valStatus);
+                        await generateBarangayReport(mun, targetBrgy, valStatus, document.getElementById('reportCountMode').value);
                     } finally {
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Generate PDF';
@@ -4342,7 +4399,30 @@ async function openGenerateReport() {
                 });
             }
             
-            async function generateBarangayReport(municipality, targetBrgy, valStatus) {
+            function locationMatches(left, right) {
+                const parts = value => String(value || '').normalize('NFKC').toUpperCase()
+                    .split(/[()]/).map(v => v.trim().replace(/\s+/g, ' ')).filter(Boolean);
+                const a = parts(left), b = parts(right);
+                return a.some(v => b.includes(v));
+            }
+
+            function validationRowsForView(rows, mode) {
+                if (mode !== 'arb') return rows;
+                const groups = new Map();
+                rows.forEach(row => {
+                    if (!groups.has(row.arbId)) groups.set(row.arbId, []);
+                    groups.get(row.arbId).push(row);
+                });
+                return [...groups.values()].map(lots => {
+                    const row = { ...lots[0] };
+                    ['survey', 'lot', 'area', 'title'].forEach(field => {
+                        row[field] = lots.map((lot, i) => `${i + 1}. ${lot[field] === '' ? '—' : lot[field]}`).join('\n');
+                    });
+                    return row;
+                });
+            }
+
+            async function generateBarangayReport(municipality, targetBrgy, valStatus, countMode = 'lot') {
                 popToast(`Gathering data for ${municipality}, please wait...`, 'info');
                 try {
                     const lhData = await fetchAllRecords(() => secureDbClient.from('arb_landholdings').select('*')
@@ -4373,33 +4453,22 @@ async function openGenerateReport() {
                     const grouped = {};
                     let matchCount = 0;
 
-                    const targetBrgyUpper = targetBrgy ? targetBrgy.toUpperCase() : '';
-                    let p1 = '',
-                        p2 = '';
-                    if (targetBrgy) {
-                        const parts = targetBrgy.match(/^(.*?)(?:\((.*?)\))?$/);
-                        p1 = parts[1] ? parts[1].trim().toUpperCase() : '';
-                        p2 = parts[2] ? parts[2].trim().toUpperCase() : '';
-                    }
-
+                    const seenHoldings = new Set();
                     lhData.forEach(lh => {
-                        const brgy = lh.barangay || 'Unknown Barangay';
-
-                        if (targetBrgy && targetBrgy !== '') {
-                            const brgyUpper = brgy.toUpperCase();
-                            let isMatch = false;
-                            if (brgyUpper === targetBrgyUpper) isMatch = true;
-                            if (!isMatch && p1 && brgyUpper.includes(p1)) isMatch = true;
-                            if (!isMatch && p2 && brgyUpper.includes(p2)) isMatch = true;
-
-                            if (!isMatch) return;
-                        }
+                        const brgy = String(lh.barangay || 'Unknown Barangay').trim();
+                        // Recheck each returned holding: typed input must not expand DARMO access.
+                        if (isDarmo() && !userScopes.some(scope =>
+                            locationMatches(scope.municipality, lh.municipality) &&
+                            (!scope.barangay || locationMatches(scope.barangay, brgy)))) return;
+                        if (targetBrgy && !locationMatches(brgy, targetBrgy)) return;
+                        if (lh.id != null && seenHoldings.has(String(lh.id))) return;
+                        if (lh.id != null) seenHoldings.add(String(lh.id));
 
                         const p = profMap[lh.arb_profile_id];
                         const a = p ? validArbMap[p.arb_id] : null;
                         if (!a) return;
 
-                        const groupKey = (targetBrgy && targetBrgy !== '') ? targetBrgy : brgy;
+                        const groupKey = brgy.toUpperCase();
                         if (!grouped[groupKey]) grouped[groupKey] = [];
                         matchCount++;
 
@@ -4420,6 +4489,8 @@ async function openGenerateReport() {
                         return;
                     }
 
+                    const uniqueTotal = new Set(Object.values(grouped).flat().map(r => r.arbId)).size;
+                    const reportRefs = [];
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [215.9, 330.2] });
                     const brgyKeys = Object.keys(grouped).sort();
@@ -4448,9 +4519,14 @@ async function openGenerateReport() {
                             } catch (e) { console.warn(e); }
                         }
 
+                        reportRefs.push(reportRef);
                         doc.setFontSize(14);
                         doc.setFont("helvetica", "bold");
                         doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'normal');
+                        const barangayArbs = new Set(grouped[brgy].map(r => r.arbId)).size;
+                        doc.text(`${countMode === 'arb' ? 'Unique ARB view' : 'Per lot view'} | Barangay: ${barangayArbs} ARBs / ${grouped[brgy].length} lot records | Entire report: ${uniqueTotal} unique ARBs / ${matchCount} lot records`, 14, 19);
 
                         const head = [
                             [
@@ -4484,7 +4560,7 @@ async function openGenerateReport() {
                             ]
                         ];
 
-                      const body = grouped[brgy].map(row => [
+                      const body = validationRowsForView(grouped[brgy], countMode).map(row => [
                             `[ARB:${row.arbId}]\n${row.name}`, 
                             'Y[   ]', // YES ARBO
                             'N[   ]', // NO ARBO
@@ -4499,7 +4575,7 @@ async function openGenerateReport() {
                             ''        // Mobile
                         ]);
                         doc.autoTable({
-                            startY: 20,
+                            startY: 23,
                             margin: { bottom: 45, left: 10, right: 10 },
                             head: head,
                             body: body,
@@ -4591,7 +4667,7 @@ async function openGenerateReport() {
                         });
                     }
 
-                  doc.save(`Validation_Form_${municipality}.pdf`);
+                  doc.save(`Validation_Form_${municipality}_${countMode === "arb" ? "Unique_ARB" : "Per_Lot"}.pdf`);
                     hideSubModal();
                     popToast('Report downloaded successfully.', 'ok');
                     
@@ -4601,7 +4677,7 @@ async function openGenerateReport() {
                             const activeUser = currentUserProfile?.full_name || currentUser?.email || 'Unknown User';
                             await secureDbClient.from('monitoring').insert({
                                 action: 'Printed Validation Form',
-                                report_reference: reportRef,
+                                report_reference: reportRefs.join(', '),
                                 municipality: municipality,
                                 barangay: targetBrgy || 'ALL',
                                 current_online_user: activeUser,
@@ -4809,6 +4885,7 @@ async function openGenerateReport() {
 
             // ========== LISTENERS & INIT ==========
 
+            document.getElementById('arbCountView').addEventListener('change', () => loadArbs(currentPage));
             document.getElementById('refreshListBtn')?.addEventListener('click', () => loadArbs(currentPage));
             document.getElementById('applyFiltersBtn')?.addEventListener('click', () => { currentPage = 0;
                 loadArbs(currentPage); });
