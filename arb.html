@@ -865,7 +865,7 @@
         <div class="management-toolbar">
             <label for="arbCountView">View <select id="arbCountView"><option value="lot">Per lot</option><option value="arb">Unique ARB</option></select></label>
             <span id="arbViewCounts" aria-live="polite"></span>
-            <small>Unique ARBs are counted by ARB ID. Lots are landholding records; pagination remains by ARB.</small>
+            <small>Unique ARBs are counted by complete name (case and extra spaces ignored). Lots are landholding records; pagination remains by ARB.</small>
         </div>
         <div class="search-container">
             <div class="search-input-group">
@@ -1719,7 +1719,27 @@ try {
                     lastFilteredArbIds = finalIds === null ? null : [...finalIds];
 
                     let arbs = [];
-                    if (finalIds !== null) {
+                    if (uniqueView) {
+                        const columns = `id, first_name, middle_name, last_name, validation_status, life_status,
+                            with_ali_case, ali_case_status, ali_case_type, with_ta, for_disqualification, generated_arb_id,
+                            arbo:arbo_id ( id, name, municipality, barangay )`;
+                        const allMatches = finalIds === null
+                            ? await fetchAllRecords(() => secureDbClient.from('arb').select(columns).order('id'))
+                            : await fetchInChunks('arb', columns, 'id', finalIds);
+                        const groups = new Map();
+                        allMatches.forEach(a => {
+                            const key = uniqueArbNameKey(fullName(a), a.id);
+                            if (!groups.has(key)) groups.set(key, []);
+                            groups.get(key).push(a);
+                        });
+                        const namedGroups = [...groups.values()].sort((a, b) =>
+                            fullName(a[0]).localeCompare(fullName(b[0])));
+                        totalRecords = namedGroups.length;
+                        page = Math.min(page, Math.max(0, Math.ceil(totalRecords / pageSize) - 1));
+                        currentPage = page;
+                        arbs = namedGroups.slice(page * pageSize, (page + 1) * pageSize)
+                            .map(members => ({ ...members[0], nameGroupMembers: members }));
+                    } else if (finalIds !== null) {
                         totalRecords = finalIds.length;
                         const pageIds = finalIds.slice(page * pageSize, (page + 1) * pageSize);
 
@@ -1751,11 +1771,11 @@ try {
                         tbody.innerHTML =
                             `<tr><td colspan="14" class="empty-card">No ARBs match the filters.</td></tr>`;
                     } else {
-                        const arbIds = arbs.map(a => String(a.id));
+                        const arbIds = arbs.flatMap(a => (a.nameGroupMembers || [a]).map(member => String(member.id)));
 
-                        const { data: profileData } = await secureDbClient.from('arb_profiles').select(`
-                                id, arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status
-                            `).in('arb_id', arbIds);
+                        const profileData = await fetchInChunks('arb_profiles',
+                            'id, arb_id, split_status, cocrom_no, is_title_distribute, generated_arb_ic, fb_name, life_status',
+                            'arb_id', arbIds);
 
                         const profileMap = {};
                         const profIds = [];
@@ -1766,9 +1786,9 @@ try {
 
                         let lhData = [];
                         if (profIds.length > 0) {
-                            const { data: landholdings } = await secureDbClient.from('arb_landholdings').select(`
-                                    id, arb_profile_id, municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no
-                                `).in('arb_profile_id', profIds);
+                            const landholdings = await fetchInChunks('arb_landholdings',
+                                'id, arb_profile_id, municipality, barangay, title_no, ep_cloa_serial_no, ccloa_title_raw, survey_no, lot_no, landholding_area, cocrom_certificate_no',
+                                'arb_profile_id', profIds);
                             lhData = landholdings || [];
                         }
 
@@ -1784,7 +1804,12 @@ try {
                         arbs.forEach(arb => {
                             const profile = profileMap[String(arb.id)] || {};
                             const arbo = arb.arbo || {};
-                            const arbLhs = profile.id ? (lhMap[profile.id] || []) : [];
+                            const members = arb.nameGroupMembers || [arb];
+                            const memberIds = new Set(members.map(a => String(a.id)));
+                            const arbLhs = (profileData || []).filter(p => memberIds.has(String(p.arb_id)))
+                                .flatMap(p => lhMap[p.id] || []);
+                            const memberLinks = uniqueView && members.length > 1
+                                ? `<div><small>${members.length} records grouped by name. Status/actions below refer to the first record. Open individual records:</small>${members.map(a => `<button type="button" class="btn btn-primary btn-sm view-arb-btn" data-arb-id="${safe(a.id)}">${safe(a.generated_arb_id || a.id)}</button>`).join('')}</div>` : '';
 
                             let dispMunicipality = arbo.municipality || '—';
                             let dispBarangay = arbo.barangay || '—';
@@ -1888,7 +1913,7 @@ try {
                                         <td><input type="checkbox" class="arb-select-cb" value="${arb.id}"></td>
                                         <td>
                                             <strong style="color:var(--text-dark);font-size:0.95rem;">${safe(fullName(arb))}</strong>
-                                            <div style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>
+                                            <div style="font-size:0.75rem;color:var(--text-muted);font-family:monospace;margin-top:2px;">${displayValue(arb.generated_arb_id || profile.generated_arb_ic || arb.id)}</div>${memberLinks}
                                         </td>
                                         <td>${displayValue(dispTitle)}</td>
                                         <td><strong style="color:var(--primary-green);">${displayValue(dispLot)}</strong></td>
@@ -1917,7 +1942,7 @@ try {
                             }
                         });
                         tbody.innerHTML = html;
-                        document.getElementById('arbViewCounts').textContent = `Filtered total: ${totalRecords} unique ARBs. This page: ${arbs.length} ARBs / ${pageLotCount} lot records / ${withoutLots} ARBs without lots.`;
+                        document.getElementById('arbViewCounts').textContent = `Filtered total: ${totalRecords} ${uniqueView ? 'unique ARB names' : 'ARB records'}. This page: ${arbs.length} ARBs / ${pageLotCount} lot records / ${withoutLots} ARBs without lots.`;
                     }
 
                     const maxPages = Math.ceil(totalRecords / pageSize) || 1;
@@ -4334,7 +4359,7 @@ async function openGenerateReport() {
                             <div class="form-group">
                                 <label for="reportCountMode">Counting / View</label>
                                 <select id="reportCountMode"><option value="lot">Per lot — one row per landholding record</option><option value="arb">Unique ARB — one row per ARB in each barangay</option></select>
-                                <small>Unique ARBs use ARB ID, not name. All matching lots remain listed. Barangay ARB totals may overlap.</small>
+                                <small>Same complete name counts as one ARB, even across different ARB IDs. All matching lots remain listed. Barangay ARB totals may overlap.</small>
                             </div>
                             <div class="form-group">
                                 <label>Validation Status</label>
@@ -4406,15 +4431,22 @@ async function openGenerateReport() {
                 return a.some(v => b.includes(v));
             }
 
+            function uniqueArbNameKey(name, fallbackId) {
+                const normalized = String(name || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toUpperCase();
+                // Missing names must not merge unrelated records.
+                return normalized && normalized !== '—' ? `name:${normalized}` : `id:${fallbackId}`;
+            }
+
             function validationRowsForView(rows, mode) {
                 if (mode !== 'arb') return rows;
                 const groups = new Map();
                 rows.forEach(row => {
-                    if (!groups.has(row.arbId)) groups.set(row.arbId, []);
-                    groups.get(row.arbId).push(row);
+                    const key = uniqueArbNameKey(row.name, row.arbId);
+                    if (!groups.has(key)) groups.set(key, []);
+                    groups.get(key).push(row);
                 });
                 return [...groups.values()].map(lots => {
-                    const row = { ...lots[0] };
+                    const row = { ...lots[0], sourceArbIds: [...new Set(lots.map(lot => lot.arbId))] };
                     ['survey', 'lot', 'area', 'title'].forEach(field => {
                         row[field] = lots.map((lot, i) => `${i + 1}. ${lot[field] === '' ? '—' : lot[field]}`).join('\n');
                     });
@@ -4489,7 +4521,7 @@ async function openGenerateReport() {
                         return;
                     }
 
-                    const uniqueTotal = new Set(Object.values(grouped).flat().map(r => r.arbId)).size;
+                    const uniqueTotal = new Set(Object.values(grouped).flat().map(r => uniqueArbNameKey(r.name, r.arbId))).size;
                     const reportRefs = [];
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [215.9, 330.2] });
@@ -4525,7 +4557,7 @@ async function openGenerateReport() {
                         doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
                         doc.setFontSize(8);
                         doc.setFont('helvetica', 'normal');
-                        const barangayArbs = new Set(grouped[brgy].map(r => r.arbId)).size;
+                        const barangayArbs = new Set(grouped[brgy].map(r => uniqueArbNameKey(r.name, r.arbId))).size;
                         doc.text(`${countMode === 'arb' ? 'Unique ARB view' : 'Per lot view'} | Barangay: ${barangayArbs} ARBs / ${grouped[brgy].length} lot records | Entire report: ${uniqueTotal} unique ARBs / ${matchCount} lot records`, 14, 19);
 
                         const head = [
@@ -4561,7 +4593,7 @@ async function openGenerateReport() {
                         ];
 
                       const body = validationRowsForView(grouped[brgy], countMode).map(row => [
-                            `[ARB:${row.arbId}]\n${row.name}`, 
+                            `[ARB:${row.arbId}]\n${row.name}${row.sourceArbIds?.length > 1 ? "\nRecords: " + row.sourceArbIds.join(", ") : ""}`, 
                             'Y[   ]', // YES ARBO
                             'N[   ]', // NO ARBO
                             row.survey, row.lot, row.area, row.title,
