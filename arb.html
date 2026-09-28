@@ -2029,6 +2029,32 @@ try {
                 } catch (e) { console.warn('Failed to load ARBO list:', e); }
             }
 
+            async function fetchProfilePages(buildQuery) {
+                const rows = [];
+                const pageSize = 1000;
+                for (let offset = 0; ; offset += pageSize) {
+                    const { data, error } = await buildQuery().range(offset, offset + pageSize - 1);
+                    if (error) throw error;
+                    rows.push(...(data || []));
+                    if (!data || data.length < pageSize) return rows;
+                }
+            }
+
+            async function fetchProfileRows(table, columns, field, ids) {
+                const rows = [];
+                const uniqueIds = [...new Set(ids.map(String))];
+                for (let i = 0; i < uniqueIds.length; i += 150) {
+                    const chunk = uniqueIds.slice(i, i + 150);
+                    rows.push(...await fetchProfilePages(() => secureDbClient.from(table)
+                        .select(columns).in(field, chunk).order('id')));
+                }
+                return rows;
+            }
+
+            function distinctProfileRows(rows) {
+                return [...new Map(rows.map(r => [String(r.id), r])).values()];
+            }
+
             async function openArbProfile(arbId) {
                 showModal('ARB Profile', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
 
@@ -2039,39 +2065,39 @@ try {
                     if (arbRes.error) throw arbRes.error;
                     const arb = arbRes.data;
 
-                    let profile = {};
-                    let profileId = null;
-                    const profRes = await secureDbClient.from('arb_profiles').select('*').eq('arb_id', String(arbId))
-                        .single();
-                    if (profRes.error && profRes.error.code !== 'PGRST116') throw profRes.error;
-                    if (profRes.data) {
-                        profile = profRes.data;
-                        profileId = profile.id;
-                    } else {
-                        profile = { id: null };
+                    // Resolve one person by normalized complete name, then follow every
+                    // ARB -> profile -> landholding relationship within authorized records.
+                    const personKey = uniqueArbNameKey(fullName(arb), arb.id);
+                    const candidates = await fetchProfilePages(() => secureDbClient.from('arb')
+                        .select('id, first_name, middle_name, last_name').order('id'));
+                    const allowedIds = isDarmo() ? new Set((darmoAllowedArbIds || []).map(String)) : null;
+                    const relatedArbs = candidates.filter(a =>
+                        uniqueArbNameKey(fullName(a), a.id) === personKey &&
+                        (!allowedIds || allowedIds.has(String(a.id))));
+                    if (!relatedArbs.some(a => String(a.id) === String(arbId))) {
+                        throw new Error('This ARB is not available within your assigned access.');
                     }
-
-                    let heirs = [],
-                        landholdings = [],
-                        tags = [],
-                        validations = [];
-                    if (profileId) {
-                        const [hRes, lRes, tRes, vRes] = await Promise.all([
-                            secureDbClient.from('arb_heirs').select('*').eq('arb_profile_id', profileId).order(
-                                'created_at', { ascending: true }),
-                            secureDbClient.from('arb_landholdings').select('*').eq('arb_profile_id', profileId)
-                            .order('is_primary', { ascending: false }),
-                            secureDbClient.from('arb_tags').select('*').eq('arb_profile_id', profileId).order(
-                                'created_at', { ascending: false }),
-                            secureDbClient.from('arb_validations').select(
-                                    'id, validator_type, validator_name, position, date_validated, validation_basis, supporting_document_reference, arb_landholding_id'
-                                    ).eq('arb_id', arbId).order('date_validated', { ascending: false })
-                        ]);
-                        heirs = hRes.data || [];
-                        landholdings = lRes.data || [];
-                        tags = tRes.data || [];
-                        validations = vRes.data || [];
-                    }
+                    const relatedIds = relatedArbs.map(a => String(a.id));
+                    const profiles = await fetchProfileRows('arb_profiles', '*', 'arb_id', relatedIds);
+                    const profile = profiles.find(p => String(p.arb_id) === String(arbId)) || { id: null };
+                    const profileId = profile.id;
+                    const profileIds = profiles.map(p => p.id);
+                    const [heirRows, holdingRows, tagRows, validationRows] = await Promise.all([
+                        fetchProfileRows('arb_heirs', '*', 'arb_profile_id', profileIds),
+                        fetchProfileRows('arb_landholdings', '*', 'arb_profile_id', profileIds),
+                        fetchProfileRows('arb_tags', '*', 'arb_profile_id', profileIds),
+                        fetchProfileRows('arb_validations', 'id, arb_id, validator_type, validator_name, position, date_validated, validation_basis, supporting_document_reference, arb_landholding_id', 'arb_id', relatedIds)
+                    ]);
+                    const heirs = distinctProfileRows(heirRows);
+                    const tags = distinctProfileRows(tagRows);
+                    const validations = distinctProfileRows(validationRows)
+                        .sort((a, b) => String(b.date_validated || '').localeCompare(String(a.date_validated || '')));
+                    const sourceArbByProfile = new Map(profiles.map(p => [String(p.id), String(p.arb_id)]));
+                    const landholdings = distinctProfileRows(holdingRows)
+                        .map(h => ({ ...h, source_arb_id: sourceArbByProfile.get(String(h.arb_profile_id)) }))
+                        .sort((a, b) => String(a.municipality || '').localeCompare(String(b.municipality || '')) ||
+                            String(a.barangay || '').localeCompare(String(b.barangay || '')) ||
+                            String(a.lot_no || '').localeCompare(String(b.lot_no || ''), undefined, { numeric: true }));
 
                     const arbo = arb.arbo || {};
 
@@ -2079,14 +2105,11 @@ try {
                     let dispBarangay = arbo.barangay;
                     let dispTitle = '—';
 
-                    if (landholdings && landholdings.length > 0) {
-                        const validLandholding = landholdings.find(l => l.municipality);
-                        if (validLandholding) {
-                            dispMunicipality = validLandholding.municipality;
-                            dispBarangay = validLandholding.barangay || dispBarangay;
-                        }
-                        const lh = landholdings[0];
-                        dispTitle = lh.title_no || lh.ep_cloa_serial_no || lh.ccloa_title_raw || '—';
+                    if (landholdings.length) {
+                        const joinValues = get => [...new Set(landholdings.map(get).filter(Boolean))].join('; ') || '—';
+                        dispMunicipality = joinValues(h => h.municipality);
+                        dispBarangay = joinValues(h => [h.barangay, h.municipality].filter(Boolean).join(', '));
+                        dispTitle = joinValues(h => h.title_no || h.ep_cloa_serial_no || h.ccloa_title_raw);
                     }
 
                     const motherTitles = [...new Set(landholdings.map(h => h.original_mother_title_no || h
@@ -2128,6 +2151,7 @@ try {
                                             ${badge(profile.split_status || 'N/A', profile.split_status==='SPLIT'?'warning':'neutral')}
                                         </div>
                                         <div class="sidebar-actions">
+                                            ${profileId && canCaptureAndIssueId() ? `<button class="btn btn-primary" id="profilePhotoBtn">Update Photo / Camera</button>` : ''}
                                             ${profileId ? (isFullAdmin() ? `<button class="btn btn-primary" id="profileEditBtn">Edit Profile</button>` : '') : `<p class="empty-card" style="font-size:0.8rem;">Profile record missing.</p>`}
                                             ${profileId && (arb.life_status || profile.life_status)==='Dead' && canTagDeceased() ? `<button class="btn btn-primary" id="profileAddHeirBtn">Add Heir</button>` : ''}
                                             ${profileId && canManageLegal() ? `<button class="btn btn-primary" id="profileAddTagBtn">Tag / Case</button>` : ''}
@@ -2145,8 +2169,15 @@ try {
                                             <button data-tab="mother">Mother CLOA Group (${motherGroup.length})</button>
                                         </div>
                                         <div class="tab-content active" id="tab-overview">
+                                            <div class="empty-card" style="text-align:left;">
+                                                <strong>1 unique ARB · ${landholdings.length} lot record(s)</strong>
+                                                <p>All lots associated with this complete name are listed below, within your authorized access.</p>
+                                                ${relatedArbs.length > 1 ? `<label for="profileSourceRecord">Source record for profile details and updates</label>
+                                                <select id="profileSourceRecord">${relatedArbs.map(a => `<option value="${safe(a.id)}" ${String(a.id) === String(arbId) ? 'selected' : ''}>ARB ${safe(a.id)}${profiles.some(p => String(p.arb_id) === String(a.id)) ? '' : ' — profile missing'}</option>`).join('')}</select>
+                                                <small>Personal details and update buttons apply to the selected source record. Lots and history below include all ${relatedArbs.length} associated records.</small>` : ''}
+                                            </div>
                                             ${renderOverview(arb, profile, arbo, dispMunicipality, dispBarangay, dispTitle)}
-                                            <h4 style="margin-top:25px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;">Landholding Details</h4>
+                                            <h4 style="margin-top:25px;border-bottom:2px solid #e2e8f0;padding-bottom:8px;">All Associated Lots (${landholdings.length})</h4>
                                             ${renderLandholdings(landholdings)}
                                         </div>
                                         <div class="tab-content" id="tab-heirs">
@@ -2167,6 +2198,8 @@ try {
                         `;
 
                     showModal(`ARB Profile - ${fullName(arb)}`, body);
+                    document.getElementById('profileSourceRecord')?.addEventListener('change', e => openArbProfile(e.target.value));
+                    document.getElementById('profilePhotoBtn')?.addEventListener('click', () => openPhotoUpload(arbId));
 
                     document.querySelectorAll('.tab-nav button').forEach(btn => {
                         btn.addEventListener('click', function() {
@@ -2294,7 +2327,7 @@ try {
                         <div class="table-wrap">
                             <table>
                                 <thead><tr>
-                                    <th>Claim No.</th><th>LHID</th><th>Survey No.</th><th>ASP No.</th><th>Lot No.</th>
+                                    <th>Source ARB</th><th>Lot Record ID</th><th>Claim No.</th><th>LHID</th><th>Survey No.</th><th>ASP No.</th><th>Lot No.</th>
                                     <th>Area</th><th>ARB Share</th><th>CCLOA Area</th><th>Title Type</th>
                                     <th>Title No.</th><th>EP/CLOA Serial</th><th>CoCROM Cert</th>
                                     <th>CoCROM Ref</th><th>CoCROM Serial</th>
@@ -2309,7 +2342,7 @@ try {
                             `;
                 holdings.forEach(h => {
                     html += `<tr>
-                                <td>${displayValue(h.claim_no)}</td>
+                                <td>${displayValue(h.source_arb_id)}</td><td>${displayValue(h.id)}</td><td>${displayValue(h.claim_no)}</td>
                                 <td>${displayValue(h.lhid)}</td>
                                 <td>${displayValue(h.survey_no)}</td>
                                 <td>${displayValue(h.asp_no)}</td>
