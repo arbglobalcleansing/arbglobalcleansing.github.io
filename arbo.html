@@ -131,7 +131,7 @@
     <section class="section" id="arboListSection">
         <div class="module-heading">
             <div><h2>ARBO Management</h2></div>
-            <div class="module-actions"><button class="btn btn-info" id="summaryReport" type="button" style="display:none">ARBO Summary Report</button></div>
+            <div class="module-actions"><button class="btn btn-success" id="newArboBtn" type="button" style="display:none">+ New ARBO</button><button class="btn btn-info" id="summaryReport" type="button" style="display:none">ARBO Summary Report</button></div>
         </div>
         <div class="monitor-kpis" id="masterKpis"></div>
 
@@ -234,6 +234,7 @@
     const isFullEditor=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO','STAFF','LTSP','LTSP PERSONNEL'].includes(role());
     const isPbDDProjectUser=()=>['ADMIN','PBDD PERSONNEL','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const canPrintAllArbos=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
+    const canCreateArbo=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const isArboAdmin=()=>role()==='ARBO ADMIN';
     const isVerifier=()=>['ADMIN','PBDD UNIT HEAD','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
     const canDeleteMember=()=>['ADMIN','PBDD ADMIN','PBDD-ADMIN','CARPO-PBDD','PBDD-CARPO'].includes(role());
@@ -609,6 +610,43 @@
     function closeModal(){ $('monitorModal').classList.remove('active');$('monitorForm').reset();$('monitorModalBody').innerHTML='';$('saveModal').textContent='Save';$('saveModal').className='btn btn-success'; state.selectedBulkMembers=new Map(); state.selectedHouseholdArb=null; clearTimeout(state.arbSearchTimer); }
 
     function openMyProfile(){openModal('My Profile','my_profile','',`<div class="access-note">You may update your own name, position and password. Email, role, status and ARBO assignments remain administrator-controlled.</div><div class="form-grid">${input('email','Email / Login',state.user.email,'email','readonly','full')}${input('full_name','Complete Name',state.profile.full_name||'','text','required')}${input('position','Position',state.profile.position||'')}${input('password','New Password','','password','minlength="6" placeholder="Leave blank to keep current password"')}</div>`)}
+    function openNewArbo(){
+        if(!canCreateArbo()){alert('Only ADMIN / PBDD ADMIN / CARPO-PBDD may add a new ARBO.');return;}
+        const municipalities=[...new Set(state.arbos.map(a=>a.municipality).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+        const municipalityList=municipalities.map(v=>`<option value="${esc(v)}"></option>`).join('');
+        openModal('Add New ARBO','new_arbo','',`
+            <div class="access-note"><strong>New ARBO Registration</strong><br>Create a new ARBO organization record. ARBO Name, Municipality and Barangay are required. DAR ARBO IDs may be left blank when not yet officially assigned.</div>
+            <datalist id="knownMunicipalities">${municipalityList}</datalist>
+            <div class="form-grid">
+                ${input('name','ARBO Name','','text','required','full')}
+                ${input('dar_arbo_id','New DAR ARBO ID','','text','placeholder="Optional / if already assigned"')}
+                ${input('dar_previous_arbo_id','Previous DAR ARBO ID','','text','placeholder="Optional"')}
+                ${input('registration_no','Registration / Legacy ARBO No.','','text','placeholder="Optional"')}
+                ${input('municipality','Municipality','','text','required list="knownMunicipalities"')}
+                ${input('barangay','Barangay','','text','required')}
+                ${input('region_code','Region Code','V')}
+                ${input('province_name','Province / DAR Office','Camarines Sur I')}
+                ${input('congressional_district','Congressional District','','text','placeholder="Optional"')}
+                ${input('arc_classification','ARC Classification','','text','placeholder="ARC / NON-ARC / as applicable"')}
+                ${input('arc_id','ARC ID','','text','placeholder="Optional"')}
+                ${input('arc_name','ARC / SARC Name','','text','placeholder="Optional"')}
+                ${input('cluster_name','Cluster Name','','text','placeholder="Optional"')}
+                ${input('chairperson','Chairperson')}
+                ${input('contact_number','Contact Number')}
+                ${input('email','Email','','email')}
+                ${input('address','Address','','text','','full')}
+                ${input('cda_registration_no','CDA Registration Number')}
+                ${input('date_organized','Date Organized','','date')}
+                ${input('date_registered','Date Registered','','date')}
+                ${input('cda_last_renewal_date','Last CDA Renewal','','date')}
+                ${select('status','Organization Status',['ACTIVE','INACTIVE'],'ACTIVE','required')}
+                ${textarea('remarks','Remarks / Registration Basis','')}
+            </div>
+            <div class="access-note warning-note" style="margin-top:14px"><strong>Duplicate protection:</strong> The system will reject an existing DAR ARBO ID or the same ARBO name in the same municipality and barangay.</div>
+        `);
+        $('saveModal').textContent='Create ARBO';
+    }
+
     function openArboProfile(a){openModal('Edit ARBO Profile','arbo_profile',a.id,`<div class="access-note"><strong>${esc(upper(a.name))}</strong><br>Official name, DAR ARBO IDs, municipality, barangay and ARC classification come from the masterlist and are read-only here.</div><div class="form-grid">${input('dar_arbo_id','DAR ARBO ID',a.dar_arbo_id||'','text','readonly')}${input('municipality','Municipality',a.municipality||'','text','readonly')}${input('barangay','Barangay',a.barangay||'','text','readonly')}${input('chairperson','Chairperson',a.chairperson||'')}${input('contact_number','Contact Number',a.contact_number||'')}${input('email','Email',a.email||'','email')}${input('address','Address',a.address||'','text','','full')}${input('cda_registration_no','CDA Registration Number',a.cda_registration_no||'')}${input('date_organized','Date Organized',dateOnly(a.date_organized),'date')}${input('date_registered','Date Registered',dateOnly(a.date_registered),'date')}${input('cda_last_renewal_date','Last CDA Renewal',dateOnly(a.cda_last_renewal_date),'date')}${select('status','Organization Status',['ACTIVE','INACTIVE'],a.status||'ACTIVE')}${textarea('remarks','Remarks',a.remarks||'')}</div>`)}
     
     let householdMemberRowSequence=0;
@@ -1018,6 +1056,64 @@
                 if(password){const authSaved=await state.db.auth.updateUser({password});if(authSaved.error)throw authSaved.error}
                 state.profile={...state.profile,full_name:fullName,position};closeModal();await buildNavbar();return;
             }
+            if(type==='new_arbo'){
+                if(!canCreateArbo())throw new Error('You are not authorized to add a new ARBO.');
+                const name=String(data.get('name')||'').trim();
+                const municipality=String(data.get('municipality')||'').trim();
+                const barangay=String(data.get('barangay')||'').trim();
+                const darArboId=textOrNull(data.get('dar_arbo_id'));
+                if(!name||!municipality||!barangay)throw new Error('ARBO Name, Municipality and Barangay are required.');
+
+                if(darArboId){
+                    const dupId=await state.db.from('arbo').select('id,name').ilike('dar_arbo_id',darArboId).limit(1);
+                    if(dupId.error)throw dupId.error;
+                    if((dupId.data||[]).length)throw new Error(`DAR ARBO ID ${darArboId} already belongs to ${dupId.data[0].name||'another ARBO'}.`);
+                }
+
+                const dupName=await state.db.from('arbo').select('id,name,municipality,barangay')
+                    .ilike('name',name).ilike('municipality',municipality).ilike('barangay',barangay).limit(1);
+                if(dupName.error)throw dupName.error;
+                if((dupName.data||[]).length)throw new Error('An ARBO with the same name, municipality and barangay already exists.');
+
+                const note=textOrNull(data.get('remarks'));
+                const creationNote='Created manually through ARBO Management.';
+                const payload={
+                    name,
+                    dar_arbo_id:darArboId,
+                    dar_previous_arbo_id:textOrNull(data.get('dar_previous_arbo_id')),
+                    registration_no:textOrNull(data.get('registration_no')),
+                    municipality,
+                    barangay,
+                    region_code:textOrNull(data.get('region_code')),
+                    province_name:textOrNull(data.get('province_name')),
+                    congressional_district:textOrNull(data.get('congressional_district')),
+                    arc_classification:textOrNull(data.get('arc_classification')),
+                    arc_id:textOrNull(data.get('arc_id')),
+                    arc_name:textOrNull(data.get('arc_name')),
+                    cluster_name:textOrNull(data.get('cluster_name')),
+                    chairperson:textOrNull(data.get('chairperson')),
+                    contact_number:textOrNull(data.get('contact_number')),
+                    email:textOrNull(data.get('email')),
+                    address:textOrNull(data.get('address')),
+                    cda_registration_no:textOrNull(data.get('cda_registration_no')),
+                    date_organized:textOrNull(data.get('date_organized')),
+                    date_registered:textOrNull(data.get('date_registered')),
+                    cda_last_renewal_date:textOrNull(data.get('cda_last_renewal_date')),
+                    status:data.get('status')||'ACTIVE',
+                    is_active:(data.get('status')||'ACTIVE')==='ACTIVE',
+                    remarks:note?`${note} | ${creationNote}`:creationNote
+                };
+                const created=await state.db.from('arbo').insert(payload).select('*').single();
+                if(created.error)throw created.error;
+                state.arbos.push(created.data);
+                state.arbos.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+                closeModal();
+                populateFilters();
+                applyFilters();
+                openArbo(created.data.id);
+                return;
+            }
+
             if(type==='arbo_profile'){
                 const payload={chairperson:textOrNull(data.get('chairperson')),contact_number:textOrNull(data.get('contact_number')),email:textOrNull(data.get('email')),address:textOrNull(data.get('address')),cda_registration_no:textOrNull(data.get('cda_registration_no')),date_organized:textOrNull(data.get('date_organized')),date_registered:textOrNull(data.get('date_registered')),cda_last_renewal_date:textOrNull(data.get('cda_last_renewal_date')),status:data.get('status'),is_active:data.get('status')==='ACTIVE',remarks:textOrNull(data.get('remarks'))};
                 const result=await state.db.from('arbo').update(payload).eq('id',id).select('*').single();if(result.error)throw result.error;state.current=result.data;state.arbos=state.arbos.map(a=>String(a.id)===String(id)?result.data:a);
@@ -1261,7 +1357,7 @@
     $('municipalityFilter').addEventListener('change',()=>{populateBarangays();applyFilters()});
     $('clearFilters').addEventListener('click',()=>{$('searchText').value='';$('municipalityFilter').value='';populateBarangays();$('barangayFilter').value='';$('unitFilter').value='';$('pillarFilter').value='';$('projectStatusFilter').value='';$('monitoringFilter').value='';applyFilters()});
     $('previousPage').addEventListener('click',()=>{state.page=Math.max(0,state.page-1);renderMaster()});$('nextPage').addEventListener('click',()=>{state.page++;renderMaster()});
-    $('editArboProfile').addEventListener('click',()=>openArboProfile(state.current));$('openArboReport').addEventListener('click',openArboReportCenter);$('summaryReport').addEventListener('click',openSummaryReportCenter);
+    $('editArboProfile').addEventListener('click',()=>openArboProfile(state.current));$('openArboReport').addEventListener('click',openArboReportCenter);$('newArboBtn').addEventListener('click',openNewArbo);$('summaryReport').addEventListener('click',openSummaryReportCenter);
     $('closeWorkspace').addEventListener('click',()=>{$('workspace').style.display='none';$('arboListSection').style.display='block';state.current=null;});$('closeModal').addEventListener('click',closeModal);$('cancelModal').addEventListener('click',closeModal);$('monitorModal').addEventListener('click',event=>{if(event.target===$('monitorModal'))closeModal()});$('monitorForm').addEventListener('submit',saveRecord);
     $('closeReportPreview').addEventListener('click',closeReportTable);$('cancelReportPreview').addEventListener('click',closeReportTable);$('printReportPreview').addEventListener('click',printCurrentReport);$('reportModal').addEventListener('click',event=>{if(event.target===$('reportModal'))closeReportTable()});
 
@@ -1271,6 +1367,7 @@
         const profile=await state.db.from('profiles').select('*').eq('id',state.user.id).single();if(profile.error)throw profile.error;state.profile=profile.data;
         if(String(state.profile.status||'ACTIVE').toUpperCase()==='INACTIVE')throw new Error('Your account is inactive.');
         if(['PBDD PERSONNEL','PBDD UNIT HEAD'].includes(role())&&!PBDD_UNITS.includes(String(state.profile.pbdd_unit||'').toUpperCase()))throw new Error('ADMIN must assign this account to SIB, CRFPS or EDES before project monitoring can be opened.');
+        $('newArboBtn').style.display=canCreateArbo()?'inline-flex':'none';
         $('summaryReport').style.display=canPrintAllArbos()?'inline-flex':'none';
         if(!isPbDDProjectUser())['unitFilter','pillarFilter','projectStatusFilter','monitoringFilter'].forEach(id=>{$(id).closest('div').style.display='none'});
         await buildNavbar();await loadData();
