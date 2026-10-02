@@ -1259,6 +1259,65 @@
                 return { recorded: true, occupantName: name, reason };
             }
 
+            const LOT_SPECIFIC_CHANGE_TAGS = new Set([
+                'IDENTIFICATION OF NEW ARB',
+                'DISQUALIFICATION',
+                'DISQUALIFICATION AND IDENTIFICATION',
+                'TRANSFER ACTION',
+                'AO8',
+                'CANCELLATION OF TITLE',
+                'LAND CONVERSION'
+            ]);
+
+            async function propagateValidationToUnchangedLots(arbId, basePayload, excludedLandholdingIds = []) {
+                const { data: prof, error: profErr } = await secureDbClient.from('arb_profiles')
+                    .select('id').eq('arb_id', String(arbId)).single();
+                if (profErr) throw profErr;
+
+                const { data: landholdings, error: lhErr } = await secureDbClient.from('arb_landholdings')
+                    .select('id,lot_no,title_no,original_mother_title_no,municipality,barangay')
+                    .eq('arb_profile_id', prof.id);
+                if (lhErr) throw lhErr;
+
+                if (!landholdings || landholdings.length === 0) {
+                    return { validatedLots: 0, skippedLots: 0, totalLots: 0 };
+                }
+
+                const { data: tags, error: tagErr } = await secureDbClient.from('arb_tags')
+                    .select('arb_landholding_id,tag_type,status')
+                    .eq('arb_id', Number(arbId))
+                    .not('arb_landholding_id', 'is', null);
+                if (tagErr) throw tagErr;
+
+                const changedLotIds = new Set(
+                    (tags || [])
+                        .filter(t => LOT_SPECIFIC_CHANGE_TAGS.has(String(t.tag_type || '').toUpperCase()))
+                        .map(t => String(t.arb_landholding_id))
+                );
+                (excludedLandholdingIds || []).forEach(id => { if (id) changedLotIds.add(String(id)); });
+
+                let validatedLots = 0;
+                let skippedLots = 0;
+                for (const lh of landholdings) {
+                    if (changedLotIds.has(String(lh.id))) {
+                        skippedLots++;
+                        continue;
+                    }
+                    const lotPayload = {
+                        ...basePayload,
+                        arb_id: Number(arbId),
+                        arb_landholding_id: Number(lh.id),
+                        validation_basis: `${basePayload.validation_basis || 'Validated'} — SAME FARMER; validation applies to this unchanged lot.` ,
+                        updated_at: new Date().toISOString()
+                    };
+                    const { error } = await saveValidationRecord(lotPayload);
+                    if (error) throw error;
+                    validatedLots++;
+                }
+
+                return { validatedLots, skippedLots, totalLots: landholdings.length };
+            }
+
             function arbInitials(arb) {
                 const parts = [arb.first_name, arb.last_name].filter(Boolean);
                 if (parts.length === 0) return 'ARB';
@@ -2653,14 +2712,16 @@ try {
                 const currentPos = currentUserProfile?.position || '';
 
                 let legalHoldingOptions = '';
+                let legalHoldings = [];
                 try {
                     const profRes = await secureDbClient.from('arb_profiles').select('id').eq('arb_id', String(arbId))
                         .single();
                     if (profRes.data && profRes.data.id) {
-                        const { data: legalHoldings } = await secureDbClient.from('arb_landholdings').select(
+                        const { data: fetchedLandholdings } = await secureDbClient.from('arb_landholdings').select(
                             'id,original_mother_title_no,title_no,lot_no,municipality,barangay').eq('arb_profile_id',
                             profRes.data.id);
-                        legalHoldingOptions = (legalHoldings || []).map(h =>
+                        legalHoldings = fetchedLandholdings || [];
+                        legalHoldingOptions = legalHoldings.map(h =>
                             `<option value="${h.id}">${safe(h.original_mother_title_no || h.title_no || 'Untitled')} - Lot ${safe(h.lot_no || 'N/A')} - ${safe(h.barangay || '')}, ${safe(h.municipality || '')}</option>`
                             ).join('');
                     }
@@ -2688,7 +2749,7 @@ try {
                                         <option value="">All Landholdings / General Validation</option>
                                         ${legalHoldingOptions}
                                     </select>
-                                    <small>Select if this validation applies only to a specific landholding.</small>
+                                    <small>Same farmer/no change = all unchanged lots will be validated automatically. Select a specific lot when that lot has a different/new occupant or another change.</small>
                                 </div>
                                 <div class="form-group full"><label for="valName">Validator Name</label><input id="valName" name="validator_name" value="${safe(currentName)}" required></div>
                                 <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position" value="${safe(currentPos)}"></div>
@@ -2739,8 +2800,14 @@ try {
 
                     const fd = new FormData(e.target);
                     try {
-                        const landholdingId = emptyToNull(fd.get('arb_landholding_id'));
+                        let landholdingId = emptyToNull(fd.get('arb_landholding_id'));
                         const occupancyFinding = fd.get('occupancy_finding');
+                        if (!landholdingId && occupancyFinding === 'NEW' && legalHoldings.length === 1) {
+                            landholdingId = String(legalHoldings[0].id);
+                        }
+                        if (occupancyFinding === 'NEW' && legalHoldings.length > 1 && !landholdingId) {
+                            throw new Error('This ARB has several lots. Select the particular lot where the new/different occupant or change was found. The other unchanged lots can remain validated.');
+                        }
                         const newOccupantName = emptyToNull(fd.get('new_occupant_name'));
                         const selectedOccupantReason = emptyToNull(fd.get('occupant_reason'));
                         const occupantReason = selectedOccupantReason === 'OTHER'
@@ -2763,11 +2830,25 @@ try {
                             updated_at: new Date().toISOString()
                         };
 
-                        const { error: valErr } = await saveValidationRecord(valPayload);
-                        if (valErr) throw valErr;
+                        const validationStatus = fd.get('validation_status');
+                        let lotPropagation = { validatedLots: 0, skippedLots: 0, totalLots: legalHoldings.length };
+
+                        // A same-farmer VALIDATED finding applies to every linked lot unless that lot already has a specific change.
+                        // If one selected lot has a new/different occupant, that lot is the exception and the other unchanged lots are validated.
+                        if (validationStatus === 'Validated') {
+                            const excluded = occupancyFinding === 'NEW' && landholdingId ? [landholdingId] : [];
+                            lotPropagation = await propagateValidationToUnchangedLots(arbId, valPayload, excluded);
+                            if (lotPropagation.totalLots === 0) {
+                                const { error: valErr } = await saveValidationRecord(valPayload);
+                                if (valErr) throw valErr;
+                            }
+                        } else {
+                            const { error: valErr } = await saveValidationRecord(valPayload);
+                            if (valErr) throw valErr;
+                        }
 
                         const { error: arbErr } = await secureDbClient.from('arb')
-                            .update({ validation_status: fd.get('validation_status'),
+                            .update({ validation_status: validationStatus,
                                 updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arbErr) throw arbErr;
@@ -2786,7 +2867,10 @@ try {
                         }
 
                         hideSubModal();
-                        popToast('Validation added and status updated.', 'ok');
+                        const lotMsg = validationStatus === 'Validated' && lotPropagation.totalLots
+                            ? ` ${lotPropagation.validatedLots} unchanged lot(s) validated${lotPropagation.skippedLots ? `; ${lotPropagation.skippedLots} lot(s) with specific changes preserved.` : '.'}`
+                            : '';
+                        popToast('Validation added and status updated.' + lotMsg, 'ok');
                         if (options.returnToTable) await openTableView();
                         else openArbProfile(arbId);
                         loadArbs(currentPage);
@@ -3990,6 +4074,7 @@ try {
                                     <li><strong>BINENTA NA</strong> = AO 8 (tagging) + capture actual name and mobile</li>
                                     <li><strong>NAGADAN NA</strong> = Transfer Action (tagging) + capture actual name and mobile</li>
                                     <li><strong>ARBO MEMBER = YES</strong> = ARBO assignment dropdown</li>
+                                    <li><strong>Same farmer + several lots</strong> = all unchanged lots are validated; lot-specific changes are preserved as exceptions.</li>
                                 </ul>
                             </div>
                             <div class="modal-actions">
@@ -4436,8 +4521,20 @@ function parseOcrArbRows(ocrText) {
                             recorded_by_user_id: userId,
                             updated_at: new Date().toISOString()
                         };
-                        const { error: vErr } = await saveValidationRecord(valPayload);
-                        if (vErr) throw vErr;
+                        const { data: arbNameRow } = await secureDbClient.from('arb')
+                            .select('first_name,middle_name,last_name').eq('id', Number(arbId)).single();
+                        const differentOccupant = actualName && arbNameRow && isDifferentOccupantName(fullName(arbNameRow), actualName);
+                        if (!differentOccupant) {
+                            const propagated = await propagateValidationToUnchangedLots(arbId, valPayload);
+                            if (propagated.totalLots === 0) {
+                                const { error: vErr } = await saveValidationRecord(valPayload);
+                                if (vErr) throw vErr;
+                            }
+                        } else {
+                            // A detected different occupant is a change; do not blanket-validate all lots.
+                            const { error: vErr } = await saveValidationRecord(valPayload);
+                            if (vErr) throw vErr;
+                        }
                         break;
 
                     case 'DISQUALIFICATION':
