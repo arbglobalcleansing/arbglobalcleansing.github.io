@@ -515,7 +515,7 @@
         const activeMembersList = members.filter(m => m.membership_status === 'ACTIVE' || (!m.date_to && !['WITHDRAWN','TERMINATED','DECEASED'].includes(m.membership_status)));
         const inactiveMembersList = members.filter(m => m.membership_status !== 'ACTIVE' || (m.date_to && ['WITHDRAWN','TERMINATED','DECEASED'].includes(m.membership_status)));
         
-        const actions=canEditProject()?'<button class="btn btn-success" type="button" data-add-member>Add / Register Members</button>':'';
+        const actions=canEditProject()?'<button class="btn btn-success" type="button" data-add-member>Add / Register Members</button><button class="btn btn-info" type="button" data-add-household-member>+ Add Household Member</button>':'';
         
         const activeRows=activeMembersList.map(m=>`<tr><td><strong>${show(m.arb_name)}</strong><br><small>${show(m.membership_no)}</small></td><td>${badge(memberTypeLabel(m),m.is_arb?'green':(isHouseholdMember(m)?'blue':'gray'))}</td><td>${show(m.contact_number)}<br><small>${show(m.email)}</small></td><td>${show(m.municipality)}<br><small>${show(m.barangay)}</small></td><td>${formatDate(m.date_from)}</td><td>${badge(m.membership_status||'ACTIVE','green')}</td><td><div class="actions">${canEditProject()?`<button class="btn btn-warning btn-sm" type="button" data-edit-member="${esc(m.id)}">Edit</button>`:'View only'}${canDeleteMember()&&m.membership_status==='ACTIVE'?`<button class="btn btn-danger btn-sm" type="button" data-delete-member="${esc(m.id)}">Remove</button>`:''}</div></td></tr>`);
 
@@ -528,6 +528,7 @@
             (inactiveMembersList.length > 0 ? `<div style="margin-top:28px;">${heading('Inactive / Removed Members','Members who have withdrawn, been terminated, or are deceased.')}</div>`+table(['Member / No.','Type','Contact','Location','Membership Period','Status','Action'],inactiveRows,'') : '');
 
         document.querySelector('[data-add-member]')?.addEventListener('click',()=>openMember());
+        document.querySelector('[data-add-household-member]')?.addEventListener('click',()=>openMember({},'HOUSEHOLD'));
         document.querySelectorAll('[data-edit-member]').forEach(b=>b.onclick=()=>openMember(state.members.find(m=>String(m.id)===String(b.dataset.editMember))));
         document.querySelectorAll('[data-delete-member]').forEach(b=>b.onclick=()=>openDeleteMember(b.dataset.deleteMember));
     }
@@ -610,12 +611,58 @@
     function openMyProfile(){openModal('My Profile','my_profile','',`<div class="access-note">You may update your own name, position and password. Email, role, status and ARBO assignments remain administrator-controlled.</div><div class="form-grid">${input('email','Email / Login',state.user.email,'email','readonly','full')}${input('full_name','Complete Name',state.profile.full_name||'','text','required')}${input('position','Position',state.profile.position||'')}${input('password','New Password','','password','minlength="6" placeholder="Leave blank to keep current password"')}</div>`)}
     function openArboProfile(a){openModal('Edit ARBO Profile','arbo_profile',a.id,`<div class="access-note"><strong>${esc(upper(a.name))}</strong><br>Official name, DAR ARBO IDs, municipality, barangay and ARC classification come from the masterlist and are read-only here.</div><div class="form-grid">${input('dar_arbo_id','DAR ARBO ID',a.dar_arbo_id||'','text','readonly')}${input('municipality','Municipality',a.municipality||'','text','readonly')}${input('barangay','Barangay',a.barangay||'','text','readonly')}${input('chairperson','Chairperson',a.chairperson||'')}${input('contact_number','Contact Number',a.contact_number||'')}${input('email','Email',a.email||'','email')}${input('address','Address',a.address||'','text','','full')}${input('cda_registration_no','CDA Registration Number',a.cda_registration_no||'')}${input('date_organized','Date Organized',dateOnly(a.date_organized),'date')}${input('date_registered','Date Registered',dateOnly(a.date_registered),'date')}${input('cda_last_renewal_date','Last CDA Renewal',dateOnly(a.cda_last_renewal_date),'date')}${select('status','Organization Status',['ACTIVE','INACTIVE'],a.status||'ACTIVE')}${textarea('remarks','Remarks',a.remarks||'')}</div>`)}
     
-    function openMember(record={}){
+    let householdMemberRowSequence=0;
+    function householdMemberRowHtml(values={}){
+        const rowId=++householdMemberRowSequence;
+        return `<div class="panel household-member-row" data-household-member-row="${rowId}" style="margin-top:10px;background:#fff;">
+            <div class="section-heading" style="margin-bottom:10px;"><div><h3 style="font-size:.92rem;">Household Member ${rowId}</h3><p>Linked to the single ARB selected above.</p></div><button class="btn btn-danger btn-sm" type="button" data-remove-household-row="${rowId}">Remove</button></div>
+            <div class="form-grid">
+                <div class="field"><label>Household / Family Member Name</label><input class="control" data-household-field="name" value="${esc(values.name||'')}" placeholder="Complete name"></div>
+                <div class="field"><label>Relationship to ARB</label><input class="control" data-household-field="relationship" value="${esc(values.relationship||'')}" placeholder="e.g., Spouse, Son, Daughter"></div>
+                <div class="field"><label>Membership Number</label><input class="control" data-household-field="membership_no" value="${esc(values.membership_no||'')}"></div>
+                <div class="field"><label>Contact Number</label><input class="control" data-household-field="contact_number" value="${esc(values.contact_number||'')}"></div>
+                <div class="field"><label>Email</label><input class="control" type="email" data-household-field="email" value="${esc(values.email||'')}"></div>
+                <div class="field span2"><label>Address</label><input class="control" data-household-field="address" value="${esc(values.address||'')}"></div>
+                <div class="field full"><label>Remarks</label><textarea class="control" data-household-field="remarks">${esc(values.remarks||'')}</textarea></div>
+            </div>
+        </div>`;
+    }
+    function updateHouseholdRegistrationCount(){
+        if($('f_member_type')?.value!=='HOUSEHOLD')return;
+        const count=document.querySelectorAll('#householdMembersContainer [data-household-member-row]').length;
+        if($('saveModal'))$('saveModal').textContent=`Save Household Members (${count})`;
+    }
+    function addHouseholdMemberRow(values={}){
+        const container=$('householdMembersContainer');
+        if(!container)return;
+        container.insertAdjacentHTML('beforeend',householdMemberRowHtml(values));
+        updateHouseholdRegistrationCount();
+    }
+    function ensureHouseholdMemberRow(){
+        const container=$('householdMembersContainer');
+        if(container&&!container.querySelector('[data-household-member-row]'))addHouseholdMemberRow();
+    }
+    function getHouseholdMemberRows(){
+        return [...document.querySelectorAll('#householdMembersContainer [data-household-member-row]')].map(row=>{
+            const get=field=>row.querySelector(`[data-household-field="${field}"]`)?.value||'';
+            return {
+                name:textOrNull(get('name')),
+                relationship:textOrNull(get('relationship')),
+                membership_no:textOrNull(get('membership_no')),
+                contact_number:textOrNull(get('contact_number')),
+                email:textOrNull(get('email')),
+                address:textOrNull(get('address')),
+                remarks:textOrNull(get('remarks'))
+            };
+        }).filter(r=>r.name||r.relationship||r.membership_no||r.contact_number||r.email||r.address||r.remarks);
+    }
+
+    function openMember(record={}, initialMode='ARB'){
         if(record.id){
             const typeBadge = badge(memberTypeLabel(record), record.is_arb?'green':(isHouseholdMember(record)?'blue':'gray'));
             openModal('Edit Member','member',record.id,`<div class="access-note">Member identity and classification are locked. Update contact and membership details below.</div><div class="selected-person"><strong>${show(record.arb_name)}</strong> ${typeBadge}</div><div class="form-grid" style="margin-top:12px;">${input('membership_no','Membership Number',record.membership_no)}${input('date_from','Member Since',dateOnly(record.date_from)||today(),'date','required')}${input('date_to','Membership End',dateOnly(record.date_to),'date')}${select('membership_status','Membership Status',['ACTIVE','INACTIVE','WITHDRAWN','TERMINATED','DECEASED'],record.membership_status||'ACTIVE')}${input('contact_number','Contact Number',record.contact_number)}${input('email','Email',record.email,'email')}${input('address','Address',record.address,'text','','span2')}${textarea('remarks','Remarks',record.remarks)}</div>`);
         } else {
-            openModal('Add / Register Members','member','',`<div class="access-note"><strong>ARB</strong> links the beneficiary directly to the ARBO. <strong>HOUSEHOLD / FAMILY OF ARB</strong> records a family/household member under the related ARB profile; the family member is not converted into an ARB.</div><div class="form-grid">${select('member_type','Member Type',[['ARB','ARB — bulk select from database'],['HOUSEHOLD','Household / Family of ARB'],['NON_ARB','Other Non-ARB — manual entry']],'ARB')}${input('default_membership_date','Default Membership Date',today(),'date','required')}</div><div id="arbPicker"><div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px;"><input class="control" id="f_search_term" placeholder="Search ARB name, ID, title, CCLOA, location..."> <button class="btn btn-primary" id="searchMemberDatabase" type="button">Search ARB Database</button></div><div class="picker-results" id="memberSearchResults"><div class="empty-panel">Type search terms to find ARBs.</div></div><div id="selectedBulkMembers"></div></div><div id="householdEntry" style="display:none;margin-top:12px;"><div class="access-note" style="border-left-color:#1769a0;background:#eff6ff;"><strong>HOUSEHOLD / FAMILY MEMBER:</strong> First search and select the related ARB above. This membership validates the related ARB through household participation in the ARBO, but does not make the family member an ARB.</div><div class="form-grid">${input('household_member_name','Household / Family Member Name','','text')}${input('household_relationship','Relationship to ARB','','text','placeholder="e.g., Spouse, Son, Daughter"')}${input('membership_no','Membership Number','')}${input('contact_number','Contact Number','')}${input('email','Email','','email')}${input('address','Address','','text','','span2')}${textarea('remarks','Remarks','')}</div></div><div id="nonArbEntry" style="display:none;margin-top:12px;"><div class="warning-note access-note"><strong>OTHER NON-ARB:</strong> This person is not linked to an ARB profile and does not validate an ARB record.</div><div class="form-grid">${input('non_arb_name','Non-ARB Name','','text')}${input('membership_no_nonarb','Membership Number','')}${input('contact_number_nonarb','Contact Number','')}${input('email_nonarb','Email','','email')}${input('address_nonarb','Address','','text','','span2')}${textarea('remarks_nonarb','Remarks','')}</div></div>`);
+            openModal(initialMode==='HOUSEHOLD'?'Add Household Members':'Add / Register Members','member','',`<div class="access-note"><strong>ARB</strong> links the beneficiary directly to the ARBO. <strong>HOUSEHOLD / FAMILY OF ARB</strong> lets you select <strong>one ARB once</strong>, add <strong>several household members in the same registration</strong>, then save them together. Household members are not converted into ARBs.</div><div class="form-grid">${select('member_type','Member Type',[['ARB','ARB — bulk select from database'],['HOUSEHOLD','Household Membership — one ARB, multiple household members'],['NON_ARB','Other Non-ARB — manual entry']],initialMode)}${input('default_membership_date','Default Membership Date',today(),'date','required')}</div><div id="arbPicker"><div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px;"><input class="control" id="f_search_term" placeholder="Search ARB name, ID, title, CCLOA, location..."> <button class="btn btn-primary" id="searchMemberDatabase" type="button">Search ARB Database</button></div><div class="picker-results" id="memberSearchResults"><div class="empty-panel">Type search terms to find ARBs.</div></div><div id="selectedBulkMembers"></div></div><div id="householdEntry" style="display:none;margin-top:12px;"><div class="access-note" style="border-left-color:#1769a0;background:#eff6ff;"><strong>HOUSEHOLD MEMBERSHIP:</strong> Select <strong>one ARB / household head only once</strong>. Then use <strong>+ Add Household Member</strong> to enter as many family/household members as needed. Clicking Save registers all listed household members together under that one ARB.</div><div id="householdMembersContainer"></div><div style="margin-top:10px;"><button class="btn btn-info" id="addHouseholdMemberRow" type="button">+ Add Household Member</button></div></div><div id="nonArbEntry" style="display:none;margin-top:12px;"><div class="warning-note access-note"><strong>OTHER NON-ARB:</strong> This person is not linked to an ARB profile and does not validate an ARB record.</div><div class="form-grid">${input('non_arb_name','Non-ARB Name','','text')}${input('membership_no_nonarb','Membership Number','')}${input('contact_number_nonarb','Contact Number','')}${input('email_nonarb','Email','','email')}${input('address_nonarb','Address','','text','','span2')}${textarea('remarks_nonarb','Remarks','')}</div></div>`);
             const toggleMemberType = () => {
                 const type=$('f_member_type').value;
                 const usesArb = type==='ARB' || type==='HOUSEHOLD';
@@ -629,8 +676,15 @@
                     : 'Search ARB name, ID, title, CCLOA, location...';
                 renderMemberSearchResults();
                 renderSelectedBulkMembers();
+                if(type==='HOUSEHOLD'){
+                    ensureHouseholdMemberRow();
+                    updateHouseholdRegistrationCount();
+                }else if($('saveModal')){
+                    $('saveModal').textContent='Save';
+                }
             };
             $('f_member_type').addEventListener('change',toggleMemberType);
+            $('addHouseholdMemberRow')?.addEventListener('click',()=>addHouseholdMemberRow());
             $('searchMemberDatabase').addEventListener('click',searchMemberDatabase);
             $('f_search_term').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchMemberDatabase();}});
             $('f_search_term').addEventListener('input',()=>{clearTimeout(state.arbSearchTimer);state.arbSearchTimer=setTimeout(searchMemberDatabase,450);});
@@ -1000,21 +1054,33 @@
                         }
                     }else if(memberType==='HOUSEHOLD'){
                         const related=state.selectedHouseholdArb;
-                        if(!related?.arb_profile_id||!related?.arb_id_uuid)throw new Error('Select the related ARB / household head first.');
-                        const householdName=textOrNull(data.get('household_member_name')),relationship=textOrNull(data.get('household_relationship'));
-                        if(!householdName)throw new Error('Household / Family Member Name is required.');
-                        if(!relationship)throw new Error('Relationship to ARB is required.');
-                        const userRemarks=textOrNull(data.get('remarks'));
-                        const marker=`[HOUSEHOLD_ARBO_MEMBER] ARB_PROFILE_ID:${related.arb_profile_id}; ARB_ID:${related.arb_id_uuid}; Related ARB: ${related.display_name}; Relationship: ${relationship}`;
-                        const payload={
-                            arbo_id:parseInt(currentId(),10),profile_id:null,arb_name:householdName,is_arb:false,date_from:membershipDate,
-                            membership_no:textOrNull(data.get('membership_no')),contact_number:textOrNull(data.get('contact_number')),email:textOrNull(data.get('email')),
-                            address:textOrNull(data.get('address')),municipality:related.municipalities!=='N/A'?related.municipalities:null,barangay:related.barangays!=='N/A'?related.barangays:null,
-                            membership_status:'ACTIVE',position:'Household Member',subscribed_capital:0,assigned_at:new Date().toISOString(),
-                            remarks:userRemarks?`${marker}. ${userRemarks}`:marker,created_by:state.user?.id,updated_by:state.user?.id,updated_at:new Date().toISOString()
-                        };
-                        const result=await state.db.from('arbo_members').insert(payload);if(result.error)throw result.error;
-                        await markArbValidatedByMembership(related.arb_id_uuid,`HOUSEHOLD/FAMILY MEMBER OF ARB IS AN ACTIVE ARBO MEMBER: ${householdName} (${relationship})`,`ARBO Membership Registry — ${state.current?.name||currentId()}`);
+                        if(!related?.arb_profile_id||!related?.arb_id_uuid)throw new Error('Select the one related ARB / household head first.');
+                        const householdRows=getHouseholdMemberRows();
+                        if(!householdRows.length)throw new Error('Add at least one household / family member.');
+                        householdRows.forEach((row,index)=>{
+                            if(!row.name)throw new Error(`Household member ${index+1}: Complete Name is required.`);
+                            if(!row.relationship)throw new Error(`Household member ${index+1}: Relationship to ARB is required.`);
+                        });
+                        const householdNames=new Set();
+                        householdRows.forEach((row,index)=>{
+                            const key=String(row.name||'').trim().replace(/\s+/g,' ').toUpperCase();
+                            if(householdNames.has(key))throw new Error(`Household member ${index+1}: ${row.name} is duplicated in this registration.`);
+                            householdNames.add(key);
+                        });
+                        const nowIso=new Date().toISOString();
+                        const payloads=householdRows.map(row=>{
+                            const marker=`[HOUSEHOLD_ARBO_MEMBER] ARB_PROFILE_ID:${related.arb_profile_id}; ARB_ID:${related.arb_id_uuid}; Related ARB: ${related.display_name}; Relationship: ${row.relationship}`;
+                            return {
+                                arbo_id:parseInt(currentId(),10),profile_id:null,arb_name:row.name,is_arb:false,date_from:membershipDate,
+                                membership_no:row.membership_no,contact_number:row.contact_number,email:row.email,address:row.address,
+                                municipality:related.municipalities!=='N/A'?related.municipalities:null,barangay:related.barangays!=='N/A'?related.barangays:null,
+                                membership_status:'ACTIVE',position:'Household Member',subscribed_capital:0,assigned_at:nowIso,
+                                remarks:row.remarks?`${marker}. ${row.remarks}`:marker,created_by:state.user?.id,updated_by:state.user?.id,updated_at:nowIso
+                            };
+                        });
+                        const result=await state.db.from('arbo_members').insert(payloads);if(result.error)throw result.error;
+                        const householdSummary=householdRows.map(row=>`${row.name} (${row.relationship})`).join(', ');
+                        await markArbValidatedByMembership(related.arb_id_uuid,`HOUSEHOLD MEMBERSHIP — ${householdRows.length} ACTIVE HOUSEHOLD/FAMILY MEMBER${householdRows.length===1?'':'S'} LINKED TO THIS ARB: ${householdSummary}`,`ARBO Membership Registry — ${state.current?.name||currentId()}`);
                     }else{
                         const nonArbName=textOrNull(data.get('non_arb_name'));if(!nonArbName)throw new Error('Non-ARB Name is required.');
                         const payload={
@@ -1148,6 +1214,15 @@
             return;
         }
 
+        const removeHouseholdRow = e.target.closest('[data-remove-household-row]');
+        if(removeHouseholdRow){
+            const row=removeHouseholdRow.closest('[data-household-member-row]');
+            if(row)row.remove();
+            ensureHouseholdMemberRow();
+            updateHouseholdRegistrationCount();
+            return;
+        }
+
         const householdBtn = e.target.closest('[data-action-household-arb]');
         const actionBtn = e.target.closest('[data-action-arb]');
         const toggleRow = e.target.closest('[data-toggle-arb]');
@@ -1179,6 +1254,7 @@
 
     document.addEventListener('input',e=>{
         if(e.target.matches('[data-bulk-field]'))rememberBulkField(e.target);
+        if(e.target.matches('[data-household-field]'))updateHouseholdRegistrationCount();
     });
 
     $('searchText').addEventListener('input',applyFilters);['unitFilter','pillarFilter','projectStatusFilter','monitoringFilter','barangayFilter'].forEach(id=>$(id).addEventListener('change',applyFilters));
