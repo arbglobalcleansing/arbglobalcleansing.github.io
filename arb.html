@@ -1495,6 +1495,77 @@
                 }
             }
 
+            function isParcelizedWithIndividualTitle(profile) {
+                return String(profile?.split_status || '').toUpperCase() === 'SPLIT' &&
+                    Boolean(String(profile?.e_title_no || '').trim());
+            }
+
+            async function applyAutomaticValidationRules(arbId) {
+                if (!arbId || !secureDbClient) return { validated: false, reasons: [], formerMotherTitles: [] };
+
+                const [arbRes, profRes] = await Promise.all([
+                    secureDbClient.from('arb')
+                        .select('id,with_ali_case,arbo_id,validation_status')
+                        .eq('id', arbId).single(),
+                    secureDbClient.from('arb_profiles')
+                        .select('id,arb_id,split_status,e_title_no')
+                        .eq('arb_id', String(arbId)).single()
+                ]);
+
+                if (arbRes.error) throw arbRes.error;
+                const arb = arbRes.data || {};
+                const profile = profRes.data || {};
+                const reasons = [];
+                let formerMotherTitles = [];
+
+                if (arb.with_ali_case) reasons.push('WITH ALI CASE');
+                if (arb.arbo_id) reasons.push('MEMBER OF ARBO');
+
+                if (isParcelizedWithIndividualTitle(profile)) {
+                    if (profile.id) {
+                        const { data: holdings, error: lhErr } = await secureDbClient.from('arb_landholdings')
+                            .select('original_mother_title_no,ccloa_title_raw')
+                            .eq('arb_profile_id', profile.id);
+                        if (lhErr) throw lhErr;
+                        formerMotherTitles = [...new Set((holdings || [])
+                            .map(h => h.original_mother_title_no || h.ccloa_title_raw)
+                            .filter(Boolean))];
+                    }
+                    const formerText = formerMotherTitles.length
+                        ? ` Former Mother Title: ${formerMotherTitles.join('; ')}.`
+                        : '';
+                    reasons.push(`MOTHER TITLE PARCELIZED; INDIVIDUAL TITLE ISSUED: ${profile.e_title_no}.${formerText}`);
+                }
+
+                if (!reasons.length) return { validated: false, reasons, formerMotherTitles };
+
+                if (String(arb.validation_status || '').toUpperCase() !== 'VALIDATED') {
+                    const { error: statusErr } = await secureDbClient.from('arb')
+                        .update({ validation_status: 'Validated', updated_at: new Date().toISOString() })
+                        .eq('id', arbId);
+                    if (statusErr) throw statusErr;
+                }
+
+                const now = new Date();
+                const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
+                const { error: valErr } = await saveValidationRecord({
+                    arb_id: Number(arbId),
+                    arb_landholding_id: null,
+                    validator_type: 'Automatic Rule',
+                    validator_name: userName,
+                    position: currentUserProfile?.position || null,
+                    date_validated: now.toISOString().slice(0, 10),
+                    validation_basis: reasons.join(' | '),
+                    supporting_document_reference: 'ARB Global Cleansing derived validation rule',
+                    recorded_by: userName,
+                    recorded_by_user_id: currentUser?.id || null,
+                    updated_at: now.toISOString()
+                });
+                if (valErr) throw valErr;
+
+                return { validated: true, reasons, formerMotherTitles };
+            }
+
             const modalEl = document.getElementById('modal');
 
             function showModal(title, body) {
@@ -2264,6 +2335,9 @@ try {
                 showModal('ARB Profile', '<p class="empty-msg" style="padding:40px;">Loading ARB profile...</p>');
 
                 try {
+                    try { await applyAutomaticValidationRules(arbId); }
+                    catch (ruleErr) { console.warn('Automatic validation rule could not be applied:', ruleErr); }
+
                     const arbRes = await secureDbClient.from('arb').select(`
                             *, arbo:arbo_id ( id, name, municipality, barangay )
                         `).eq('id', arbId).single();
@@ -2298,8 +2372,12 @@ try {
                     const validations = distinctProfileRows(validationRows)
                         .sort((a, b) => String(b.date_validated || '').localeCompare(String(a.date_validated || '')));
                     const sourceArbByProfile = new Map(profiles.map(p => [String(p.id), String(p.arb_id)]));
+                    const sourceProfileById = new Map(profiles.map(p => [String(p.id), p]));
                     const landholdings = distinctProfileRows(holdingRows)
-                        .map(h => ({ ...h, source_arb_id: sourceArbByProfile.get(String(h.arb_profile_id)) }))
+                        .map(h => ({ ...h,
+                            source_arb_id: sourceArbByProfile.get(String(h.arb_profile_id)),
+                            source_profile: sourceProfileById.get(String(h.arb_profile_id)) || {}
+                        }))
                         .sort((a, b) => String(a.municipality || '').localeCompare(String(b.municipality || '')) ||
                             String(a.barangay || '').localeCompare(String(b.barangay || '')) ||
                             String(a.lot_no || '').localeCompare(String(b.lot_no || ''), undefined, { numeric: true }));
@@ -2329,14 +2407,16 @@ try {
                         const relatedProfileIds = [...new Set(relatedHoldings.map(h => h.arb_profile_id).filter(
                         Boolean))];
                         const relatedProfiles = relatedProfileIds.length ? await fetchInChunks('arb_profiles',
-                            'id, arb_id, e_title_no, cocrom_no', 'id', relatedProfileIds) : [];
+                            'id, arb_id, e_title_no, cocrom_no, split_status', 'id', relatedProfileIds) : [];
                         const relatedArbIds = relatedProfiles.map(p => p.arb_id).filter(Boolean);
                         const relatedArbs = relatedArbIds.length ? await fetchInChunks('arb',
                             'id, first_name, middle_name, last_name', 'id', relatedArbIds) : [];
                         const pMap = Object.fromEntries(relatedProfiles.map(p => [String(p.id), p]));
                         const aMap = Object.fromEntries(relatedArbs.map(a => [String(a.id), a]));
-                        motherGroup = relatedHoldings.map(h => ({ ...h, profile: pMap[String(h.arb_profile_id)] ||
-                                {}, arb: aMap[String(pMap[String(h.arb_profile_id)]?.arb_id)] || {} }));
+                        motherGroup = relatedHoldings
+                            .map(h => ({ ...h, profile: pMap[String(h.arb_profile_id)] || {},
+                                arb: aMap[String(pMap[String(h.arb_profile_id)]?.arb_id)] || {} }))
+                            .filter(row => !isParcelizedWithIndividualTitle(row.profile));
                     }
 
                     const profilePhotoUrl = await getProfilePhotoUrl(profile);
@@ -2396,7 +2476,7 @@ try {
                                             ${renderValidations(validations, landholdings)}
                                         </div>
                                         <div class="tab-content" id="tab-mother">
-                                            ${renderMotherGroup(motherGroup)}
+                                            ${renderMotherGroup(motherGroup, isParcelizedWithIndividualTitle(profile) ? motherTitles : [], profile.e_title_no)}
                                         </div>
                                     </div>
                                 </div>
@@ -2562,7 +2642,9 @@ try {
                                 <td>${displayValue(h.cocrom_certificate_no)}</td>
                                 <td>${displayValue(h.cocrom_reference_raw)}</td>
                                 <td>${displayValue(h.cocrom_serial_no)}</td>
-                                <td>${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td>
+                                <td>${isParcelizedWithIndividualTitle(h.source_profile)
+                                    ? `<span>—</span><br><small style="color:#64748b;white-space:normal;"><strong>Remarks:</strong> Former Mother Title: ${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</small>`
+                                    : displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td>
                                 <td>${displayValue(h.municipality)}</td>
                                 <td>${displayValue(h.barangay)}</td>
                                 <td>${displayValue(h.landowner)}</td>
@@ -2593,9 +2675,15 @@ try {
                 } finally { holder.remove(); }
             }
 
-            function renderMotherGroup(rows) {
-                if (!rows.length) return '<p class="empty-card">No Mother CLOA group found for this ARB.</p>';
-                return `<h4>ARBs Under the Same Mother CLOA</h4><div class="table-wrap"><table><thead><tr>
+            function renderMotherGroup(rows, formerMotherTitles = [], individualTitle = null) {
+                const historicalRemark = formerMotherTitles.length
+                    ? `<div style="margin-bottom:14px;padding:10px 12px;border-left:3px solid var(--dar-gold);background:#fff7ed;color:#7c2d12;">
+                            <strong>Remarks:</strong> Formerly part of Mother Title ${safe(formerMotherTitles.join('; '))}.
+                            Parcelized and issued Individual Title ${displayValue(individualTitle)}; therefore no longer treated as an active member of the Mother Title group.
+                       </div>`
+                    : '';
+                if (!rows.length) return `${historicalRemark}<p class="empty-card">No active Mother CLOA group found for this ARB.</p>`;
+                return `${historicalRemark}<h4>Active ARBs Under the Same Mother CLOA</h4><div class="table-wrap"><table><thead><tr>
                         <th>Mother CLOA</th><th>ARB</th><th>Landowner</th><th>Current/Shared Title</th><th>Individual e-Title</th><th>COCROM</th><th>Location</th>
                     </tr></thead><tbody>${rows.map(r => `<tr>
                         <td>${displayValue(r.original_mother_title_no || r.ccloa_title_raw)}</td>
@@ -2604,7 +2692,7 @@ try {
                         <td>${displayValue(r.profile.e_title_no)}</td><td>${displayValue(r.profile.cocrom_no || r.cocrom_certificate_no || 'NO')}</td>
                         <td>${displayValue([r.barangay, r.municipality].filter(Boolean).join(', '))}</td>
                     </tr>`).join('')}</tbody></table></div>
-                    <p style="margin-top:12px;color:#475569;">ARBs may share a Mother CLOA/current title and still be assigned their own individual e-Title.</p>`;
+                    <p style="margin-top:12px;color:#475569;">Only ARBs still actively under the Mother CLOA are shown here. Parcelized ARBs with issued individual titles are retained only as historical references/remarks.</p>`;
             }
 
             function renderHeirs(heirs) {
@@ -2974,6 +3062,7 @@ try {
                                 savedProfileId = insertedProfile.id;
                             }
                             await updateCocromForMother(savedProfileId, emptyToNull(fd.get('cocrom_no')));
+                            await applyAutomaticValidationRules(arbId);
                             hideSubModal();
                             popToast('ARB updated successfully.', 'ok');
                             openArbProfile(arbId);
@@ -3454,8 +3543,9 @@ try {
                                 if (heirErr) throw heirErr;
                             }
 
+                            await applyAutomaticValidationRules(arbId);
                             hideSubModal();
-                            popToast('Tag applied successfully.', 'ok');
+                            popToast(tagType === 'ALI CASE' ? 'ALI Case recorded — ARB automatically Validated.' : 'Tag applied successfully.', 'ok');
                             openArbProfile(arbId);
                             loadArbs(currentPage);
                         } catch (err) {
@@ -3809,7 +3899,7 @@ try {
 
                         const valPayload = {
                             arb_id: Number(arbId),
-                            validator_type: 'System',
+                            validator_type: 'Automatic Rule',
                             arb_landholding_id: null,
                             validator_name: currentUserProfile?.full_name || currentUser?.email ||
                                 'System',
@@ -4063,7 +4153,7 @@ try {
 
                 showSubModal('Capture Completed Validation Form', `
                         <form id="ocrCaptureForm">
-                            <p style="color:#475569;">Upload a scanned image or PDF. OCR results enter a pending verification queue. For each ARB, select the appropriate action based on the marks in the form.</p>
+                            <p style="color:#475569;">Upload a scanned image or PDF of either the previous validation form or the revised form with REMARKS. OCR results enter a pending verification queue; all detected values, including remarks when present, can be corrected before posting.</p>
                             <div class="form-group"><label>Scanned Validation Form</label><input type="file" id="ocrValidationFile" accept="image/*,application/pdf" required></div>
                             <div id="ocrProgress" style="padding:10px 0;color:#065f46;font-weight:700;"></div>
                             <div id="ocrActionHelp" style="padding:10px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;margin:10px 0;font-size:0.85rem;">
@@ -4149,6 +4239,7 @@ try {
                                     occupantReason: r.occupantReason || null,
                                     newOccupantDetected: Boolean(r.newOccupantDetected),
                                     mobile: r.mobile || null,
+                                    remarks: r.remarks || null,
                                     survey: r.survey || null,
                                     lot: r.lot || null,
                                     area: r.area || null,
@@ -4213,6 +4304,7 @@ function parseOcrArbRows(ocrText) {
                     let actualName = null;
                     let mobile = null;
                     let occupantReason = null;
+                    let remarks = null;
                     let newOccupantDetected = false;
 
                     // 4. DETECT GUIDED SYMBOLS (The "OMR" approach)
@@ -4235,6 +4327,20 @@ function parseOcrArbRows(ocrText) {
                     // 5. DETECT MOBILE & ACTUAL NAME
                     const mobileMatch = rowDataStr.match(/(?:09|\+639)\d{9}/);
                     if (mobileMatch) mobile = mobileMatch[0];
+
+                    // Revised form: Remarks uses an OCR-friendly R[ ... ] marker.
+                    // Previous forms remain compatible: if no Remarks marker exists, this stays blank
+                    // and the verifier may type remarks manually before posting.
+                    const remarksBracket = rowDataStr.match(/\bR\s*[\[\(\{]\s*([^\]\)\}\n]{2,180})\s*[\]\)\}]/i);
+                    const remarksLabel = rowDataStr.match(/\bREMARKS?\s*[:\-]\s*([^\n]{2,180})/i);
+                    const remarksCandidate = remarksBracket?.[1] || remarksLabel?.[1] || '';
+                    if (remarksCandidate) {
+                        const cleanedRemarks = remarksCandidate
+                            .replace(/\s+/g, ' ')
+                            .replace(/^(NONE|N\/?A|NA)$/i, '')
+                            .trim();
+                        remarks = cleanedRemarks || null;
+                    }
 
                     // Look for long words written by hand (ignoring boilerplate and the ARB's own name)
                     const longWords = rowDataStr.match(/\b([A-ZÑ\s,-]{6,})\b/g);
@@ -4259,6 +4365,7 @@ function parseOcrArbRows(ocrText) {
                         occupantReason: occupantReason,
                         newOccupantDetected: newOccupantDetected,
                         mobile: mobile,
+                        remarks: remarks,
                         raw: rowDataStr
                     });
                 }
@@ -4281,7 +4388,19 @@ function parseOcrArbRows(ocrText) {
                 const amap = Object.fromEntries(arbs.map(a => [String(a.id), a]));
 
                 const parsedMap = {};
-                parsedRows.forEach(r => { parsedMap[r.arbId] = r; });
+                (parsedRows || []).forEach(r => { parsedMap[String(r.arbId)] = r; });
+                // Also recover saved OCR data from the database so both previous and revised forms
+                // can be reviewed again even when the in-memory parsedRows array is unavailable.
+                (rows || []).forEach(r => {
+                    const key = String(r.arb_id);
+                    if (parsedMap[key]) return;
+                    try {
+                        const raw = typeof r.raw_ocr_text === 'string' ? JSON.parse(r.raw_ocr_text) : (r.raw_ocr_text || {});
+                        parsedMap[key] = { ...raw, arbId: key };
+                    } catch (_) {
+                        parsedMap[key] = { arbId: key };
+                    }
+                });
 
                 const arboOptions = arboList.map(a => `<option value="${a.id}">${safe(a.name)}</option>`).join('');
 
@@ -4296,7 +4415,7 @@ function parseOcrArbRows(ocrText) {
                 } else {
                     content = `
                             <p style="color:#475569;margin-bottom:16px;">
-                                🔍 <strong>${rows.length} ARB(s)</strong> detected. For each row, select the action that matches the marks on the validation form.
+                                🔍 <strong>${rows.length} ARB(s)</strong> detected. Review the action and captured fields. Remarks from the revised form are read when available; previous forms remain supported and may leave Remarks blank.
                                 ${canAssignArbo() ? 'When ARBO MEMBER = YES, assign an ARBO from the dropdown.' : ''}
                             </p>
                             <div style="max-height:58vh;overflow:auto;">
@@ -4309,6 +4428,7 @@ function parseOcrArbRows(ocrText) {
                                     const occupantReason = parsed.occupantReason || '';
                                     const newOccupantDetected = Boolean(parsed.newOccupantDetected);
                                     const mobile = parsed.mobile || '';
+                                    const remarks = parsed.remarks || '';
 
                                     return `
                                         <div class="ocr-review-row" data-review-row="${r.id}" data-arb-id="${r.arb_id}">
@@ -4338,6 +4458,7 @@ function parseOcrArbRows(ocrText) {
                                                 </select>
                                                 <input class="ocr-other-reason" placeholder="Other reason" style="min-width:110px;${occupantReason === 'OTHER' ? '' : 'display:none;'}">
                                                 <input class="ocr-mobile" placeholder="Mobile # (if available)" value="${safe(mobile)}" style="min-width:100px;">
+                                                <input class="ocr-remarks" placeholder="Remarks (optional)" value="${safe(remarks)}" style="min-width:180px;flex:2;" title="Remarks from the validation form; previous forms may be entered manually here">
                                             </div>
 
                                             <div class="ocr-arbo-group" style="display:flex; flex-direction:column; gap:4px; margin-top:4px;">
@@ -4415,6 +4536,7 @@ function parseOcrArbRows(ocrText) {
                         const otherReason = row.querySelector('.ocr-other-reason')?.value || null;
                         const occupantReason = reasonSelect?.value === 'OTHER' ? otherReason : (reasonSelect?.value || null);
                         const mobile = row.querySelector('.ocr-mobile')?.value || null;
+                        const remarks = row.querySelector('.ocr-remarks')?.value?.trim() || null;
                         
                         const arboToggle = row.querySelector('.ocr-arbo-toggle');
                         const arboSelect = row.querySelector('.ocr-arbo-select');
@@ -4437,15 +4559,34 @@ function parseOcrArbRows(ocrText) {
                         this.textContent = 'Posting...';
 
                         try {
+                            const captureRow = (rows || []).find(x => String(x.id) === String(rowId));
+                            let reviewedRaw = {};
+                            try {
+                                reviewedRaw = typeof captureRow?.raw_ocr_text === 'string'
+                                    ? JSON.parse(captureRow.raw_ocr_text)
+                                    : (captureRow?.raw_ocr_text || {});
+                            } catch (_) { reviewedRaw = {}; }
+                            reviewedRaw = {
+                                ...reviewedRaw,
+                                action,
+                                actualName: emptyToNull(actualName),
+                                occupantReason: emptyToNull(occupantReason),
+                                mobile: emptyToNull(mobile),
+                                remarks: emptyToNull(remarks),
+                                reviewed_by: currentUserProfile?.full_name || currentUser?.email || null,
+                                reviewed_at: new Date().toISOString()
+                            };
+
                             const { error: updateErr } = await secureDbClient.from('validation_capture_rows')
                                 .update({
                                     verification_status: 'VERIFIED',
                                     proposed_validation_status: action,
+                                    raw_ocr_text: JSON.stringify(reviewedRaw),
                                     updated_at: new Date().toISOString()
                                 }).eq('id', rowId);
                             if (updateErr) throw updateErr;
 
-                            await performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason);
+                            await performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason, remarks);
 
                             badge.className = 'ocr-status-badge posted';
                             badge.textContent = '✅ Posted';
@@ -4493,7 +4634,7 @@ function parseOcrArbRows(ocrText) {
             /**
              * Perform the appropriate action on an ARB based on the selected action.
              */
-          async function performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason = null) {
+          async function performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason = null, remarks = null) {
                 const today = new Date().toISOString().substring(0, 10);
                 const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
                 const userId = currentUser?.id || null;
@@ -4515,7 +4656,7 @@ function parseOcrArbRows(ocrText) {
                             validator_name: userName,
                             position: null,
                             date_validated: today,
-                            validation_basis: 'GURANG NA — validated from OCR capture',
+                            validation_basis: `GURANG NA — validated from OCR capture${remarks ? ' | Remarks: ' + remarks : ''}`,
                             supporting_document_reference: 'OCR Capture',
                             recorded_by: userName,
                             recorded_by_user_id: userId,
@@ -4544,7 +4685,7 @@ function parseOcrArbRows(ocrText) {
                             arb_landholding_id: null,
                             tag_type: 'DISQUALIFICATION',
                             status: 'FOR DISQUALIFICATION',
-                            case_details: 'NAGHALI NA — disqualified based on validation form OCR capture',
+                            case_details: `NAGHALI NA — disqualified based on validation form OCR capture${remarks ? ' | Remarks: ' + remarks : ''}`,
                             tagged_by: userName,
                             tagged_by_user_id: userId,
                             created_at: new Date().toISOString(),
@@ -4566,7 +4707,7 @@ function parseOcrArbRows(ocrText) {
                             arb_landholding_id: null,
                             tag_type: 'AO8',
                             status: 'WITH ORDER OF FINALITY',
-                            case_details: `BINENTA NA — AO 8 transfer. New owner: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}`,
+                            case_details: `BINENTA NA — AO 8 transfer. New owner: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}${remarks ? ' | Remarks: ' + remarks : ''}`,
                             tagged_by: userName,
                             tagged_by_user_id: userId,
                             created_at: new Date().toISOString(),
@@ -4587,7 +4728,7 @@ function parseOcrArbRows(ocrText) {
                             new_owner_name: actualName || null,
                             new_owner_contact: mobile || null,
                             new_owner_is_arb: false,
-                            remarks: `BINENTA NA — AO 8 transfer from OCR capture. New owner: ${actualName || 'Unknown'}`,
+                            remarks: `BINENTA NA — AO 8 transfer from OCR capture. New owner: ${actualName || 'Unknown'}${remarks ? ' | ' + remarks : ''}`,
                             created_by: userId,
                             updated_by: userId
                         };
@@ -4606,7 +4747,7 @@ function parseOcrArbRows(ocrText) {
                             arb_landholding_id: null,
                             tag_type: 'TRANSFER ACTION',
                             status: 'FOR FIELD VALIDATION',
-                            case_details: `NAGADAN NA — Transfer Action. Heir/transferee: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}`,
+                            case_details: `NAGADAN NA — Transfer Action. Heir/transferee: ${actualName || 'Unknown'}. Mobile: ${mobile || 'N/A'}${remarks ? ' | Remarks: ' + remarks : ''}`,
                             tagged_by: userName,
                             tagged_by_user_id: userId,
                             created_at: new Date().toISOString(),
@@ -4627,7 +4768,7 @@ function parseOcrArbRows(ocrText) {
                             new_owner_name: actualName || null,
                             new_owner_contact: mobile || null,
                             new_owner_is_arb: false,
-                            remarks: `NAGADAN NA — Transfer Action from OCR capture. Heir: ${actualName || 'Unknown'}`,
+                            remarks: `NAGADAN NA — Transfer Action from OCR capture. Heir: ${actualName || 'Unknown'}${remarks ? ' | ' + remarks : ''}`,
                             created_by: userId,
                             updated_by: userId
                         };
@@ -4644,7 +4785,8 @@ function parseOcrArbRows(ocrText) {
                 }
 
                 if (actualName && occupantReason) {
-                    await recordNewOccupantFinding(arbId, actualName, occupantReason, null, 'Captured Validation Form / OCR');
+                    await recordNewOccupantFinding(arbId, actualName, occupantReason, null,
+                        `Captured Validation Form / OCR${remarks ? ' | Remarks: ' + remarks : ''}`);
                 }
 
                 if (arboId) {
@@ -4924,11 +5066,11 @@ async function openGenerateReport() {
                         reportRefs.push(reportRef);
                         doc.setFontSize(14);
                         doc.setFont("helvetica", "bold");
-                        doc.text(`ARB Global Validation Form - ${municipality}`, 14, 15);
+                        doc.text(`ARB Global Validation Form - ${municipality}`, 5, 15);
                         doc.setFontSize(8);
                         doc.setFont('helvetica', 'normal');
                         const barangayArbs = new Set(grouped[brgy].map(r => uniqueArbNameKey(r.name, r.arbId))).size;
-                        doc.text(`${countMode === 'arb' ? 'Unique ARB view' : 'Per lot view'} | Barangay: ${barangayArbs} ARBs / ${grouped[brgy].length} lot records | Entire report: ${uniqueTotal} unique ARBs / ${matchCount} lot records`, 14, 19);
+                        doc.text(`${countMode === 'arb' ? 'Unique ARB view' : 'Per lot view'} | Barangay: ${barangayArbs} ARBs / ${grouped[brgy].length} lot records | Entire report: ${uniqueTotal} unique ARBs / ${matchCount} lot records`, 5, 19);
 
                         const head = [
                             [
@@ -4944,6 +5086,8 @@ async function openGenerateReport() {
                                 { content: 'Kun gadan na,\nmay Death Certificate', colSpan: 2,
                                     styles: { halign: 'center' } },
                                 { content: 'Cellphone Number kung igwa', rowSpan: 2,
+                                    styles: { valign: 'middle', halign: 'center' } },
+                                { content: 'REMARKS', rowSpan: 2,
                                     styles: { valign: 'middle', halign: 'center' } }
                             ],
                             [
@@ -4974,11 +5118,12 @@ async function openGenerateReport() {
                             'D[   ]', // NAGADAN NA (Transfer)
                             'M[   ]', // MAYO
                             'I[   ]', // IGWA
-                            ''        // Mobile
+                            '',       // Mobile
+                            'R[                              ]' // Remarks; OCR-friendly marker
                         ]);
                         doc.autoTable({
                             startY: 23,
-                            margin: { bottom: 45, left: 10, right: 10 },
+                            margin: { bottom: 45, left: 5, right: 5 },
                             head: head,
                             body: body,
                             theme: 'grid',
@@ -4988,21 +5133,22 @@ async function openGenerateReport() {
                             headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0],
                                 fontStyle: 'bold' },
                          columnStyles: {
-                                0: { cellWidth: 48 }, // Slightly adjusted to give space to ARBO
-                                1: { cellWidth: 12, halign: 'center' }, // Expanded to fit Y[   ] on one line
-                                2: { cellWidth: 12, halign: 'center' }, // Expanded to fit N[   ] on one line
-                                3: { cellWidth: 20 },
-                                4: { cellWidth: 14 }, // Slightly adjusted
-                                5: { cellWidth: 14 }, // Slightly adjusted
-                                6: { cellWidth: 25 },
-                                7: { cellWidth: 52 }, // Slightly adjusted
-                                8: { cellWidth: 12 },
-                                9: { cellWidth: 12 },
-                                10: { cellWidth: 12 },
-                                11: { cellWidth: 12 },
-                                12: { cellWidth: 12 },
-                                13: { cellWidth: 12 },
-                                14: { cellWidth: 36 } // Mobile
+                                0: { cellWidth: 44 },
+                                1: { cellWidth: 9, halign: 'center' },
+                                2: { cellWidth: 9, halign: 'center' },
+                                3: { cellWidth: 19 },
+                                4: { cellWidth: 13 },
+                                5: { cellWidth: 13 },
+                                6: { cellWidth: 23 },
+                                7: { cellWidth: 47 },
+                                8: { cellWidth: 10, halign: 'center' },
+                                9: { cellWidth: 10, halign: 'center' },
+                                10: { cellWidth: 10, halign: 'center' },
+                                11: { cellWidth: 10, halign: 'center' },
+                                12: { cellWidth: 9, halign: 'center' },
+                                13: { cellWidth: 9, halign: 'center' },
+                                14: { cellWidth: 27 },
+                                15: { cellWidth: 57 } // Remarks: rightmost and intentionally wide
                             },
                             didDrawCell: function(data) {
                                 if (data.section === 'head' && data.row.index === 0 && data
@@ -5033,10 +5179,10 @@ async function openGenerateReport() {
                                 const pageTextWidth = doc.getTextWidth(pageText);
 
                                 doc.setTextColor(0, 0, 0);
-                                doc.text(pageText, pageWidth - 10, 10, { align: "right" });
+                                doc.text(pageText, pageWidth - 5, 10, { align: "right" });
 
                                 doc.setTextColor(255, 0, 0);
-                                doc.text(`Ref: ${reportRef}`, pageWidth - 10 - pageTextWidth, 10,
+                                doc.text(`Ref: ${reportRef}`, pageWidth - 5 - pageTextWidth, 10,
                                 { align: "right" });
 
                                 const y = pageHeight - 35;
@@ -5045,9 +5191,9 @@ async function openGenerateReport() {
                                 doc.setFont("helvetica", "normal");
                                 doc.setTextColor(0, 0, 0);
 
-                                const usableWidth = pageWidth - 20;
+                                const usableWidth = pageWidth - 10;
                                 const boxWidth = usableWidth / 4;
-                                const startX = 10;
+                                const startX = 5;
                                 const h1 = 20;
                                 const h2 = 6;
 
@@ -5162,6 +5308,11 @@ async function openGenerateReport() {
                         currentUser?.email || null;
                     const { error } = await secureDbClient.from(table).update(payload).eq('id', id);
                     if (error) throw error;
+                    if (table === 'arb_profiles' && ['e_title_no', 'split_status'].includes(field)) {
+                        const { data: editedProfile } = await secureDbClient.from('arb_profiles')
+                            .select('arb_id').eq('id', id).single();
+                        if (editedProfile?.arb_id) await applyAutomaticValidationRules(editedProfile.arb_id);
+                    }
                     popToast('Table value updated.', 'ok');
                 } catch (e) { popToast(e.message, 'err'); } finally { el.disabled = false; }
             }
@@ -5235,7 +5386,9 @@ async function openGenerateReport() {
                         </tr></thead><tbody>${rows.map(({a,p,h,flags}) => `<tr>
                             <td>${displayValue(a.generated_arb_id || a.id)}</td><td>${displayValue(fullName(a))}</td><td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="contact_number" value="${safe(p.contact_number||'')}">`:displayValue(p.contact_number)}</td>
                             <td>${editable?`<select data-table="arb" data-id="${a.id}" data-field="validation_status" data-previous="${safe(a.validation_status||'Pending')}"><option ${a.validation_status==='Pending'?'selected':''}>Pending</option><option ${a.validation_status==='Validated'?'selected':''}>Validated</option><option ${a.validation_status==='Rejected'?'selected':''}>Rejected</option></select>`:displayValue(a.validation_status)}</td><td>${displayValue(a.life_status)}</td><td>${editable?`<select data-table="arb_profiles" data-id="${p.id}" data-field="split_status"><option ${p.split_status==='PENDING VALIDATION'?'selected':''}>PENDING VALIDATION</option><option ${p.split_status==='SPLIT'?'selected':''}>SPLIT</option><option ${p.split_status==='NON-SPLIT'?'selected':''}>NON-SPLIT</option></select>`:displayValue(p.split_status)}</td>
-                            <td>${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td><td>${displayValue(h.landowner)}</td><td>${editable?`<input data-table="arb_landholdings" data-id="${h.id}" data-field="title_no" value="${safe(h.title_no||'')}">`:displayValue(h.title_no || h.ep_cloa_serial_no)}</td>
+                            <td>${isParcelizedWithIndividualTitle(p)
+                                ? `<span>—</span><br><small style="color:#64748b;white-space:normal;"><strong>Remarks:</strong> Former Mother Title: ${displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</small>`
+                                : displayValue(h.original_mother_title_no || h.ccloa_title_raw)}</td><td>${displayValue(h.landowner)}</td><td>${editable?`<input data-table="arb_landholdings" data-id="${h.id}" data-field="title_no" value="${safe(h.title_no||'')}">`:displayValue(h.title_no || h.ep_cloa_serial_no)}</td>
                             <td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="e_title_no" value="${safe(p.e_title_no||'')}">`:displayValue(p.e_title_no)}</td><td>${flags.has_individual_title ? 'YES' : 'NO'}</td><td>${editable?`<input data-table="arb_profiles" data-id="${p.id}" data-field="cocrom_no" value="${safe(p.cocrom_no||h.cocrom_certificate_no||'')}">`:displayValue(p.cocrom_no || h.cocrom_certificate_no || 'NO')}</td>
                             <td>${displayValue(h.claim_no)}</td><td>${displayValue(h.lhid)}</td><td>${displayValue(h.survey_no)}</td><td>${displayValue(h.lot_no)}</td><td>${displayValue(h.landholding_area)}</td>
                             <td>${displayValue(h.municipality)}</td><td>${displayValue(h.barangay)}</td><td>${a.with_ali_case ? 'YES' : 'NO'}</td>
