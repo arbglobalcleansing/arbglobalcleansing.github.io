@@ -1504,12 +1504,8 @@
                 if (!arbId || !secureDbClient) return { validated: false, reasons: [], formerMotherTitles: [] };
 
                 const [arbRes, profRes] = await Promise.all([
-                    secureDbClient.from('arb')
-                        .select('id,with_ali_case,arbo_id,validation_status')
-                        .eq('id', arbId).single(),
-                    secureDbClient.from('arb_profiles')
-                        .select('id,arb_id,split_status,e_title_no')
-                        .eq('arb_id', String(arbId)).single()
+                    secureDbClient.from('arb').select('id,with_ali_case,arbo_id,validation_status').eq('id', arbId).single(),
+                    secureDbClient.from('arb_profiles').select('id,arb_id,split_status,e_title_no').eq('arb_id', String(arbId)).single()
                 ]);
 
                 if (arbRes.error) throw arbRes.error;
@@ -1519,47 +1515,72 @@
                 let formerMotherTitles = [];
 
                 if (arb.with_ali_case) reasons.push('WITH ALI CASE');
-                if (arb.arbo_id) reasons.push('MEMBER OF ARBO');
+
+                let directArboMembers = [];
+                let householdMembers = [];
+                if (profile.id) {
+                    const [directRes, householdRes] = await Promise.all([
+                        secureDbClient.from('arbo_members')
+                            .select('id,arbo_id,profile_id,arb_name,is_arb,position,membership_status,date_to,remarks')
+                            .eq('profile_id', profile.id)
+                            .eq('is_arb', true),
+                        secureDbClient.from('arbo_members')
+                            .select('id,arbo_id,profile_id,arb_name,is_arb,position,membership_status,date_to,remarks')
+                            .eq('is_arb', false)
+                            .ilike('remarks', `%[HOUSEHOLD_ARBO_MEMBER]%ARB_PROFILE_ID:${profile.id}%`)
+                    ]);
+
+                    if (directRes.error) {
+                        console.warn('Could not check direct ARBO membership for automatic validation:', directRes.error);
+                    } else {
+                        directArboMembers = (directRes.data || []).filter(m => {
+                            const status = String(m.membership_status || 'ACTIVE').toUpperCase();
+                            return status === 'ACTIVE' && !m.date_to;
+                        });
+                    }
+
+                    if (householdRes.error) {
+                        console.warn('Could not check household ARBO membership for automatic validation:', householdRes.error);
+                    } else {
+                        householdMembers = (householdRes.data || []).filter(m => {
+                            const status = String(m.membership_status || 'ACTIVE').toUpperCase();
+                            return status === 'ACTIVE' && !m.date_to;
+                        });
+                    }
+                }
+
+                if (arb.arbo_id || directArboMembers.length) reasons.push('ARB IS AN ACTIVE MEMBER OF ARBO');
+                if (householdMembers.length) {
+                    const names = householdMembers.map(m => m.arb_name).filter(Boolean);
+                    reasons.push(`HOUSEHOLD/FAMILY MEMBER OF ARB IS AN ACTIVE ARBO MEMBER${names.length ? ': ' + names.join(', ') : ''}`);
+                }
 
                 if (isParcelizedWithIndividualTitle(profile)) {
                     if (profile.id) {
                         const { data: holdings, error: lhErr } = await secureDbClient.from('arb_landholdings')
-                            .select('original_mother_title_no,ccloa_title_raw')
-                            .eq('arb_profile_id', profile.id);
+                            .select('original_mother_title_no,ccloa_title_raw').eq('arb_profile_id', profile.id);
                         if (lhErr) throw lhErr;
-                        formerMotherTitles = [...new Set((holdings || [])
-                            .map(h => h.original_mother_title_no || h.ccloa_title_raw)
-                            .filter(Boolean))];
+                        formerMotherTitles = [...new Set((holdings || []).map(h => h.original_mother_title_no || h.ccloa_title_raw).filter(Boolean))];
                     }
-                    const formerText = formerMotherTitles.length
-                        ? ` Former Mother Title: ${formerMotherTitles.join('; ')}.`
-                        : '';
+                    const formerText = formerMotherTitles.length ? ` Former Mother Title: ${formerMotherTitles.join('; ')}.` : '';
                     reasons.push(`MOTHER TITLE PARCELIZED; INDIVIDUAL TITLE ISSUED: ${profile.e_title_no}.${formerText}`);
                 }
 
                 if (!reasons.length) return { validated: false, reasons, formerMotherTitles };
 
                 if (String(arb.validation_status || '').toUpperCase() !== 'VALIDATED') {
-                    const { error: statusErr } = await secureDbClient.from('arb')
-                        .update({ validation_status: 'Validated', updated_at: new Date().toISOString() })
-                        .eq('id', arbId);
+                    const { error: statusErr } = await secureDbClient.from('arb').update({ validation_status: 'Validated', updated_at: new Date().toISOString() }).eq('id', arbId);
                     if (statusErr) throw statusErr;
                 }
 
                 const now = new Date();
                 const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
                 const { error: valErr } = await saveValidationRecord({
-                    arb_id: Number(arbId),
-                    arb_landholding_id: null,
-                    validator_type: 'Automatic Rule',
-                    validator_name: userName,
-                    position: currentUserProfile?.position || null,
-                    date_validated: now.toISOString().slice(0, 10),
-                    validation_basis: reasons.join(' | '),
-                    supporting_document_reference: 'ARB Global Cleansing derived validation rule',
-                    recorded_by: userName,
-                    recorded_by_user_id: currentUser?.id || null,
-                    updated_at: now.toISOString()
+                    arb_id:Number(arbId),arb_landholding_id:null,validator_type:'Automatic Rule',validator_name:userName,
+                    position:currentUserProfile?.position||null,date_validated:now.toISOString().slice(0,10),
+                    validation_basis:reasons.join(' | '),
+                    supporting_document_reference:'ARB Global Cleansing derived validation rule / ARBO Membership Registry',
+                    recorded_by:userName,recorded_by_user_id:currentUser?.id||null,updated_at:now.toISOString()
                 });
                 if (valErr) throw valErr;
 
@@ -3905,7 +3926,7 @@ try {
                                 'System',
                             position: null,
                             date_validated: new Date().toISOString().substring(0, 10),
-                            validation_basis: 'Legitimate ARBO Member',
+                            validation_basis: 'ARB IS AN ACTIVE MEMBER OF ARBO',
                             supporting_document_reference: memNo || 'ARBO Membership Form',
                             recorded_by: currentUserProfile?.full_name || currentUser?.email ||
                                 'System',
