@@ -1192,6 +1192,73 @@
                 return parts.join(' ').trim() || '—';
             }
 
+
+            function normalizePersonName(value) {
+                return String(value || '').normalize('NFKC').toUpperCase()
+                    .replace(/[^A-ZÑ0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+            }
+
+            function isDifferentOccupantName(arbName, occupantName) {
+                const a = normalizePersonName(arbName);
+                const b = normalizePersonName(occupantName);
+                return Boolean(b && a && b !== a);
+            }
+
+            async function recordNewOccupantFinding(arbId, occupantName, occupantReason, arbLandholdingId = null, source = 'Validation Form') {
+                const name = emptyToNull(occupantName);
+                const reason = emptyToNull(occupantReason);
+                if (!name || !reason) return { recorded: false };
+
+                const { data: arbRow, error: arbErr } = await secureDbClient.from('arb')
+                    .select('id,first_name,middle_name,last_name').eq('id', Number(arbId)).single();
+                if (arbErr) throw arbErr;
+
+                const registeredName = fullName(arbRow);
+                if (!isDifferentOccupantName(registeredName, name)) return { recorded: false };
+
+                const { data: prof, error: profErr } = await secureDbClient.from('arb_profiles')
+                    .select('id').eq('arb_id', String(arbId)).single();
+                if (profErr) throw profErr;
+
+                const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
+                const userId = currentUser?.id || null;
+                const today = new Date().toISOString().substring(0, 10);
+                const details = `NEW OCCUPANT / ACTUAL FARMER DETECTED — ${name}. Reason: ${reason}. Source: ${source}. Registered ARB: ${registeredName}.`;
+
+                const { error: tagErr } = await secureDbClient.from('arb_tags').insert({
+                    arb_profile_id: prof.id,
+                    arb_id: Number(arbId),
+                    arb_landholding_id: arbLandholdingId ? Number(arbLandholdingId) : null,
+                    tag_type: 'IDENTIFICATION OF NEW ARB',
+                    status: 'FOR FIELD VALIDATION',
+                    case_details: details,
+                    tagged_by: userName,
+                    tagged_by_user_id: userId,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    updated_by: userName
+                });
+                if (tagErr) throw tagErr;
+
+                const occupantValidation = {
+                    arb_id: Number(arbId),
+                    arb_landholding_id: arbLandholdingId ? Number(arbLandholdingId) : null,
+                    validator_type: 'Field Validation',
+                    validator_name: userName,
+                    position: currentUserProfile?.position || null,
+                    date_validated: today,
+                    validation_basis: `Actual farmer/new occupant: ${name} — Reason: ${reason}`,
+                    supporting_document_reference: source,
+                    recorded_by: userName,
+                    recorded_by_user_id: userId,
+                    updated_at: new Date().toISOString()
+                };
+                const { error: valErr } = await saveValidationRecord(occupantValidation);
+                if (valErr) throw valErr;
+
+                return { recorded: true, occupantName: name, reason };
+            }
+
             function arbInitials(arb) {
                 const parts = [arb.first_name, arb.last_name].filter(Boolean);
                 if (parts.length === 0) return 'ARB';
@@ -2627,6 +2694,30 @@ try {
                                 <div class="form-group"><label for="valPos">Position</label><input id="valPos" name="position" value="${safe(currentPos)}"></div>
                                 <div class="form-group"><label for="valDate">Date Validated</label><input type="date" id="valDate" name="date_validated" value="${new Date().toISOString().substring(0,10)}"></div>
                                 <div class="form-group full"><label for="valBasis">Validation Basis</label><input id="valBasis" name="validation_basis" required placeholder="Required basis for this validation action"></div>
+                                <div class="form-group full" style="padding:12px;border:1px solid #d97706;border-radius:8px;background:#fffbeb;">
+                                    <label for="valOccupancyFinding">Actual Farmer / Occupant Finding</label>
+                                    <select id="valOccupancyFinding" name="occupancy_finding">
+                                        <option value="SAME">Same ARB / No new occupant</option>
+                                        <option value="NEW">Different / New Occupant Found</option>
+                                    </select>
+                                    <div id="valNewOccupantFields" style="display:none;margin-top:10px;">
+                                        <div class="form-grid">
+                                            <div class="form-group full"><label for="valNewOccupantName">Name of Actual Farmer / New Occupant</label><input id="valNewOccupantName" name="new_occupant_name" placeholder="Type the complete name of the person actually occupying/farming the land"></div>
+                                            <div class="form-group"><label for="valOccupantReason">Reason Based on Validation Form</label>
+                                                <select id="valOccupantReason" name="occupant_reason">
+                                                    <option value="">-- Select reason --</option>
+                                                    <option value="GURANG NA">GURANG NA</option>
+                                                    <option value="NAGHALI NA">NAGHALI NA</option>
+                                                    <option value="BINENTA NA">BINENTA NA</option>
+                                                    <option value="NAGADAN NA">NAGADAN NA</option>
+                                                    <option value="OTHER">OTHER</option>
+                                                </select>
+                                            </div>
+                                            <div class="form-group" id="valOtherOccupantReasonGroup" style="display:none;"><label for="valOtherOccupantReason">Other Reason</label><input id="valOtherOccupantReason" name="other_occupant_reason" placeholder="State the reason"></div>
+                                        </div>
+                                        <small style="color:#92400e;">This records a field finding only. It does not replace the registered ARB name.</small>
+                                    </div>
+                                </div>
                                 <div class="form-group full"><label for="valDoc">Supporting Document Reference</label><input id="valDoc" name="supporting_document_reference" required placeholder="Required"></div>
                             </div>
                             <div class="modal-actions"><button type="button" class="btn btn-primary" id="cancelValBtn" style="background:#64748b !important;border-color:#475569 !important;">Cancel</button><button type="submit" class="btn btn-primary">Save Validation</button></div>
@@ -2634,6 +2725,12 @@ try {
                     `;
                 showSubModal('Add Validation', formHtml);
                 document.getElementById('cancelValBtn').addEventListener('click', hideSubModal);
+                document.getElementById('valOccupancyFinding').addEventListener('change', function() {
+                    document.getElementById('valNewOccupantFields').style.display = this.value === 'NEW' ? 'block' : 'none';
+                });
+                document.getElementById('valOccupantReason').addEventListener('change', function() {
+                    document.getElementById('valOtherOccupantReasonGroup').style.display = this.value === 'OTHER' ? 'flex' : 'none';
+                });
                 document.getElementById('validationForm').addEventListener('submit', async function(e) {
                     e.preventDefault();
                     const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -2643,6 +2740,15 @@ try {
                     const fd = new FormData(e.target);
                     try {
                         const landholdingId = emptyToNull(fd.get('arb_landholding_id'));
+                        const occupancyFinding = fd.get('occupancy_finding');
+                        const newOccupantName = emptyToNull(fd.get('new_occupant_name'));
+                        const selectedOccupantReason = emptyToNull(fd.get('occupant_reason'));
+                        const occupantReason = selectedOccupantReason === 'OTHER'
+                            ? emptyToNull(fd.get('other_occupant_reason'))
+                            : selectedOccupantReason;
+                        if (occupancyFinding === 'NEW' && (!newOccupantName || !occupantReason)) {
+                            throw new Error('For a different/new occupant, enter the actual farmer name and select/state the reason from the validation form.');
+                        }
                         const valPayload = {
                             arb_id: Number(arbId),
                             arb_landholding_id: landholdingId ? Number(landholdingId) : null,
@@ -2665,6 +2771,19 @@ try {
                                 updated_at: new Date().toISOString() })
                             .eq('id', arbId);
                         if (arbErr) throw arbErr;
+
+                        if (occupancyFinding === 'NEW') {
+                            const occResult = await recordNewOccupantFinding(
+                                arbId,
+                                newOccupantName,
+                                occupantReason,
+                                landholdingId,
+                                'Manual Validation Form'
+                            );
+                            if (!occResult.recorded) {
+                                throw new Error('The new occupant name matches the registered ARB. Choose Same ARB / No new occupant if this is not a different person.');
+                            }
+                        }
 
                         hideSubModal();
                         popToast('Validation added and status updated.', 'ok');
@@ -3942,6 +4061,8 @@ try {
                                     action: r.action,
                                     arboMember: r.arboMember === 'YES' ? true : false,
                                     actualName: r.actualName || null,
+                                    occupantReason: r.occupantReason || null,
+                                    newOccupantDetected: Boolean(r.newOccupantDetected),
                                     mobile: r.mobile || null,
                                     survey: r.survey || null,
                                     lot: r.lot || null,
@@ -4006,6 +4127,8 @@ function parseOcrArbRows(ocrText) {
                     let arboMember = 'NO';
                     let actualName = null;
                     let mobile = null;
+                    let occupantReason = null;
+                    let newOccupantDetected = false;
 
                     // 4. DETECT GUIDED SYMBOLS (The "OMR" approach)
                     // The regex looks for Letter[X], Letter[/], Letter[v], etc. 
@@ -4018,10 +4141,10 @@ function parseOcrArbRows(ocrText) {
                     if (isMarked('Y')) arboMember = 'YES';
                     
                     // Read Action Checkboxes. Order matters: default is Validated unless specifically marked otherwise
-                    if (isMarked('H')) action = 'DISQUALIFICATION';
-                    else if (isMarked('B')) action = 'AO8';
-                    else if (isMarked('D')) action = 'TRANSFER ACTION';
-                    else if (isMarked('G')) action = 'VALIDATED'; // Explicitly checked GURANG NA
+                    if (isMarked('H')) { action = 'DISQUALIFICATION'; occupantReason = 'NAGHALI NA'; }
+                    else if (isMarked('B')) { action = 'AO8'; occupantReason = 'BINENTA NA'; }
+                    else if (isMarked('D')) { action = 'TRANSFER ACTION'; occupantReason = 'NAGADAN NA'; }
+                    else if (isMarked('G')) { action = 'VALIDATED'; occupantReason = 'GURANG NA'; } // Explicitly checked GURANG NA
                     else action = 'VALIDATED'; // Fallback: Blank means no changes (VALIDATED)
 
                     // 5. DETECT MOBILE & ACTUAL NAME
@@ -4040,12 +4163,16 @@ function parseOcrArbRows(ocrText) {
                         }
                     }
 
+                    newOccupantDetected = Boolean(actualName && isDifferentOccupantName(name, actualName));
+
                     rows.push({
                         arbId: current.id,
                         name: name,
                         arboMember: arboMember,
                         action: action,
                         actualName: actualName,
+                        occupantReason: occupantReason,
+                        newOccupantDetected: newOccupantDetected,
                         mobile: mobile,
                         raw: rowDataStr
                     });
@@ -4094,6 +4221,8 @@ function parseOcrArbRows(ocrText) {
                                     const defaultAction = parsed.action || null;
                                     const arboMember = parsed.arboMember || 'NO';
                                     const actualName = parsed.actualName || '';
+                                    const occupantReason = parsed.occupantReason || '';
+                                    const newOccupantDetected = Boolean(parsed.newOccupantDetected);
                                     const mobile = parsed.mobile || '';
 
                                     return `
@@ -4101,6 +4230,7 @@ function parseOcrArbRows(ocrText) {
                                             <div class="ocr-arb-info">
                                                 <span>${safe(fullName(arb) || 'Unknown ARB')}</span>
                                                 <small>ARB ${safe(r.arb_id)}</small>
+                                                ${newOccupantDetected ? '<small style="color:#b45309;font-weight:800;">⚠ NEW OCCUPANT DETECTED</small>' : ''}
                                             </div>
 
                                             <select class="ocr-action-select" data-row-id="${r.id}">
@@ -4111,8 +4241,17 @@ function parseOcrArbRows(ocrText) {
                                                 <option value="TRANSFER ACTION" ${defaultAction === 'TRANSFER ACTION' ? 'selected' : ''}>🔄 NAGADAN NA → Transfer Action</option>
                                             </select>
 
-                                            <div class="ocr-action-fields" id="actionFields_${r.id}" style="${(defaultAction === 'AO8' || defaultAction === 'TRANSFER ACTION') ? 'display:flex;' : 'display:none;'}">
-                                                <input class="ocr-actual-name" placeholder="Name from PANGARAN KANG..." value="${safe(actualName)}" style="min-width:120px;" title="Input name from PANGARAN KANG AKTUAL NA NAG-UUMA KAN DAGA SA NGUYAN">
+                                            <div class="ocr-action-fields" id="actionFields_${r.id}" style="display:flex;">
+                                                <input class="ocr-actual-name" placeholder="Actual farmer / new occupant name" value="${safe(actualName)}" style="min-width:140px;" title="Type the name from PANGARAN KANG AKTUAL NA NAG-UUMA KAN DAGA SA NGUYAN">
+                                                <select class="ocr-occupant-reason" style="min-width:120px;padding:5px 8px;border:1px solid #cbd5e1;border-radius:4px;font-size:.75rem;" title="Reason based on validation form">
+                                                    <option value="">Reason...</option>
+                                                    <option value="GURANG NA" ${occupantReason === 'GURANG NA' ? 'selected' : ''}>GURANG NA</option>
+                                                    <option value="NAGHALI NA" ${occupantReason === 'NAGHALI NA' ? 'selected' : ''}>NAGHALI NA</option>
+                                                    <option value="BINENTA NA" ${occupantReason === 'BINENTA NA' ? 'selected' : ''}>BINENTA NA</option>
+                                                    <option value="NAGADAN NA" ${occupantReason === 'NAGADAN NA' ? 'selected' : ''}>NAGADAN NA</option>
+                                                    <option value="OTHER" ${occupantReason === 'OTHER' ? 'selected' : ''}>OTHER</option>
+                                                </select>
+                                                <input class="ocr-other-reason" placeholder="Other reason" style="min-width:110px;${occupantReason === 'OTHER' ? '' : 'display:none;'}">
                                                 <input class="ocr-mobile" placeholder="Mobile # (if available)" value="${safe(mobile)}" style="min-width:100px;">
                                             </div>
 
@@ -4148,13 +4287,21 @@ function parseOcrArbRows(ocrText) {
 
                 document.querySelectorAll('.ocr-action-select').forEach(sel => {
                     sel.addEventListener('change', function() {
-                        const rowId = this.dataset.rowId;
-                        const fields = document.getElementById('actionFields_' + rowId);
-                        if (this.value === 'AO8' || this.value === 'TRANSFER ACTION') {
-                            fields.style.display = 'flex';
-                        } else {
-                            fields.style.display = 'none';
-                        }
+                        const row = this.closest('.ocr-review-row');
+                        const reason = row.querySelector('.ocr-occupant-reason');
+                        const suggested = {
+                            'VALIDATED': 'GURANG NA',
+                            'DISQUALIFICATION': 'NAGHALI NA',
+                            'AO8': 'BINENTA NA',
+                            'TRANSFER ACTION': 'NAGADAN NA'
+                        }[this.value] || '';
+                        if (reason && suggested) reason.value = suggested;
+                    });
+                });
+                document.querySelectorAll('.ocr-occupant-reason').forEach(sel => {
+                    sel.addEventListener('change', function() {
+                        const other = this.closest('.ocr-review-row').querySelector('.ocr-other-reason');
+                        if (other) other.style.display = this.value === 'OTHER' ? '' : 'none';
                     });
                 });
 
@@ -4179,6 +4326,9 @@ function parseOcrArbRows(ocrText) {
                         const actionSelect = row.querySelector('.ocr-action-select');
                         const action = actionSelect.value;
                         const actualName = row.querySelector('.ocr-actual-name')?.value || null;
+                        const reasonSelect = row.querySelector('.ocr-occupant-reason');
+                        const otherReason = row.querySelector('.ocr-other-reason')?.value || null;
+                        const occupantReason = reasonSelect?.value === 'OTHER' ? otherReason : (reasonSelect?.value || null);
                         const mobile = row.querySelector('.ocr-mobile')?.value || null;
                         
                         const arboToggle = row.querySelector('.ocr-arbo-toggle');
@@ -4189,6 +4339,12 @@ function parseOcrArbRows(ocrText) {
 
                         if (!action) {
                             popToast('Please select an action for this ARB.', 'warn');
+                            return;
+                        }
+                        const registeredName = fullName(amap[String(arbId)] || {});
+                        const hasNewOccupant = actualName && isDifferentOccupantName(registeredName, actualName);
+                        if (hasNewOccupant && !occupantReason) {
+                            popToast('A different/new occupant was entered. Please state the reason from the validation form.', 'warn');
                             return;
                         }
 
@@ -4204,7 +4360,7 @@ function parseOcrArbRows(ocrText) {
                                 }).eq('id', rowId);
                             if (updateErr) throw updateErr;
 
-                            await performActionOnArb(arbId, action, actualName, mobile, arboId);
+                            await performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason);
 
                             badge.className = 'ocr-status-badge posted';
                             badge.textContent = '✅ Posted';
@@ -4252,7 +4408,7 @@ function parseOcrArbRows(ocrText) {
             /**
              * Perform the appropriate action on an ARB based on the selected action.
              */
-          async function performActionOnArb(arbId, action, actualName, mobile, arboId) {
+          async function performActionOnArb(arbId, action, actualName, mobile, arboId, occupantReason = null) {
                 const today = new Date().toISOString().substring(0, 10);
                 const userName = currentUserProfile?.full_name || currentUser?.email || 'System';
                 const userId = currentUser?.id || null;
@@ -4388,6 +4544,10 @@ function parseOcrArbRows(ocrText) {
 
                     default:
                         throw new Error('Unknown action: ' + action);
+                }
+
+                if (actualName && occupantReason) {
+                    await recordNewOccupantFinding(arbId, actualName, occupantReason, null, 'Captured Validation Form / OCR');
                 }
 
                 if (arboId) {
